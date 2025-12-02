@@ -74,7 +74,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbydRVPcTHkRTpuGYZYXNuffBnOOOsSvbiCGcDyzK35iQh05_j6-0zBoZMdGV8p_QtB1Vw/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbyxlldyv0gy5zH8vjQ_fmtd99KPCM9U4RZIhanydzG8NGT1PNrKOdhI_UxaAqv3vXInIg/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -90,7 +90,7 @@ async function loginWithPassword() {
     if (password === GROUP_SECRET_PASSWORD) {
         try {
             
-await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+await auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
 
             await auth.signInAnonymously();
             
@@ -308,6 +308,8 @@ auth.onAuthStateChanged(user => {
             // ★ポイント: F列の画像URLは、ここでは「画像URL」というプロパティ名でシートデータに含まれていると想定します。
             // 実際のデータがどうなっているか確認し、必要に応じてプロパティ名を変更してください。
 
+renderBeginnerSection();
+
             // DOM がまだ生成されていなかった場合にも対応
             statusEl = document.getElementById("statusMessage");
             if (statusEl) {
@@ -324,12 +326,88 @@ auth.onAuthStateChanged(user => {
         }
     }
 
+// ==========================================
+// ✅ 初心者指導セクションの描画処理（リンク方式）
+// ==========================================
+function renderBeginnerSection() {
+    // カテゴリフィルタリング
+    const beginnerMenus = sheetData.filter(m => m.カテゴリ === "初心者指導");
+    const section = document.getElementById("beginner-instruction-section");
+    const listContainer = document.getElementById("beginner-menu-list");
+
+    // データがない場合は非表示
+    if (!beginnerMenus.length) {
+        section.style.display = "none";
+        return;
+    }
+
+    section.style.display = "block";
+    listContainer.innerHTML = "";
+
+    beginnerMenus.forEach((menu) => {
+        // 動画IDの抽出
+        let videoId = "";
+        const url = menu["YouTube URL"] || "";
+        const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|v\/|embed\/|user\/\S+|shorts\/))([^#\?&]+)/);
+        if (match && match[1]) {
+            videoId = match[1];
+        }
+
+        // リストアイテム作成
+        const item = document.createElement("div");
+        item.style.cssText = `
+            padding: 15px; 
+            border-bottom: 1px solid #eee; 
+            cursor: pointer; 
+            transition: background 0.2s; 
+            display: flex; 
+            align-items: center; 
+            gap: 15px;
+        `;
+        // ホバー効果
+        item.onmouseover = () => { item.style.background = "#f1f8e9"; };
+        item.onmouseout = () => { item.style.background = "transparent"; };
+
+        // サムネイル画像
+        let thumbHtml = "";
+        if (videoId) {
+            thumbHtml = `<img src="https://img.youtube.com/vi/${videoId}/default.jpg" style="width: 80px; height: 60px; object-fit: cover; border-radius: 6px;">`;
+        } else {
+            thumbHtml = `<div style="width:80px; height:60px; background:#eee; border-radius:6px; display:flex; align-items:center; justify-content:center;">No Video</div>`;
+        }
+
+        // アイテムの中身（「YouTubeで見る」という文言を追加）
+        item.innerHTML = `
+            ${thumbHtml}
+            <div>
+                <div style="font-weight: bold; font-size: 15px; color: #333; margin-bottom: 4px;">
+                    ${menu.メニュー名} <span style="font-size:12px; color:#1a73e8;">(YouTube ↗)</span>
+                </div>
+                <div style="font-size: 12px; color: #666;">${menu.説明 || ""}</div>
+            </div>
+        `;
+
+        // クリック時の動作：window.openで開く
+        item.onclick = () => {
+            if (videoId) {
+                const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+                window.open(watchUrl, '_blank');
+            } else {
+                alert("動画URLが設定されていません");
+            }
+        };
+
+        listContainer.appendChild(item);
+    });
+}
+
     function renderSharePreview(lang = 'ja') {
         const preview = document.getElementById("share-preview");
         if (!preview) return;
 
         const { name, purpose, totalTime } = generateProgramInfo();
         const t = translations[lang] || translations.ja;
+
 
         let html = `
             <h3>${name}</h3>
@@ -1341,7 +1419,7 @@ async function downloadKnowledgePDF() {
     </h1>
     <p id="app-title"
        style="font-size:17px; color:#283593; margin:0; font-weight:500;">
-      バドミントントレーニングプログラム作成アプリ
+      バドミントントレーニングプログラム＆学習サポートアプリ
     </p>
     <div style="margin-top:12px;">
       <a href="https://www.youtube.com/@MASUBadmintonAcademy" target="_blank" 
@@ -1351,21 +1429,39 @@ async function downloadKnowledgePDF() {
              style="width:24px; height:24px;">
         <span id="channel-title" style="font-weight:bold; color:#1a237e;">MASU Badminton Academy YouTubeチャンネル</span>
       </a>
-    </div>
-    <p style="font-size:14px; color:#1a237e; margin:10px 0; line-height:1.4; opacity: 0.8;">
+   </div>
+    <p id="update-message" style="font-size:14px; color:#1a237e; margin:10px 0; line-height:1.4; opacity: 0.8;">
       本アプリは改良を重ねて随時バージョンアップを行っております。<br>
       最新バージョンのアプリは、YouTubeからご利用いただけます。<br>
-      This app undergoes regular version updates through continuous improvements.<br>
-      The latest version of the app is available on YouTube.<br>
     </p>
-</header>
+<div style="margin-top: 10px;">
+    <button onclick="setLanguage('ja')">日本語</button>
+    <button onclick="setLanguage('en')">English</button>
+  </div>
+</header> <div class="status-message" id="statusMessage" style="margin: 10px 0; font-weight: bold;">データ取得中...</div>
 
+<section id="beginner-instruction-section" style="
+  margin-bottom: 30px; 
+  padding: 20px; 
+  background: #e3f2fd; 
+  border-radius: 12px; 
+  border: 2px solid #90caf9;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+">
+  <h2 id="beginner-section-title" style="color: #1565c0; margin-top: 0; display: flex; align-items: center; gap: 10px;">
+  🔰 初心者向け動画レッスン
+</h2>
 
-<button onclick="setLanguage('ja')">日本語</button>
-<button onclick="setLanguage('en')">English</button>
+<p id="beginner-section-desc" style="font-size: 14px; color: #555; margin-bottom: 20px;">
+  リストをクリックすると、YouTubeアプリ（または新しいタブ）で動画が開きます。
+</p>
 
-
-<div class="status-message" id="statusMessage">データ取得中...</div>
+  <div style="background: #fff; border-radius: 8px; border: 1px solid #ccc; overflow: hidden;">
+    <div id="beginner-menu-list" style="max-height: 500px; overflow-y: auto;">
+      <p style="padding: 15px; color: #999;">読み込み中...</p>
+    </div>
+  </div>
+</section>
 
 <!-- 🧠 課題・目的の入力欄（AI提案） -->
 <section id="ai-section" style="
@@ -1398,48 +1494,6 @@ async function downloadKnowledgePDF() {
   </button>
 </section>
 
-<div id="training-menu-box" style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-
-<h3 style="margin-bottom:8px; color:#00796b;">テンプレート</h3>
-<select id="templateSelect" onchange="applyTemplate()">
-  <option value="">テンプレートを選ぶ</option>
-</select>
-
-<iframe id="templateViewer" style="width:100%; height:600px; border:1px solid #ccc; border-radius:8px; display:none;"></iframe>
-
-</div>
-
-
-<div id="random-plan-box" style="margin-top: 15px; padding:10px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-  <h3 id="random-plan-title" style="margin-bottom:8px; color:#00796b;">ランダムプラン</h3>
-  
-  <h4 id="number-extraction-title" style="margin-top:15px; color:#008c9e;">ナンバー抽出</h4>
-    <label for="number-players" id="label-number-players">参加人数:</label>
-    <input type="number" id="number-players" min="1" style="width:60px;">
-    <button id="extract-number-btn" style="margin-left:10px; background:#008c9e; min-width: 180px;">ランダムナンバー抽出</button>
-    <div id="number-result" style="margin-top:5px; font-weight:bold; color:red;"></div>
-    
-    <h4 id="group-division-title" style="margin-top:15px; color:#008c9e;">グループ分け</h4>
-    <label for="group-players" id="label-group-players">参加人数:</label>
-    <input type="number" id="group-players" min="2" style="width:60px;">
-    
-    <label for="group-count" id="label-group-count" style="margin-left:15px;">グループ数:</label>
-    <input type="number" id="group-count" min="2" style="width:60px;">
-    
-    <button id="group-players-btn" style="margin-left:10px; background:#008c9e;">グループ分け実行</button>
-    <div id="group-result" style="margin-top:5px; white-space:pre-wrap; font-weight:bold; color:navy;"></div>
-
-    <h4 id="menu-extraction-title" style="margin-top:15px; color:#008c9e;">メニュー抽出</h4>
-    <label id="random-plan-label">カテゴリからランダム抽出:</label><br>
-    <input type="radio" name="random-category" id="random-knock" value="ノック系">
-    <label for="random-knock" id="label-random-knock">ノック</label>
-    <input type="radio" name="random-category" id="random-rally" value="ラリー系">
-    <label for="random-rally" id="label-random-rally">ラリー</label>
-    <input type="radio" name="random-category" id="random-strength" value="補強">
-    <label for="random-strength" id="label-random-strength">補強</label>
-    <button id="random-btn" style="margin-left:10px;">ランダムメニュー抽出</button>
-    <div id="random-result" style="margin-top:10px;"></div>
-</div>
 
 <!-- トレーニングプログラム作成 -->
 <div id="create-menu-box" style="margin-top: 15px; padding:10px; background:#fff; border:1px solid #ccc; border-radius:6px;">
@@ -1452,6 +1506,11 @@ async function downloadKnowledgePDF() {
   <span id="local-save-status" style="font-size:12px; color:#e65100;"></span>
 </div>
 
+<div style="background: #f1f8e9; padding: 10px; border-radius: 6px; border: 1px solid #c5e1a5;">
+
+ <h4 id="category-select-title" style="margin-top:15px; color:#008c9e;">
+  ① カテゴリーからメニュー選択
+</h4>
   <label id="category-label" for="category">カテゴリ選択:</label>
 <select id="category">
   <option value="">--選択してください--</option>
@@ -1481,16 +1540,37 @@ async function downloadKnowledgePDF() {
 
   <div id="menu-list"></div>
 
-  <h3 id="newMenuTitle">新規メニューを登録</h3>
+  <h4 id="newMenuTitle" style="margin-top:15px; color:#008c9e;">②新規メニューを登録</h4>
 
   <label for="new-menu-name">メニュー名：</label>
   <input type="text" id="new-menu-name" 
-       style="width:100%; margin-bottom:10px; box-sizing: border-box;"><br><br>
-
-  <label for="new-menu-time">時間(分)：</label>
+       style="width:100%; margin-bottom:10px; box-sizing: border-box;"><br>
+<label for="new-menu-time">時間(分)：</label>
   <input type="number" id="new-menu-time" min="0.1" step="0.1" style="width:80px;">
-  <button id="add-new-menu-btn">追加</button><br><br>
+  <button id="add-new-menu-btn">追加</button><br>
 
+<h4 id="menu-extraction-title" style="margin-top:15px; color:#008c9e;">③ランダムメニュー</h4>
+    <label id="random-plan-label">カテゴリからランダム抽出:</label><br>
+    <input type="radio" name="random-category" id="random-knock" value="ノック系">
+    <label for="random-knock" id="label-random-knock">ノック</label>
+    <input type="radio" name="random-category" id="random-rally" value="ラリー系">
+    <label for="random-rally" id="label-random-rally">ラリー</label>
+    <input type="radio" name="random-category" id="random-strength" value="補強">
+    <label for="random-strength" id="label-random-strength">補強</label>
+    <button id="random-btn" style="margin-left:10px;">ランダムメニュー抽出</button>
+    <div id="random-result" style="margin-top:10px;">
+
+<h4 style="margin-bottom:8px; color:#008c9e;">
+  <span id="lbl-template-header">④テンプレート</span>
+</h4>
+<select id="templateSelect" onchange="applyTemplate()">
+  <option value="">テンプレートを選ぶ</option>
+</select>
+
+<iframe id="templateViewer" style="width:100%; height:600px; border:1px solid #ccc; border-radius:8px; display:none;"></iframe>
+</div>
+
+</div><br>
 
 <label id="start-time-label" for="start-time">開始時刻:</label><input type="time" id="start-time" value="00:00">
 <label id="total-time-label">練習時間（分）:</label>
@@ -1522,19 +1602,63 @@ async function downloadKnowledgePDF() {
 </div>  
 
 <div id="tactics-board-box" style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-  <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onclick="toggleTacticsBoard()">
+  <div style="margin-bottom: 15px;">
     <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード (Tactics Board)</h3>
-    <span id="tactics-toggle-icon" style="font-size:18px; color:#00796b;">▼</span>
   </div>
   
-  <div id="tactics-content" style="display:block; margin-top:15px;">
-    
-    <div style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-  <button id="btn-t-save" onclick="saveTacticsToBrowser()" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
-  <button id="btn-t-restore" onclick="loadTacticsFromBrowser()" style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
-  <button id="btn-t-delete" onclick="clearTacticsBrowserData()" style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
-  <span id="tactics-local-status" style="font-size:12px; color:#e65100;"></span>
+  <div id="tactics-content" style="display:block;">
+  <div style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+      <button id="btn-t-save" onclick="saveTacticsToBrowser()" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+      <button id="btn-t-restore" onclick="loadTacticsFromBrowser()" style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+      <button id="btn-t-delete" onclick="clearTacticsBrowserData()" style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+      <span id="tactics-local-status" style="font-size:12px; color:#e65100;"></span>
+    </div>
+
+   <div style="margin-bottom: 8px; font-size: 14px; font-weight: bold; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+  <label style="cursor: pointer;">
+    <input type="radio" name="game-mode" value="doubles" checked onchange="switchGameMode('doubles')"> 
+    <span id="lbl-doubles">ダブルス (4人)</span>
+  </label>
+  <label style="cursor: pointer;">
+    <input type="radio" name="game-mode" value="singles" onchange="switchGameMode('singles')"> 
+    <span id="lbl-singles">シングルス (2人)</span>
+  </label>
+  <label style="cursor: pointer;">
+    <input type="radio" name="game-mode" value="custom" onchange="switchGameMode('custom')"> 
+    <span id="lbl-custom">変則 (自由設定)</span>
+  </label>
 </div>
+
+<div id="custom-tactic-settings" style="display: none; background: #fff3e0; padding: 8px; border-radius: 4px; margin-bottom: 10px; align-items: center; gap: 10px;">
+  <label style="font-size:13px; color:#d32f2f;">
+    Red: <input type="number" id="custom-red-count" value="1" min="1" max="10" style="width: 40px; padding: 2px;">
+  </label>
+  <label style="font-size:13px; color:#1976d2;">
+    Blue: <input type="number" id="custom-blue-count" value="2" min="1" max="10" style="width: 40px; padding: 2px;">
+  </label>
+  <button id="btn-apply-custom" onclick="resetTacticPositions()" style="font-size: 12px; padding: 4px 8px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    配置適用
+  </button>
+</div>
+
+<div id="fixed-name-inputs" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+  <div style="display:flex; align-items:center; gap:5px;">
+    <span style="color:red; font-weight:bold;">Red:</span>
+    <input type="text" id="input-name-A" placeholder="A" value="A" oninput="updatePlayerLabels()" style="width:70px; text-align:center;">
+    <span id="container-name-B">
+      <input type="text" id="input-name-B" placeholder="B" value="B" oninput="updatePlayerLabels()" style="width:70px; text-align:center;">
+    </span>
+  </div>
+  <div style="display:flex; align-items:center; gap:5px;">
+    <span style="color:blue; font-weight:bold;">Blue:</span>
+    <input type="text" id="input-name-X" placeholder="X" value="X" oninput="updatePlayerLabels()" style="width:70px; text-align:center;">
+    <span id="container-name-Y">
+      <input type="text" id="input-name-Y" placeholder="Y" value="Y" oninput="updatePlayerLabels()" style="width:70px; text-align:center;">
+    </span>
+  </div>
+</div>
+    </div>
+
     <div style="margin-bottom: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
       <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="move" checked onchange="setTacticMode('move')"> <span id="lbl-move">✋ 移動</span></label>
       <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="draw" onchange="setTacticMode('draw')"> <span id="lbl-pen">✏️ ペン</span></label>
@@ -1638,6 +1762,49 @@ async function downloadKnowledgePDF() {
   box-shadow: 0 4px 15px rgba(0,0,0,0.2);
   margin-top: 15px;
 ">
+<h3 id="random-plan-title" style="margin-bottom:15px; color:#00796b;">グループワーク</h3>
+
+  <div style="background: #f1f8e9; padding: 10px; border-radius: 6px; border: 1px solid #c5e1a5;">
+    <label id="lbl-name-list" style="font-weight:bold; color:#33691e;">参加者名簿 (改行で区切って入力):</label>
+    
+    <textarea id="name-list-input" placeholder="例：
+佐藤
+鈴木
+高橋
+田中" style="width:100%; height:80px; box-sizing:border-box; border:1px solid #ccc; padding:5px; margin-bottom:10px;"></textarea>
+    
+    <div id="note-name-list" style="font-size:12px; color:#555; margin-bottom:10px;">
+      ※ここに名前リストを入力すると、抽選されます。
+    </div>
+
+    <h4 id="h-pick-winner" style="margin:10px 0 5px 0; color:#008c9e;">① 当選者を選ぶ (1名)</h4>
+    
+    <button id="btn-pick-winner" onclick="extractNameRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+      1名抽出
+    </button>
+
+    <h4 id="h-group-divide" style="margin:15px 0 5px 0; color:#008c9e;">② グループ分け</h4>
+    
+    <label>
+        <span id="lbl-group-num-text">グループ数:</span> 
+        <input type="number" id="group-num-input" value="2" min="2" style="width:50px; padding:4px;">
+    </label>
+    
+    <button id="btn-group-divide" onclick="groupNamesRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+      グループ分け実行
+    </button>
+
+    <div style="text-align:right; margin-top:5px;">
+        <button id="btn-clear-history" onclick="clearHistory()" style="background:#9e9e9e; color:white; border:none; padding:4px 8px; font-size:12px; border-radius:4px; cursor:pointer;">履歴をクリア</button>
+    </div>
+</div>
+
+<div id="history-container" style="margin-top:15px; border-top:2px solid #ddd; padding-top:10px;">
+    <p id="h-history-title" style="color:#666; font-size:13px; margin:0 0 5px 0;">▼ 抽選結果履歴 (新しい順)</p>
+    <div id="history-list" style="max-height: 300px; overflow-y: auto;">
+    </div>
+</div>
+
   <h3 id="program-timer-title" style="margin-bottom:8px; color:#00796b;">プログラムタイマー</h3>
 
 <div id="steps-container" class="steps"></div>
@@ -1661,6 +1828,74 @@ async function downloadKnowledgePDF() {
     <h3 id="step-info">Step 1</h3>
   </div>
 </div>
+
+<section id="daily-challenge-section" style="
+  margin-top: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, #fff8e1, #ffecb3);
+  border: 2px solid #ffca28;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  text-align: center;
+">
+  <h2 style="color: #ff6f00; margin-top: 0; display:flex; align-items:center; justify-content:center; gap:10px;">
+    🔥 <span id="daily-title">日替わり補強チャレンジ</span> 🔥
+  </h2>
+  
+  <p style="font-size: 14px; color: #555;">
+    <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、バッジを集めよう！</span>
+  </p>
+
+  <div style="margin-bottom: 15px;">
+    <label for="daily-count" style="font-weight:bold;"><span id="lbl-daily-count">種目数:</span></label>
+    <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center;">
+    <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
+      background: #ff6f00; color: white; border: none; 
+      padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    ">
+      🎰 チャレンジ生成
+    </button>
+  </div>
+
+  <div id="daily-menu-list" style="text-align: left; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; display: none;">
+  </div>
+
+  <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
+    background: #ccc; color: white; border: none; 
+    padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
+    cursor: not-allowed; transition: all 0.3s;
+  ">
+    ✅ チャレンジ達成！
+  </button>
+
+  <hr style="border: 0; border-top: 1px dashed #ffb74d; margin: 20px 0;">
+
+  <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;">
+    <div style="background: #fff; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <div style="font-size: 12px; color: #666;"><span id="lbl-streak">連続達成</span></div>
+      <div style="font-size: 24px; font-weight: bold; color: #ff6f00;">
+        <span id="streak-count">0</span> Days
+      </div>
+    </div>
+    
+    <div style="background: #fff; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <div style="font-size: 12px; color: #666;"><span id="lbl-badges">獲得バッジ</span></div>
+      <div style="font-size: 24px; font-weight: bold; color: #fbc02d;">
+        🎖️ × <span id="badge-count">0</span>
+      </div>
+    </div>
+
+    <div style="background: #fff; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <div style="font-size: 12px; color: #666;"><span id="lbl-weekly">週間コンプ</span></div>
+      <div style="font-size: 24px; font-weight: bold; color: #d84315;">
+        🏆 × <span id="weekly-count">0</span>
+      </div>
+    </div>
+  </div>
+  
+  <p id="daily-message" style="margin-top: 10px; font-weight: bold; color: #d84315; min-height: 20px;"></p>
+</section>
 
 <section id="english-unified-section" style="
   margin-top: 30px; 
@@ -1935,32 +2170,64 @@ async function downloadKnowledgePDF() {
     ログアウト
 </button>
 
-<section id="share-section" style="margin-top: 30px; display: none;">
-        </section>
+<section id="share-section" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
+  <h3 style="color: #00796b; margin-top: 0;">📤 受講生への資料共有 / Share Materials</h3>
+  
+  <p style="font-size: 13px; color: #666;">
+    事前に作成したQRコード画像を選択して表示します。<br>
+    Select and display a pre-made QR code image.
+  </p>
 
-    <section id="feedback-container" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
-        <h2>コーチ3 振り返り</h2>
-        <hr>
-
-        <div id="feedback-post">
-            <p id="feedback-status" class="status-message" style="color:red;"></p>
-            <label for="feedback-name">名前:</label>
-            <input type="text" id="feedback-name" style="width: 150px;">
-            <br>
-            <label for="feedback-text">振り返り (必須):</label>
-            <textarea id="feedback-text" placeholder="振り返りを入力してください。" required></textarea>
-            <button onclick="handleFeedbackSubmit()">投稿する</button>
-        </div>
-
-        <h3 style="margin-top: 30px;">投稿内容の閲覧</h3>
-        <div id="feedback-list" style="border-top: 1px solid #eee; padding-top: 10px;">
-            <p>感想を読み込み中です...</p>
-        </div>
-    </section>
+  <div style="background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #ddd;">
     
+    <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">① QRコード画像を選択 (必須):</label>
+    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
+      <input type="file" id="qr-image-file" accept="image/*" style="font-size: 14px;">
+    </div>
+
+    <label style="font-weight: bold; font-size: 12px; display: block; margin-bottom: 5px; color: #555;">② リンク先URL (任意 / Optional):</label>
+    <p style="font-size: 11px; color: #999; margin: 0 0 5px 0;">※入力すると、画像をクリックした際にそのページへ飛びます。</p>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <input type="text" id="target-link-input" placeholder="https://..." style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+      <button onclick="displayPreMadeQR()" style="background: #e65100; color: white; border: none; padding: 8px 24px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+        表示する
+      </button>
+    </div>
+
+    <div id="premade-qr-result" style="margin-top: 20px; display: none; text-align: center; background: white; padding: 20px; border-radius: 8px; border: 2px dashed #ccc;">
+      <p style="font-size: 14px; font-weight: bold; color: #00796b; margin-bottom: 10px;">👇 受講生用スキャンエリア</p>
+      
+      <a id="qr-display-link" href="#" target="_blank" style="display: inline-block; cursor: default;">
+        <img id="qr-display-img" src="" alt="QR Code" style="max-width: 250px; max-height: 250px; border: 1px solid #eee; display: block; margin: 0 auto;">
+      </a>
+      
+      <p id="qr-link-msg" style="font-size: 11px; color: #999; margin-top: 10px; display: none;">画像をタップするとリンク先へ飛びます</p>
+    </div>
+  </div>
+</section>
+
+<section id="feedback-container" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
+    <h2> 振り返り</h2>
+    <hr>
+
+    <div id="feedback-post">
+        <p id="feedback-status" class="status-message" style="color:red;"></p>
+        <label for="feedback-name">名前:</label>
+        <input type="text" id="feedback-name" style="width: 150px;">
+        <br>
+        <label for="feedback-text">振り返り (必須):</label>
+        <textarea id="feedback-text" placeholder="振り返りを入力してください。" required></textarea>
+        <button onclick="handleFeedbackSubmit()">投稿する</button>
+    </div>
+
+    <h3 style="margin-top: 30px;">投稿内容の閲覧</h3>
+    <div id="feedback-list" style="border-top: 1px solid #eee; padding-top: 10px;">
+        <p>感想を読み込み中です...</p>
+    </div>
+</section>
+
+<section id="feedback-container" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
     
-
-
  <script>
 function extractNumber() {
     const playersEl = document.getElementById("number-players");
@@ -1980,50 +2247,167 @@ function extractNumber() {
     resultEl.style.color = "navy";
 }
 
-// グループ分け機能
-function groupPlayers() {
-    const playersEl = document.getElementById("group-players");
-    const groupsEl = document.getElementById("group-count");
-    const resultEl = document.getElementById("group-result");
-    const playerCount = parseInt(playersEl.value, 10);
-    const groupCount = parseInt(groupsEl.value, 10);
+// ==========================================
+// ✅ 名前対応：公平な抽選機能（全員一巡するまで重複なし）
+// ==========================================
+let historyCount = 0;
 
-    if (isNaN(playerCount) || playerCount < 2 || isNaN(groupCount) || groupCount < 2 || groupCount > playerCount) {
-        resultEl.innerHTML = "⚠ 参加人数は2人以上、グループ数は2以上で人数以下を設定してください。<br>⚠ Please set the number of participants to 2 or more and the number of groups to 2 or more, but no more than the total number of participants.";
-        resultEl.style.color = "red";
+// ★すでに選ばれた人を記憶しておく配列
+let extractedWinners = [];    // 当選した人の記録
+let pastFacilitators = [];    // 進行役をやった人の記録
+
+// 共通：名前リストを取得して配列にする
+function getNameList() {
+    const input = document.getElementById("name-list-input");
+    if (!input) return [];
+    return input.value.split(/\n/).map(s => s.trim()).filter(s => s !== "");
+}
+
+// 共通：履歴表示
+function addHistory(title, content) {
+    historyCount++;
+    const list = document.getElementById("history-list");
+    const item = document.createElement("div");
+    
+    const now = new Date();
+    const timeStr = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    item.style.cssText = "background:#fff; border:1px solid #ccc; border-radius:4px; padding:10px; margin-bottom:8px; border-left:4px solid #008c9e;";
+    item.innerHTML = `
+        <div style="display:flex; justify-content:space-between; font-size:12px; color:#555; margin-bottom:4px;">
+            <strong>#${historyCount} ${title}</strong>
+            <span>${timeStr}</span>
+        </div>
+        <div style="font-weight:bold; color:#333; white-space: pre-wrap;">${content}</div>
+    `;
+    list.prepend(item);
+}
+
+// ------------------------------------------
+// ① 1名抽出（全員当たるまで重複なし）
+// ------------------------------------------
+function extractNameRandomly() {
+    const allNames = getNameList();
+    if (allNames.length === 0) {
+        alert("名簿に名前を入力してください。");
         return;
     }
 
-    // プレイヤーリストを生成 (例: 1, 2, 3, ...)
-    let players = Array.from({ length: playerCount }, (_, i) => i + 1);
+    // まだ当たっていない人を探す
+    let candidates = allNames.filter(name => !extractedWinners.includes(name));
 
-    // シャッフル（Fisher-Yatesアルゴリズム）
-    for (let i = players.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [players[i], players[j]] = [players[j], players[i]];
+    // もし全員当たっていたら（候補が0人なら）、リセットして全員を候補に戻す
+    let isReset = false;
+    if (candidates.length === 0) {
+        extractedWinners = []; // 履歴クリア
+        candidates = [...allNames]; // 全員復活
+        isReset = true;
     }
 
-    // グループに割り当て
-    const groups = Array.from({ length: groupCount }, () => []);
-    players.forEach((player, index) => {
-        const groupIndex = index % groupCount; // 順番に割り当てる
-        groups[groupIndex].push(player);
-    });
+    // 候補の中からランダムに1人選ぶ
+    const winner = candidates[Math.floor(Math.random() * candidates.length)];
+
+    // 選ばれた人を記録に追加
+    extractedWinners.push(winner);
 
     // 結果表示
-    let resultText = "グループ分け結果:\n";
-    groups.forEach((group, index) => {
-        resultText += `グループ ${index + 1} (${group.length}名): ${group.join(", ")}\n`;
+    let msg = `🎉 ${winner}`;
+    if (isReset) {
+        msg += `\n<span style="font-size:11px; color:blue;">(全員一巡したため、リセットされました)</span>`;
+    } else {
+        msg += `\n<span style="font-size:11px; color:#666;">(残り未当選: ${candidates.length - 1}名)</span>`;
+    }
+
+    addHistory("当選者抽出", msg);
+}
+
+// ------------------------------------------
+// ② グループ分け（進行役は全員やるまで重複なし）
+// ------------------------------------------
+function groupNamesRandomly() {
+    const names = getNameList();
+    const groupNum = parseInt(document.getElementById("group-num-input").value);
+
+    if (names.length < 2) return alert("2名以上の名前を入力してください。");
+    if (groupNum < 2 || groupNum > names.length) return alert("グループ数は適切に設定してください。");
+
+    // シャッフル
+    const shuffled = [...names];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    // グループ生成
+    const groups = Array.from({ length: groupNum }, () => []);
+    shuffled.forEach((name, i) => groups[i % groupNum].push(name));
+
+    let resultHTML = "";
+
+    groups.forEach((g, i) => {
+        if (g.length === 0) return;
+
+        // このグループの中で「まだ進行役をやっていない人」を探す
+        let candidates = g.filter(member => !pastFacilitators.includes(member));
+
+        // もしグループ全員がすでに経験済みなら、このグループに関しては条件リセット（全員候補）
+        // ※ただし、全体の履歴は消さず、このグループ内でのみ再選出を許容する形にします
+        let isLoop = false;
+        if (candidates.length === 0) {
+            candidates = [...g];
+            isLoop = true;
+        }
+
+        // 候補からランダムに進行役を決定
+        const leader = candidates[Math.floor(Math.random() * candidates.length)];
+
+        // 履歴に追加（ただし、一度リセット扱いで選ばれた人が、無限に増えないように重複チェック）
+        if (!pastFacilitators.includes(leader)) {
+            pastFacilitators.push(leader);
+        } else if (isLoop) {
+             // 全員経験済みで2回目が回ってきた場合、どうするか。
+             // 厳密な「全員リセット」は管理が難しいため、
+             // 「まだやってない人がいれば優先、いなければ誰でもOK」というロジックにしています。
+             // 全体のリセットをかけたい場合は、手動クリアボタンを押してもらう運用が安全です。
+        }
+
+        // 表示用HTML生成
+        const memberLinks = g.map(member => {
+            if (member === leader) {
+                return `<span style="color:red; font-weight:bold;">${member} (進行)</span>`;
+            }
+            return member;
+        });
+
+        resultHTML += `<strong>[グループ ${i + 1}]</strong> (${g.length}名)<br>${memberLinks.join(", ")}<br><br>`;
     });
 
-    resultEl.textContent = resultText;
-    resultEl.style.color = "navy";
+    // もし全員が進行役を経験しきったら、内部的に履歴をリセットしてあげる（次回のために）
+    // 現在の名簿全員が pastFacilitators に含まれていたらリセット
+    const allDone = names.every(n => pastFacilitators.includes(n));
+    if (allDone) {
+        resultHTML += `<div style="font-size:11px; color:blue; border-top:1px dashed #ccc;">※全員が進行役を経験しました。次回からリセットされます。</div>`;
+        pastFacilitators = []; // 次回のためにリセット
+    }
+
+    addHistory("グループ分け (進行役ローテーション)", resultHTML);
+}
+
+// 履歴と記憶データの完全クリア
+function clearHistory() {
+    if(confirm("履歴と、抽選の公平化データ（誰が当たったか等）をすべて削除しますか？")) {
+        document.getElementById("history-list").innerHTML = "";
+        historyCount = 0;
+        extractedWinners = [];   // リセット
+        pastFacilitators = [];   // リセット
+        alert("リセットしました。全員が抽選対象に戻ります。");
+    }
 }
 
 const translations = {
   ja: {
     title: "Smart Coach Badminton",
-    appTitle: "バドミントントレーニングプログラム作成アプリ",
+    appTitle: "バドミントントレーニングプログラム＆学習サポートアプリ",
     channelTitle: "MASU Badminton Academy YouTubeチャンネル",
     categoryLabel: "カテゴリ選択",
     totalTime: "総時間",
@@ -2031,7 +2415,7 @@ const translations = {
     addButton: "追加",
     aiSectionTitle: "課題・目的の入力",
     aiButton: "おすすめメニューを提案",
-    templateTitle: "テンプレート",
+    templateHeader: "④テンプレート",
     templateSelect: "テンプレートを選ぶ",
     createMenuTitle: "トレーニングプログラム作成",
     selectPrompt: "--選択してください--",
@@ -2055,7 +2439,7 @@ const translations = {
     totalTimeLabel: "総時間",
     now: "現在",
     minutes: "分",
-    randomPlanTitle: "ランダムプラン",
+    randomPlanTitle: "グループワーク",
     randomPlanLabel: "カテゴリからランダム抽出:",
     randomKnock: "ノック",
     randomRally: "ラリー",
@@ -2118,6 +2502,34 @@ btnAlignDist: "↔ 横等間隔",
 btnClearSelect: "選択解除",
 btnStartOrder: "🔢 クリックで番号を振る",
 btnEndOrder: "完了",
+categorySelect: "① カテゴリーからメニュー選択",
+beginnerSectionTitle: "🔰 初心者向け動画レッスン",
+        beginnerSectionDesc: "リストをクリックすると、YouTubeアプリ（または新しいタブ）で動画が開きます。",
+lblNameList: "参加者名簿 (改行で区切って入力):",
+        placeholderNameList: "例：\n佐藤\n鈴木\n高橋\n田中",
+        noteNameList: "※ここに名前リストを入力すると、抽選されます。",
+        hPickWinner: "① 当選者を選ぶ (1名)",
+        btnPickWinner: "1名抽出",
+        hGroupDivide: "② グループ分け",
+        lblGroupNumText: "グループ数: ",
+        btnGroupDivide: "グループ分け実行",
+        btnClearHistory: "履歴をクリア",
+        hHistoryTitle: "▼ 抽選結果履歴 (新しい順)",
+doubles: "ダブルス (4人)",  
+    singles: "シングルス (2人)", 
+dailyTitle: "日替わり補強チャレンジ",
+    dailyDesc: "ランダムに選ばれた補強メニューをクリアして、バッジを集めよう！",
+    dailyCountLabel: "種目数:",
+    dailyGenBtn: "🎰 チャレンジ生成",
+    dailyCompleteBtn: "✅ チャレンジ達成！",
+    dailyDoneBtn: "本日は達成済みです",
+    dailyStreak: "連続達成",
+    dailyBadges: "獲得バッジ",
+    dailyWeekly: "週間コンプ",
+    dailyMsgDone: "🎉 今日も素晴らしい努力でした！明日も頑張りましょう！",
+customMode: "変則 (自由設定)", 
+    applyBtn: "配置適用",
+updateMessage: "本アプリは改良を重ねて随時バージョンアップを行っております。<br>最新バージョンのアプリは、YouTubeからご利用いただけます。"
   },
   en: {
     title: "Smart Coach Badminton",
@@ -2129,7 +2541,7 @@ btnEndOrder: "完了",
     addButton: "Add",
     aiSectionTitle: "Enter Challenge / Objective",
     aiButton: "Suggest Plan",
-    templateTitle: "Templates",
+    templateHeader: "④ Template",
     templateSelect: "Select Template",
     createMenuTitle: "Create Training Plan",
     selectPrompt: "--Please select--",
@@ -2153,7 +2565,7 @@ btnEndOrder: "完了",
     totalTimeLabel: "Total Time",
     now: "Now",
     minutes: "min",
-    randomPlanTitle: "Random Plan",
+    randomPlanTitle: "Group Work",
     randomPlanLabel: "Select random category:",
     randomKnock: "Knock",
     randomRally: "Rally",
@@ -2216,6 +2628,34 @@ btnAlignDist: "↔ Distribute",
 btnClearSelect: "Deselect",
 btnStartOrder: "🔢 Numbering Mode",
 btnEndOrder: "Done",
+categorySelect: "① Select Menu from Category",
+beginnerSectionTitle: "🔰 Beginner's Video Lessons",
+        beginnerSectionDesc: "Click on the list to open the video in the YouTube app (or a new tab).",
+lblNameList: "Participant List (Line separated):",
+        placeholderNameList: "Ex:\nSmith\nJohnson\nWilliams\nBrown",
+        noteNameList: "* Enter names here to draw lots.",
+        hPickWinner: "① Pick a Winner (1 person)",
+        btnPickWinner: "Pick 1 Person",
+        hGroupDivide: "② Group Division",
+        lblGroupNumText: "Number of Groups: ",
+        btnGroupDivide: "Execute Grouping",
+        btnClearHistory: "Clear History",
+        hHistoryTitle: "▼ Draw History (Newest First)",
+doubles: "Doubles (4 Players)",  
+    singles: "Singles (2 Players)",  
+dailyTitle: "Daily Strength Challenge",
+    dailyDesc: "Clear random strength menus and collect badges!",
+    dailyCountLabel: "Exercises:",
+    dailyGenBtn: "🎰 Generate Challenge",
+    dailyCompleteBtn: "✅ Challenge Complete!",
+    dailyDoneBtn: "Completed Today",
+    dailyStreak: "Streak",
+    dailyBadges: "Total Badges",
+    dailyWeekly: "Weekly Comp",
+    dailyMsgDone: "🎉 Great job today! Keep it up tomorrow!",
+customMode: "Custom (Irregular)", 
+    applyBtn: "Apply Layout",
+updateMessage: "We are constantly improving and updating this app.<br>The latest version is available on YouTube."
   }
 };
 
@@ -2227,13 +2667,15 @@ let programData = []; // データ格納用
 function setLanguage(lang) {
   currentLang = lang;
   updateUI();
-  renderProgram();
-  updateTimeProgress();
+  // renderProgram(); // ※programData が未定義の場合はエラーになるので、必要に応じてコメントアウトを外してください
+  updateTimeProgress(); // これも関数が存在するか確認してください
 }
 
-// プログラム表示
+// プログラム表示（programDataが必要）
 function renderProgram() {
   const programBox = document.getElementById("program-content");
+  if (!programBox || typeof programData === 'undefined') return; // 安全策
+
   programBox.innerHTML = ""; // 初期化
 
   programData.forEach(item => {
@@ -2251,22 +2693,25 @@ function updateUI() {
   const t = translations[currentLang];
   const statusEl = document.getElementById("statusMessage");
 
-const localLabel = document.getElementById("local-save-label");
-  if (localLabel) localLabel.textContent = t.localSaveLabel;
-
-  const btnSave = document.getElementById("btn-save-local");
-  if (btnSave) btnSave.textContent = t.btnSaveLocal;
-
-  const btnLoad = document.getElementById("btn-load-local");
-  if (btnLoad) btnLoad.textContent = t.btnLoadLocal;
-
-  const btnClear = document.getElementById("btn-clear-local");
-  if (btnClear) btnClear.textContent = t.btnClearLocal;
-
-const setText = (id, text) => {
+  // ヘルパー関数: IDが存在すればテキストを設定
+  const setText = (id, text) => {
       const el = document.getElementById(id);
-      if(el) el.textContent = text;
+      if(el && text) el.textContent = text;
   };
+
+const updateMsgEl = document.getElementById("update-message");
+    if (updateMsgEl) {
+        updateMsgEl.innerHTML = t.updateMessage;
+    }
+
+  // --- ★追加項目 ---
+  setText("category-select-title", t.categorySelect);
+  // ----------------
+
+  setText("local-save-label", t.localSaveLabel);
+  setText("btn-save-local", t.btnSaveLocal);
+  setText("btn-load-local", t.btnLoadLocal);
+  setText("btn-clear-local", t.btnClearLocal);
 
   setText("tactics-main-title", t.tacticsTitle);
   setText("btn-t-save", t.btnSave);
@@ -2285,38 +2730,70 @@ const setText = (id, text) => {
   
   setText("txt-hint", t.txtHint);
 
-setText("court-allocation-title", t.courtAllocationTitle);
-setText("lbl-new-create", t.lblNewCreate);
-setText("lbl-court-count", t.lblCourtCount);
-setText("lbl-player-count", t.lblPlayerCount);
-setText("btn-init-layout", t.btnInitLayout);
+  setText("court-allocation-title", t.courtAllocationTitle);
+  setText("lbl-new-create", t.lblNewCreate);
+  setText("lbl-court-count", t.lblCourtCount);
+  setText("lbl-player-count", t.lblPlayerCount);
+  setText("btn-init-layout", t.btnInitLayout);
 
-// 開閉ボタンのテキストは現在の状態(display)を見て判断
-const layoutContent = document.getElementById("layout-builder-content");
-if (layoutContent && layoutContent.style.display === "block") {
+  setText("lbl-name-list", t.lblNameList);
+    
+  // プレースホルダーは textContent ではなく placeholder 属性を使います
+  const nameInput = document.getElementById("name-list-input");
+  if (nameInput) {
+      nameInput.placeholder = t.placeholderNameList;
+  }
+
+  setText("note-name-list", t.noteNameList);
+  setText("h-pick-winner", t.hPickWinner);
+  setText("btn-pick-winner", t.btnPickWinner);
+  setText("h-group-divide", t.hGroupDivide);
+  setText("lbl-group-num-text", t.lblGroupNumText);
+  setText("btn-group-divide", t.btnGroupDivide);
+  setText("btn-clear-history", t.btnClearHistory);
+  setText("h-history-title", t.hHistoryTitle);
+  setText("lbl-doubles", t.doubles);
+  setText("lbl-singles", t.singles);
+setText("lbl-custom", t.customMode);
+  setText("btn-apply-custom", t.applyBtn);
+setText("lbl-template-header", t.templateHeader);
+
+
+  // ▼▼▼ 日替わりチャレンジ用 ▼▼▼
+  setText("daily-title", t.dailyTitle);
+  setText("daily-desc", t.dailyDesc);
+  setText("lbl-daily-count", t.dailyCountLabel);
+  setText("btn-daily-gen", t.dailyGenBtn);
+  setText("lbl-streak", t.dailyStreak);
+  setText("lbl-badges", t.dailyBadges);
+  setText("lbl-weekly", t.dailyWeekly);
+  // ▲▲▲ ここまで ▲▲▲
+
+  // 開閉ボタン
+  const layoutContent = document.getElementById("layout-builder-content");
+  if (layoutContent && layoutContent.style.display === "block") {
     setText("layout-toggle-text", t.layoutToggleClose);
-} else {
+  } else {
     setText("layout-toggle-text", t.layoutToggleOpen);
-}
+  }
 
-// 内部ボタン (戦術ボードなどの既存翻訳キーを再利用できるものは再利用)
-setText("btn-l-save", t.btnSave);       // 保存
-setText("btn-l-restore", t.btnRestore); // 復元
-setText("btn-l-delete", t.btnDelete);   // 削除
-setText("btn-l-saveimg", t.btnSaveImg); // 画像保存
+  // 内部ボタン
+  setText("btn-l-save", t.btnSave);        
+  setText("btn-l-restore", t.btnRestore); 
+  setText("btn-l-delete", t.btnDelete);    
+  setText("btn-l-saveimg", t.btnSaveImg);  
 
-setText("btn-add-spot", t.btnAddSpot);
-setText("btn-expand-floor", t.btnExpandFloor);
-setText("lbl-select-mode", t.lblSelectMode);
-setText("btn-align-top", t.btnAlignTop);
-setText("btn-align-left", t.btnAlignLeft);
-setText("btn-align-dist", t.btnAlignDist);
-setText("btn-l-clear-select", t.btnClearSelect);
-setText("btn-start-order", t.btnStartOrder);
-setText("btn-end-order", t.btnEndOrder);
+  setText("btn-add-spot", t.btnAddSpot);
+  setText("btn-expand-floor", t.btnExpandFloor);
+  setText("lbl-select-mode", t.lblSelectMode);
+  setText("btn-align-top", t.btnAlignTop);
+  setText("btn-align-left", t.btnAlignLeft);
+  setText("btn-align-dist", t.btnAlignDist);
+  setText("btn-l-clear-select", t.btnClearSelect);
+  setText("btn-start-order", t.btnStartOrder);
+  setText("btn-end-order", t.btnEndOrder);
 
-
-  // コート表示ボタンの状態に応じたテキスト更新
+  // コート表示ボタン
   const courtArea = document.getElementById("tactics-court-area");
   if (courtArea && courtArea.style.display === "block") {
       setText("court-toggle-text", t.btnHideCourt);
@@ -2324,95 +2801,110 @@ setText("btn-end-order", t.btnEndOrder);
       setText("court-toggle-text", t.btnShowCourt);
   }
 
+  // ヘッダーまわり
+  const headerH1 = document.querySelector("header h1");
+  if(headerH1) headerH1.textContent = t.title;
 
-  document.querySelector("header h1").textContent = t.title;
-  document.querySelector("label[for='category']").textContent = t.categoryLabel;
-  document.getElementById("total-time-label").textContent = t.totalTime;
-  document.querySelector("label[for='start-time']").textContent = t.startTime;
-  document.getElementById("app-title").textContent = t.appTitle;
-  document.getElementById("channel-title").textContent = t.channelTitle;
+  const catLabel = document.querySelector("label[for='category']");
+  if(catLabel) catLabel.textContent = t.categoryLabel;
+  
+  setText("total-time-label", t.totalTime);
+
+  const startLabel = document.querySelector("label[for='start-time']");
+  if(startLabel) startLabel.textContent = t.startTime;
+
+  setText("app-title", t.appTitle);
+  setText("channel-title", t.channelTitle);
 
   document.querySelectorAll(".menu-item button").forEach(btn => {
     btn.textContent = t.addButton;
   });
 
-  document.querySelector("#ai-section h3").textContent = t.aiSectionTitle;
-  document.querySelector("#ai-section button").textContent = t.aiButton;
-  document.querySelector("#training-menu-box h3").textContent = t.templateTitle;
-  document.querySelector("#templateSelect option").textContent = t.templateSelect;
-  document.querySelector("#create-menu-box h3").textContent = t.createMenuTitle;
-  document.querySelector("#category option[value='']").textContent = t.selectPrompt;
-  document.querySelector("label[for='new-menu-name']").textContent = t.menuNameLabel;
-  document.getElementById("newMenuTitle").textContent = t.newMenuTitle;
-  document.querySelector("label[for='new-menu-time']").textContent = t.newMenuTimeLabel;
-  document.getElementById("add-new-menu-btn").textContent = t.addNewMenuButton;
-  document.getElementById("selected-menu-title").textContent = t.selectedMenuTitle;
-  document.getElementById("total-time-text").childNodes[0].textContent = t.totalTimeText + ": ";
-　document.getElementById("number-extraction-title").textContent = t.numberExtractionTitle;
-  document.getElementById("label-number-players").textContent = t.labelNumberPlayers;
-  document.getElementById("extract-number-btn").textContent = t.extractNumberButton;
-  document.getElementById("download-program-png").textContent = t.downloadProgramImage;
+  const aiTitle = document.querySelector("#ai-section h3");
+  if(aiTitle) aiTitle.textContent = t.aiSectionTitle;
+  
+  const aiBtn = document.querySelector("#ai-section button");
+  if(aiBtn) aiBtn.textContent = t.aiButton;
 
-const pdfBtn = document.getElementById("download-program-pdf");
-  if (pdfBtn) {
-      pdfBtn.textContent = t.downloadPdf;
+  const trainingH3 = document.querySelector("#training-menu-box h3");
+  if(trainingH3) trainingH3.textContent = t.templateTitle;
+
+  const tmplOption = document.querySelector("#templateSelect option");
+  if(tmplOption) tmplOption.textContent = t.templateSelect;
+
+  const createH3 = document.querySelector("#create-menu-box h3");
+  if(createH3) createH3.textContent = t.createMenuTitle;
+
+  const catOption = document.querySelector("#category option[value='']");
+  if(catOption) catOption.textContent = t.selectPrompt;
+
+  const newMenuLabel = document.querySelector("label[for='new-menu-name']");
+  if(newMenuLabel) newMenuLabel.textContent = t.menuNameLabel;
+
+  setText("newMenuTitle", t.newMenuTitle);
+
+  const newTimeLabel = document.querySelector("label[for='new-menu-time']");
+  if(newTimeLabel) newTimeLabel.textContent = t.newMenuTimeLabel;
+
+  const beginnerTitle = document.getElementById("beginner-section-title");
+  if (beginnerTitle) beginnerTitle.textContent = t.beginnerSectionTitle;
+
+  const beginnerDesc = document.getElementById("beginner-section-desc");
+  if (beginnerDesc) beginnerDesc.textContent = t.beginnerSectionDesc;
+
+  setText("add-new-menu-btn", t.addNewMenuButton);
+  setText("selected-menu-title", t.selectedMenuTitle);
+
+  // 時間表示の特殊処理
+  const totalTimeTextNode = document.getElementById("total-time-text");
+  if(totalTimeTextNode && totalTimeTextNode.childNodes[0]) {
+      totalTimeTextNode.childNodes[0].textContent = t.totalTimeText + ": ";
   }
+  
+  setText("number-extraction-title", t.numberExtractionTitle);
+  setText("label-number-players", t.labelNumberPlayers);
+  setText("extract-number-btn", t.extractNumberButton);
+  setText("download-program-png", t.downloadProgramImage);
+  setText("download-program-pdf", t.downloadPdf);
 
-// 総時間 (span id="total-time" の親要素全体) を更新
-const totalTimeSpan = document.getElementById("total-time");
-const totalTimeParent = document.getElementById("total-time-text"); 
-
-if (totalTimeSpan && totalTimeParent) {
-    // 例: 総時間: 120 分
-    // total-time-text の内容全体を再構築
+  // 総時間の更新
+  const totalTimeSpan = document.getElementById("total-time");
+  const totalTimeParent = document.getElementById("total-time-text"); 
+  if (totalTimeSpan && totalTimeParent) {
     const timeValue = totalTimeSpan.textContent;
     totalTimeParent.innerHTML = 
         `${t.totalTimeText}: <span id="total-time">${timeValue}</span> ${t.minutes}`;
-        // 注: t.minutes に '分' または 'min' が含まれている想定です
-}
+  }
 
-// 練習時間（分）のラベルの修正（もし必要であれば）
-document.getElementById("total-time-label").textContent = currentLang === "ja" ? "練習時間（分）:" : "Practice Time (min):";
-  document.getElementById("generate-program").textContent = t.generateProgram;
-  document.getElementById("preview-program").textContent = t.previewProgram;
-  document.getElementById("copy-program-html").textContent = t.copyProgramText;
-  document.getElementById("download-program-png").textContent = t.downloadProgramImage;
-  if (document.getElementById("program-name-label")) {
-    document.getElementById("program-name-label").textContent = t.programNameLabel;
-}
-if (document.getElementById("program-goal-label")) {
-    document.getElementById("program-goal-label").textContent = t.programGoalLabel;
-}
-if (document.getElementById("program-content-title")) {
-    document.getElementById("program-content-title").textContent = t.programContentTitle;
-}
-if (document.getElementById("th-time")) {
-    document.getElementById("th-time").textContent = t.thTime;
-}
-if (document.getElementById("th-main-training")) {
-    document.getElementById("th-main-training").textContent = t.thMainTraining;
-}
-if (document.getElementById("th-additional-info")) {
-    document.getElementById("th-additional-info").textContent = t.thAdditionalInfo;
-}
-if (document.getElementById("th-youtube")) {
-    document.getElementById("th-youtube").textContent = t.thYoutube;
-}
+  // 練習時間（分）ラベル
+  setText("total-time-label", t.totalTimeLabel);
 
-// プログラム名と目的の入力フィールドの値を言語に応じて更新します
-const editableNameEl = document.getElementById("editable-name");
-const editablePurposeEl = document.getElementById("editable-purpose");
+  setText("generate-program", t.generateProgram);
+  setText("preview-program", t.previewProgram);
+  setText("copy-program-html", t.copyProgramText);
+  setText("download-program-png", t.downloadProgramImage);
+  
+  setText("program-name-label", t.programNameLabel);
+  setText("program-goal-label", t.programGoalLabel);
+  setText("program-content-title", t.programContentTitle);
+  setText("th-time", t.thTime);
+  setText("th-main-training", t.thMainTraining);
+  setText("th-additional-info", t.thAdditionalInfo);
+  setText("th-youtube", t.thYoutube);
 
-if (editableNameEl && editablePurposeEl) {
+  // プログラム名と目的の入力フィールド
+  const editableNameEl = document.getElementById("editable-name");
+  const editablePurposeEl = document.getElementById("editable-purpose");
+
+  if (editableNameEl && editablePurposeEl) {
     if (currentLang === 'ja') {
-        // 日本語に戻す場合（初期値がない場合のみ）
         if (editableNameEl.value === 'Overall Training Program' || editableNameEl.value === '') {
             editableNameEl.value = "総合トレーニングプログラム";
         }
         if (editablePurposeEl.value === 'Aim to strengthen [Objective].' || editablePurposeEl.value === '') {
             editablePurposeEl.value = "の強化を目的とする。";
         }
-    } else { // 英語に切り替える場合
+    } else {
         if (editableNameEl.value === '総合トレーニングプログラム' || editableNameEl.value === '') {
             editableNameEl.value = "Overall Training Program";
         }
@@ -2420,60 +2912,54 @@ if (editableNameEl && editablePurposeEl) {
             editablePurposeEl.value = "Aim to strengthen [Objective].";
         }
     }
-}
+  }
 
-// 練習時間（分）のラベルの更新
-document.getElementById("total-time-label").textContent = t.totalTimeLabel; // "練習時間（分）:" または "Total Time (min):"
+  // ランダムプラン
+  setText("random-plan-title", t.randomPlanTitle);
+  setText("random-plan-label", t.randomPlanLabel);
+  setText("label-random-knock", t.randomKnock);
+  setText("label-random-rally", t.randomRally);
+  setText("label-random-strength", t.randomStrength);
+  
+  const randBtn = document.getElementById("random-btn");
+  if(randBtn) randBtn.textContent = t.randomBtn || (currentLang === "ja" ? "抽出" : "Extract");
 
+  setText("group-division-title", t.groupDivisionTitle);
+  setText("label-group-players", t.labelGroupPlayers);
+  setText("label-group-count", t.labelGroupCount);
+  setText("group-players-btn", t.groupPlayersButton);
+  setText("menu-extraction-title", t.menuExtractionTitle);
 
-if (totalTimeSpan && totalTimeParent) {
-    const timeValue = totalTimeSpan.textContent; // 現在の値（例: "0"）を取得
-    // 親要素の p タグの内容全体を再構築し、翻訳されたテキストと単位を適用
-    totalTimeParent.innerHTML = 
-        `${t.totalTimeText}: <span id="total-time">${timeValue}</span> ${t.minutes}`;
-}
+  // プログラムタイマー
+  setText("program-timer-title", t.programTimerTitle);
+  setText("add-step", t.addStepButton);
+  setText("set-count-label", t.setCountLabel);
+  setText("start-timer", t.startButton);
+  setText("stop-timer", t.stopButton);
+  setText("reset-timer", t.resetButton);
 
-
-　// ランダムプラン
-document.getElementById("random-plan-title").textContent = t.randomPlanTitle;
-document.getElementById("random-plan-label").textContent = t.randomPlanLabel;
-document.getElementById("label-random-knock").textContent = t.randomKnock;
-document.getElementById("label-random-rally").textContent = t.randomRally;
-document.getElementById("label-random-strength").textContent = t.randomStrength;
-document.getElementById("random-btn").textContent = t.randomBtn || (currentLang === "ja" ? "抽出" : "Extract");
-document.getElementById("group-division-title").textContent = t.groupDivisionTitle;
-    document.getElementById("label-group-players").textContent = t.labelGroupPlayers;
-    document.getElementById("label-group-count").textContent = t.labelGroupCount;
-    document.getElementById("group-players-btn").textContent = t.groupPlayersButton;
-    document.getElementById("menu-extraction-title").textContent = t.menuExtractionTitle;
-
-// プログラムタイマー
-document.getElementById("program-timer-title").textContent = t.programTimerTitle;
-document.getElementById("add-step").textContent = t.addStepButton;
-document.getElementById("set-count-label").textContent = t.setCountLabel;
-document.getElementById("start-timer").textContent = t.startButton;
-document.getElementById("stop-timer").textContent = t.stopButton;
-document.getElementById("reset-timer").textContent = t.resetButton;
-document.querySelectorAll(".step-input").forEach(input => {
+  document.querySelectorAll(".step-input").forEach(input => {
         input.placeholder = t.secondsPlaceholder;
     });
 
-const currentSetEl = document.getElementById("current-set");
-if (currentSetEl) {
-    // 現在のテキストからセット数を抽出（例: " 1 / 3"）。存在しない場合は空文字列を使用。
+  const currentSetEl = document.getElementById("current-set");
+  if (currentSetEl) {
     const setNumbers = currentSetEl.textContent.match(/(\d+\s\/\s\d+)/g) ? currentSetEl.textContent.match(/(\d+\s\/\s\d+)/g)[0] : '1 / 3'; 
     currentSetEl.textContent = `${t.currentSet} ${setNumbers}`;
-}
+  }
 
-const stepInfoEl = document.getElementById("step-info");
-if (stepInfoEl) {
-    // 現在のテキストからステップ数を抽出（例: " 1"）。存在しない場合は空文字列を使用。
+  const stepInfoEl = document.getElementById("step-info");
+  if (stepInfoEl) {
     const stepNumber = stepInfoEl.textContent.match(/(\d+)/g) ? stepInfoEl.textContent.match(/(\d+)/g)[0] : '1';
     stepInfoEl.textContent = `${t.currentStep} ${stepNumber}`;
-}
+  }
+
+  // UI更新時に日替わりチャレンジのボタンも最新言語に更新
+  if(typeof updateDailyUI === 'function') {
+      updateDailyUI();
+  }
 
 }
-
    
   // ==========================================
 // ✅ ボタンイベント登録（修正・統合版）
@@ -2927,19 +3413,18 @@ if (pdfBtn) {
 
 <script>
 // ==========================================
-// 🚑 AI提案機能（完全修復・強制起動版）
+// 🚑 AI提案機能（GASデータ連携・修正版）
 // ==========================================
 
-// 変数の初期化（エラー防止）
+// 変数の初期化
 var suggestedMenusData = [];
 
-// GASのURL（ご自身のURLが正しく設定されているか確認してください）
-// ※もし動かない場合は、 const SHEET_URL = "..." の行がこのスクリプトより上にあるか確認するか、ここに直接URLを書いてください。
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbydRVPcTHkRTpuGYZYXNuffBnOOOsSvbiCGcDyzK35iQh05_j6-0zBoZMdGV8p_QtB1Vw/exec";
+// もしSHEET_URLが定義されていない場合の予備
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyxlldyv0gy5zH8vjQ_fmtd99KPCM9U4RZIhanydzG8NGT1PNrKOdhI_UxaAqv3vXInIg/exec";
 
-// ✅ 1. Gemini API呼び出し関数（windowオブジェクトに紐付け）
+// ✅ 1. Gemini API呼び出し関数
 window.analyzeAndSuggest = async function() {
-  console.log("🚀 AIボタンがクリックされました"); 
+  console.log("🚀 AIボタンがクリックされました");  
   
   const text = document.getElementById("free-text").value.trim();
   const output = document.getElementById("ai-suggested");
@@ -2956,7 +3441,7 @@ window.analyzeAndSuggest = async function() {
   }
 
   // 解析中の表示
-  output.innerHTML = '<span style="color:#ff9800">🔄 Gemini AIが解析中です…少々お待ちください。</span>';
+  output.innerHTML = '<span style="color:#ff9800">🔄 Gemini AIがシート内から最適なメニューを探しています…</span>';
 
   try {
     // URLの決定
@@ -2975,31 +3460,32 @@ window.analyzeAndSuggest = async function() {
         return;
     }
 
-    // データの形式ゆらぎ吸収処理
-    let parsedMenus = [];
+    // エラーチェック
+    if (data.error) {
+         output.innerHTML = `⚠️ エラー: ${data.advice || data.error}`;
+         return;
+    }
 
-    if (Array.isArray(data)) {
-        // パターンA: [ {"カテゴリ":"A", "メニュー":["..."]}, ... ]
+    // データの整形（新しいGASの形式に対応）
+    let parsedMenus = [];
+    let adviceText = "";
+
+    // パターン: { advice: "...", suggested_menus: [...] }
+    if (data.suggested_menus && Array.isArray(data.suggested_menus)) {
+        adviceText = data.advice || "";
+        parsedMenus = data.suggested_menus.map(m => ({
+            category: m.step || "AI提案", // GAS側の step (フットワーク等) をカテゴリにする
+            name: m.name,
+            note: m.reason || "",       // GAS側の reason (理由) を補足にする
+            url: m.video_url || ""      // 動画URL
+        }));
+    } 
+    // 古いパターン（念のため残す）
+    else if (Array.isArray(data)) {
         data.forEach(group => {
             const catName = group.カテゴリ || "AI提案";
-            const menuList = group.メニュー || [];
-            if (Array.isArray(menuList)) {
-                menuList.forEach(menuName => {
-                    parsedMenus.push({ category: catName, name: menuName });
-                });
-            }
+            (group.メニュー || []).forEach(name => parsedMenus.push({ category: catName, name: name }));
         });
-    }
-    else if (data.メニュー && Array.isArray(data.メニュー)) {
-         // パターンB: { "カテゴリ": [...], "メニュー": [...] }
-         parsedMenus = data.メニュー.map((menuName, index) => ({
-            category: (data.カテゴリ && data.カテゴリ[index]) ? data.カテゴリ[index] : "AI提案",
-            name: menuName
-        }));
-    }
-    else if (data.error) {
-         output.innerHTML = `⚠️ エラー: ${data.error}`;
-         return;
     }
 
     // グローバル変数に格納
@@ -3007,43 +3493,52 @@ window.analyzeAndSuggest = async function() {
         category: m.category,
         name: m.name,
         time: 5, // デフォルト時間
-        note: "",
-        url: ""
+        note: m.note || "",
+        url: m.url || ""
     }));
 
     if (suggestedMenusData.length === 0) {
-        output.innerHTML = "⚠️ メニューが見つかりませんでした。";
+        output.innerHTML = "⚠️ 条件に合うメニューが見つかりませんでした。";
         return;
     }
 
-    // HTML生成（チェックボックスは初期状態OFF）
+    // HTML生成
+    const adviceHtml = adviceText ? `<div style="background:#fff3e0; padding:10px; margin-bottom:10px; border-radius:4px; font-size:13px; line-height:1.5;">💡 <b>コーチのアドバイス:</b><br>${adviceText}</div>` : "";
+
     const listHtml = suggestedMenusData.map((m, i) => {
         return `
-            <div style="display: flex; align-items: center; margin-bottom: 8px; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #ddd;">
-                <input type="checkbox" id="ai-chk-${i}" style="transform: scale(1.2); margin-right: 10px; cursor: pointer;">
-                
-                <label style="margin-right: 5px; font-size: 12px;">時間:</label>
-                <input type="number" id="ai-time-${i}" value="5" min="1" style="width: 50px; padding: 4px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            <div style="display: flex; align-items: flex-start; margin-bottom: 8px; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #ddd;">
+                <input type="checkbox" id="ai-chk-${i}" checked style="transform: scale(1.2); margin-top: 5px; margin-right: 10px; cursor: pointer;">
                 
                 <div style="flex: 1;">
-                    <span style="font-size: 11px; color: #00796b; font-weight: bold; background: #e0f2f1; padding: 2px 6px; border-radius: 4px;">${m.category}</span>
-                    <span style="font-weight: bold; margin-left: 5px; color: #333;">${m.name}</span>
+                    <div style="margin-bottom:4px;">
+                        <span style="font-size: 11px; color: #fff; background: #00796b; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">${m.category}</span>
+                        <span style="font-weight: bold; color: #333;">${m.name}</span>
+                    </div>
+                    ${m.note ? `<div style="font-size: 12px; color: #666; background:#f5f5f5; padding:4px; border-radius:2px;">POINT: ${m.note}</div>` : ""}
+                    ${m.url ? `<a href="${m.url}" target="_blank" style="font-size:11px; color:#1a73e8; display:inline-block; margin-top:2px;">📺 動画を確認</a>` : ""}
+                </div>
+
+                <div style="margin-left: 8px; text-align:right;">
+                    <span style="font-size:11px;">時間</span><br>
+                    <input type="number" id="ai-time-${i}" value="5" min="1" style="width: 40px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; text-align:center;">
                 </div>
             </div>`;
     }).join('');
 
     output.innerHTML = `
         <div style="background:#e0f7fa; padding:15px; border-radius:6px; border: 1px solid #b2ebf2;">
-            <p style="margin:0 0 10px 0; font-weight:bold; color:#00796b;">🤖 AI提案メニュー（必要なものにチェックを入れてください）</p>
+            ${adviceHtml}
+            <p style="margin:0 0 10px 0; font-weight:bold; color:#00796b;">▼ 提案されたメニュー構成</p>
             <div style="max-height: 400px; overflow-y: auto;">
                 ${listHtml}
             </div>
         </div>
     `;
 
-    // 追加ボタンを表示し、イベントを強制再登録
+    // 追加ボタンを表示
     if(addBtn) {
-        addBtn.textContent = "✅ 選択したメニューをリストに追加";
+        addBtn.textContent = "✅ チェックしたメニューを一括追加";
         addBtn.style.display = "block";
         addBtn.onclick = window.addSuggestedMenus; 
     }
@@ -3068,12 +3563,6 @@ window.addSuggestedMenus = function() {
         if (checkbox && checkbox.checked) {
             const inputTime = timeInput ? parseFloat(timeInput.value) : 5;
 
-            // selectedMenusが存在するか確認
-            if (typeof selectedMenus === 'undefined') {
-                alert("エラー: selectedMenus変数が定義されていません。");
-                return;
-            }
-
             selectedMenus.push({
                 category: menu.category,
                 name: menu.name,
@@ -3089,18 +3578,16 @@ window.addSuggestedMenus = function() {
     });
 
     if (count === 0) {
-        alert("追加するメニューにチェックを入れてください。\nPlease check the menus you want to add.");
+        alert("追加するメニューにチェックを入れてください。");
         return;
     }
 
     // 画面更新
     if (typeof renderSelectedList === 'function') {
         renderSelectedList();
-    } else {
-        alert("追加しましたが、画面更新(renderSelectedList)に失敗しました。");
     }
     
-    alert(`${count}件のメニューを追加しました！`);
+    alert(`${count}件のメニューを追加しました！\nリストの下に追加されています。`);
     
     // エリアリセット
     const output = document.getElementById("ai-suggested");
@@ -3110,13 +3597,12 @@ window.addSuggestedMenus = function() {
     suggestedMenusData = [];
 };
 
-// ✅ 3. DOM読み込み後にボタンイベントを念押しで設定
+// ✅ 3. DOM読み込み後のイベント設定
 document.addEventListener("DOMContentLoaded", function() {
     const aiBtn = document.getElementById("ai-suggest-btn");
     if (aiBtn) {
         aiBtn.onclick = window.analyzeAndSuggest;
     }
-    
     const addBtn = document.getElementById("add-ai-menus-btn");
     if (addBtn) {
         addBtn.onclick = window.addSuggestedMenus;
@@ -3124,18 +3610,17 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 
-
 <script>
 const templates = {
 
   "Smart Coach Badminton 使用マニュアル":
-    "https://docs.google.com/gview?embedded=true&url=https://www.housei-badminton.com/wordpress/wp-content/uploads/2025/11/cf0f7c403538134945504b528da619e2-3.pdf",
+    "https://drive.google.com/file/d/15rtpsLn_6BVCEH7N8r18kmIoz8EcCSoB/preview",
 
   "ジュニア基本プログラム":
-    "https://docs.google.com/gview?embedded=true&url=https://www.housei-badminton.com/wordpress/wp-content/uploads/2025/11/ec7b0a2aff312685b225fc25c4830d1b.pdf",
+    "https://drive.google.com/file/d/1VrQnzT5A_w2HutCnF2pMgtawMndCixsV/preview",
 
   "多人数の練習プログラム":
-    "https://docs.google.com/gview?embedded=true&url=https://www.housei-badminton.com/wordpress/wp-content/uploads/2025/11/8752cb37a3553ebf84da039c5ccfa4d8-1.pdf"
+    "https://drive.google.com/file/d/1Rnb1FwQhnizYEeF2Z6SuFYghcU6RbCEc/preview"
 };
 
 function applyTemplate() {
@@ -3185,8 +3670,13 @@ document.getElementById("random-btn").addEventListener("click", async () => {
 
   // ▼ 結果を表示
   const container = document.getElementById("random-result");
+  
+  // 修正: 閉じるボタンを含めたHTMLを生成（position: relative を親に追加し、ボタンを absolute で配置）
   container.innerHTML = `
-    <div style="background:#fff; border:1px solid #ccc; border-radius:6px; padding:8px; margin-bottom:5px;">
+    <div style="background:#fff; border:1px solid #ccc; border-radius:6px; padding:15px 8px 8px 8px; margin-bottom:5px; position: relative;">
+      
+      <button id="close-random-result-btn" style="position: absolute; top: 5px; right: 5px; background: #9e9e9e; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; padding: 0;">×</button>
+
       <strong>${randomMenu.メニュー名}</strong>
       <div style="margin-top:5px; font-size:13px; color:#555; background:#fafafa; padding:6px; border-radius:4px;">
         ${randomMenu.説明 || "説明は準備中です。"}
@@ -3220,6 +3710,11 @@ document.getElementById("random-btn").addEventListener("click", async () => {
     </div>
   `;
 
+  // ★ 追加: 閉じるボタンのイベント設定
+  document.getElementById("close-random-result-btn").addEventListener("click", () => {
+    container.innerHTML = ""; // 表示エリアを空にする
+  });
+
   // ▼ 使用用途の折りたたみ
   document.getElementById("toggle-purpose-btn").addEventListener("click", () => {
     const usage = document.getElementById("usage-list");
@@ -3251,7 +3746,6 @@ document.getElementById("random-btn").addEventListener("click", async () => {
     alert(`「${randomMenu.メニュー名}」を選択リストに追加しました`);
   });
 });
-
 
 let audioCtx;
 function playBeep(frequency = 440, duration = 200, type = "sine") {
@@ -3434,8 +3928,7 @@ function formatTime(sec) {
 
 <script>
 // ============================================================
-// ✅ 英語フレーズ機能（完全統合版）
-//    このスクリプトを </body> タグの直前に貼り付けてください
+// ✅ 英語フレーズ機能
 // ============================================================
 
 let allPhrases = [];  // 取得したデータを保持
@@ -4015,14 +4508,115 @@ function toggleTacticsCourt() {
     }
 }
 
-// 配置リセット (シャトルなし版)
+// ゲームモード管理変数 ('doubles' or 'singles')
+let currentTacticMode = 'doubles';
+
+// ▼▼▼ 1. モード切替関数 (新規追加) ▼▼▼
+function switchGameMode(mode) {
+    currentTacticMode = mode;
+
+    const customSettings = document.getElementById("custom-tactic-settings");
+    const fixedInputs = document.getElementById("fixed-name-inputs");
+    
+    // 変則モードの場合
+    if (mode === 'custom') {
+        if(customSettings) customSettings.style.display = "flex";
+        if(fixedInputs) fixedInputs.style.display = "none";
+    } 
+    // ダブルス・シングルスの場合
+    else {
+        if(customSettings) customSettings.style.display = "none";
+        if(fixedInputs) fixedInputs.style.display = "flex";
+
+        // シングルスならBとYの入力を隠す
+        const displayStyle = (mode === 'singles') ? 'none' : 'inline-block';
+        const containerB = document.getElementById("container-name-B");
+        const containerY = document.getElementById("container-name-Y");
+        
+        if(containerB) containerB.style.display = displayStyle;
+        if(containerY) containerY.style.display = displayStyle;
+    }
+
+    // コマを再配置
+    resetTacticPositions();
+}
+
+// 2. コマの配置リセット
 function resetTacticPositions() {
-    tacticObjects = [
-        { id: "A", x: 100, y: 400, color: "red", label: "A", radius: 15 },
-        { id: "B", x: 300, y: 400, color: "red", label: "B", radius: 15 },
-        { id: "X", x: 100, y: 150, color: "blue", label: "X", radius: 15 },
-        { id: "Y", x: 300, y: 150, color: "blue", label: "Y", radius: 15 }
-    ];
+    tacticObjects = []; // 一旦リセット
+
+    if (currentTacticMode === 'custom') {
+        // --- 変則モード (自由人数) ---
+        const redCount = parseInt(document.getElementById("custom-red-count").value) || 1;
+        const blueCount = parseInt(document.getElementById("custom-blue-count").value) || 1;
+
+        // 赤チーム (手前 y=400) を横に並べる
+        const redStartX = 400 / (redCount + 1);
+        for (let i = 0; i < redCount; i++) {
+            tacticObjects.push({
+                id: `R${i}`,
+                x: redStartX * (i + 1),
+                y: 400,
+                color: "red",
+                label: (i + 1).toString(), // 数字を表示
+                radius: 15
+            });
+        }
+
+        // 青チーム (奥 y=150) を横に並べる
+        const blueStartX = 400 / (blueCount + 1);
+        for (let i = 0; i < blueCount; i++) {
+            tacticObjects.push({
+                id: `B${i}`,
+                x: blueStartX * (i + 1),
+                y: 150,
+                color: "blue",
+                label: (i + 1).toString(), // 数字を表示
+                radius: 15
+            });
+        }
+
+    } else {
+        // --- 既存の固定モード (名前入力あり) ---
+        const nameA = document.getElementById("input-name-A") ? document.getElementById("input-name-A").value : "A";
+        const nameB = document.getElementById("input-name-B") ? document.getElementById("input-name-B").value : "B";
+        const nameX = document.getElementById("input-name-X") ? document.getElementById("input-name-X").value : "X";
+        const nameY = document.getElementById("input-name-Y") ? document.getElementById("input-name-Y").value : "Y";
+
+        if (currentTacticMode === 'singles') {
+            // シングルス配置
+            tacticObjects = [
+                { id: "A", x: 200, y: 400, color: "red", label: nameA || "A", radius: 15 },
+                { id: "X", x: 200, y: 150, color: "blue", label: nameX || "X", radius: 15 }
+            ];
+        } else {
+            // ダブルス配置
+            tacticObjects = [
+                { id: "A", x: 100, y: 400, color: "red", label: nameA || "A", radius: 15 },
+                { id: "B", x: 300, y: 400, color: "red", label: nameB || "B", radius: 15 },
+                { id: "X", x: 100, y: 150, color: "blue", label: nameX || "X", radius: 15 },
+                { id: "Y", x: 300, y: 150, color: "blue", label: nameY || "Y", radius: 15 }
+            ];
+        }
+    }
+    
+    // 描画更新
+    drawTacticsBoard();
+}
+
+// ※ updatePlayerLabels関数はそのままでOKですが、念のため再掲します（変更なし）
+function updatePlayerLabels() {
+    const nameA = document.getElementById("input-name-A").value;
+    const nameB = document.getElementById("input-name-B").value;
+    const nameX = document.getElementById("input-name-X").value;
+    const nameY = document.getElementById("input-name-Y").value;
+
+    tacticObjects.forEach(obj => {
+        if (obj.id === "A") obj.label = nameA || "A";
+        if (obj.id === "B") obj.label = nameB || "B";
+        if (obj.id === "X") obj.label = nameX || "X";
+        if (obj.id === "Y") obj.label = nameY || "Y";
+    });
     drawTacticsBoard();
 }
 
@@ -5032,7 +5626,6 @@ function makeDraggable(elmnt) {
     top: -9999px; 
     left: -9999px; 
     width: 700px; 
-    /* 【重要修正】border-boxで枠線やpaddingを幅に含め、はみ出しを防ぐ */
     box-sizing: border-box;
     padding: 40px; 
     background: #fff; 
@@ -5043,10 +5636,9 @@ function makeDraggable(elmnt) {
     <div style="
         border: 2px solid #ff9800; 
         padding: 30px;
-        /* テキストが枠を突き破るのを防ぐ */
         word-wrap: break-word;
         overflow-wrap: break-word; 
-        text-align: left; /* テキストは左揃えに戻す */
+        text-align: left;
     ">
         <h1 style="font-size: 40px; color: #1a237e; margin-bottom: 10px; text-align: center;">Badminton Theory Test</h1>
         <h2 style="font-size: 28px; color: #333; margin-top: 0; border-bottom: 2px solid #ccc; padding-bottom: 20px; text-align: center;">実力診断結果レポート</h2>
@@ -5077,6 +5669,375 @@ function makeDraggable(elmnt) {
         </div>
     </div>
 </div>
+
+<script>
+// ==========================================
+// ✅ 共有機能 (プログラム共有 & 資料リンクQR)
+// ==========================================
+
+// 1. 作成したプログラムの共有QRを生成 (ボタンは削除されましたが関数は残しておきます)
+function generateAndShowShareLink() {
+    if (!selectedMenus.length) {
+        alert("共有するプログラムが作成されていません。\nPlease create a program first.");
+        return;
+    }
+
+    const data = encodeURIComponent(JSON.stringify(selectedMenus));
+    const baseUrl = window.location.origin + window.location.pathname;
+    const shareUrl = `${baseUrl}?share=${data}`;
+
+    const urlBox = document.getElementById("share-url-box");
+    if (urlBox) urlBox.value = shareUrl;
+
+    const qrBox = document.getElementById("share-qr-box");
+    if (qrBox) {
+        qrBox.innerHTML = "";
+        new QRCode(qrBox, {
+            text: shareUrl,
+            width: 150,
+            height: 150,
+            colorDark : "#000000",
+            colorLight : "#ffffff",
+            correctLevel : QRCode.CorrectLevel.M
+        });
+    }
+
+    const resultArea = document.getElementById("share-result-area");
+    if (resultArea) resultArea.style.display = "block";
+}
+
+// URLコピー機能
+function copyShareUrl() {
+    const urlBox = document.getElementById("share-url-box");
+    if (!urlBox) return;
+    urlBox.select();
+    urlBox.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(urlBox.value).then(() => {
+        alert("URLをコピーしました！");
+    });
+}
+
+// 2. 事前に作成したQR画像を表示する機能 (画像選択版)
+window.displayPreMadeQR = function() {
+    console.log("QR表示ボタンが押されました");
+
+    const urlInput = document.getElementById("target-link-input");
+    const fileInput = document.getElementById("qr-image-file");
+    const resultArea = document.getElementById("premade-qr-result");
+    const displayImg = document.getElementById("qr-display-img");
+    const displayLink = document.getElementById("qr-display-link");
+    const linkMsg = document.getElementById("qr-link-msg");
+
+    // 要素がない場合はエラー
+    if (!fileInput || !resultArea || !displayImg) {
+        console.error("必要なHTML要素が見つかりません");
+        return;
+    }
+
+    // URLは任意（なくてもOK）
+    const url = urlInput ? urlInput.value.trim() : "";
+    const file = fileInput.files[0];
+
+    // ファイル必須チェック
+    if (!file) {
+        alert("QRコードの画像ファイルを選択してください。\nPlease select a QR code image.");
+        return;
+    }
+
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        displayImg.src = e.target.result;
+        
+        // URLがあればリンク有効化、なければ無効化
+        if (url) {
+            displayLink.href = url;
+            displayLink.style.cursor = "pointer";
+            displayLink.style.pointerEvents = "auto";
+            if(linkMsg) linkMsg.style.display = "block";
+        } else {
+            displayLink.removeAttribute("href");
+            displayLink.style.cursor = "default";
+            displayLink.style.pointerEvents = "none";
+            if(linkMsg) linkMsg.style.display = "none";
+        }
+        
+        resultArea.style.display = "block";
+    };
+
+    reader.readAsDataURL(file);
+};
+
+// ==========================================
+// 🏆 日替わり補強チャレンジ機能
+// ==========================================
+
+// ローカルストレージキー
+const STORAGE_KEY_DAILY = "smartCoachDailyData";
+
+// --- 1. データ管理関数 ---
+
+// 初期データの読み込み
+function loadDailyData() {
+    const json = localStorage.getItem(STORAGE_KEY_DAILY);
+    return json ? JSON.parse(json) : { 
+        streak: 0, 
+        lastDate: "", 
+        totalBadges: 0, 
+        weeklyBadges: 0 
+    };
+}
+
+// データ保存
+function saveDailyData(data) {
+    localStorage.setItem(STORAGE_KEY_DAILY, JSON.stringify(data));
+    updateDailyUI();
+}
+
+// --- 2. 画面表示更新 ---
+
+function updateDailyUI() {
+    const data = loadDailyData();
+    
+    // ▼ 言語設定を取得
+    const t = translations[currentLang] || translations.ja;
+
+    const streakEl = document.getElementById("streak-count");
+    const badgeEl = document.getElementById("badge-count");
+    const weeklyEl = document.getElementById("weekly-count");
+
+    // 要素が存在する場合のみ更新（エラー防止）
+    if(streakEl) streakEl.textContent = data.streak;
+    if(badgeEl) badgeEl.textContent = data.totalBadges;
+    if(weeklyEl) weeklyEl.textContent = data.weeklyBadges;
+
+    // 今日の分が終わっているかチェック
+    const today = new Date().toLocaleDateString("ja-JP");
+    const btn = document.getElementById("btn-complete-challenge");
+    const msg = document.getElementById("daily-message");
+
+    if (!btn) return; // ボタンがない場合は終了
+
+    if (data.lastDate === today) {
+        // ▼▼▼ 修正箇所：翻訳データ(t)を使う ▼▼▼
+        btn.textContent = t.dailyDoneBtn; // "本日は達成済みです" or "Done Today"
+        btn.disabled = true;
+        btn.style.background = "#81c784"; // 薄い緑
+        if(msg) msg.textContent = t.dailyMsgDone; // 応援メッセージ
+    } else {
+        // ▼▼▼ 修正箇所：未達成時のテキストも翻訳データを使う ▼▼▼
+        btn.textContent = t.dailyCompleteBtn; // "✅ チャレンジ達成！" or "Challenge Complete!"
+        
+        // リストが表示されている時だけ有効化
+        const listEl = document.getElementById("daily-menu-list");
+        if (listEl && listEl.style.display === "block") {
+            btn.disabled = false;
+            btn.style.background = "#ff6f00"; // オレンジ
+            btn.style.cursor = "pointer";
+        } else {
+             btn.disabled = true;
+             btn.style.background = "#ccc";
+        }
+        if(msg) msg.textContent = "";
+    }
+}
+
+// ==========================================
+// 🏆 日替わり補強チャレンジ機能（修正・統合版）
+// ==========================================
+
+// --- 1. データ管理関数 ---
+function loadDailyData() {
+    const json = localStorage.getItem("smartCoachDailyData");
+    return json ? JSON.parse(json) : { 
+        streak: 0, 
+        lastDate: "", 
+        totalBadges: 0, 
+        weeklyBadges: 0 
+    };
+}
+
+function saveDailyData(data) {
+    localStorage.setItem("smartCoachDailyData", JSON.stringify(data));
+    updateDailyUI();
+}
+
+// --- 2. 画面表示更新 ---
+function updateDailyUI() {
+    const data = loadDailyData();
+    // 言語設定を取得（もし変数がなければ日本語をデフォルトに）
+    const t = (typeof translations !== 'undefined' && typeof currentLang !== 'undefined') 
+              ? (translations[currentLang] || translations.ja) 
+              : { dailyDoneBtn: "本日は達成済みです", dailyCompleteBtn: "✅ チャレンジ達成！", dailyMsgDone: "お疲れ様でした！" };
+
+    const streakEl = document.getElementById("streak-count");
+    const badgeEl = document.getElementById("badge-count");
+    const weeklyEl = document.getElementById("weekly-count");
+
+    if(streakEl) streakEl.textContent = data.streak;
+    if(badgeEl) badgeEl.textContent = data.totalBadges;
+    if(weeklyEl) weeklyEl.textContent = data.weeklyBadges;
+
+    const today = new Date().toLocaleDateString("ja-JP");
+    const btn = document.getElementById("btn-complete-challenge");
+    const msg = document.getElementById("daily-message");
+
+    if (!btn) return;
+
+    if (data.lastDate === today) {
+        btn.textContent = t.dailyDoneBtn;
+        btn.disabled = true;
+        btn.style.background = "#81c784";
+        if(msg) msg.textContent = t.dailyMsgDone;
+    } else {
+        btn.textContent = t.dailyCompleteBtn;
+        const listEl = document.getElementById("daily-menu-list");
+        if (listEl && listEl.style.display === "block") {
+            btn.disabled = false;
+            btn.style.background = "#ff6f00";
+            btn.style.cursor = "pointer";
+        } else {
+             btn.disabled = true;
+             btn.style.background = "#ccc";
+        }
+        if(msg) msg.textContent = "";
+    }
+}
+
+// --- 3. チャレンジ生成処理 ---
+async function generateDailyChallenge() {
+    console.log("🔥 チャレンジ生成ボタンが押されました");
+
+    // データロード確認
+    if (typeof sheetData === 'undefined' || !sheetData || sheetData.length === 0) {
+        const statusEl = document.getElementById("statusMessage");
+        if(statusEl) statusEl.textContent = "データを読み込んでいます...";
+        if(typeof loadSheet === 'function') {
+            await loadSheet();
+        } else {
+            alert("エラー: データ読み込み関数が見つかりません");
+            return;
+        }
+    }
+
+    if (!sheetData || sheetData.length === 0) {
+        alert("エラー：スプレッドシートのデータが読み込めません。\n画面を更新（リロード）してください。");
+        return;
+    }
+
+    // 「補強」メニューの抽出（検索条件を緩く設定）
+    const strengthMenus = sheetData.filter(m => {
+        const cat = (m.カテゴリ || m.category || "").toString();
+        return cat.includes("補強") || cat.includes("Strength") || cat.includes("Physical");
+    });
+
+    if (strengthMenus.length === 0) {
+        const existingCats = [...new Set(sheetData.map(m => m.カテゴリ || m.category))].join(", ");
+        alert(`❌ 「補強」カテゴリのメニューが見つかりませんでした。\n現在読み込まれているカテゴリ: ${existingCats}`);
+        return;
+    }
+
+    // 指定された数を取得
+    const countInput = document.getElementById("daily-count");
+    let count = parseInt(countInput.value) || 7;
+    if (count > strengthMenus.length) count = strengthMenus.length;
+
+    // ランダム抽出
+    const shuffled = strengthMenus.sort(() => 0.5 - Math.random());
+    const selected = shuffled.slice(0, count);
+
+    // リスト描画
+    const listContainer = document.getElementById("daily-menu-list");
+    if (!listContainer) return;
+    
+    listContainer.innerHTML = "";
+    
+    selected.forEach((m, index) => {
+        const menuName = m.メニュー名 || m.name || "名称不明";
+        const menuDesc = m.説明 || m.note || "説明なし";
+        const menuUrl  = m["YouTube URL"] || m.url || m.video_url || "";
+        const menuImg  = m["画像URL"] || m.imgUrl || "";
+
+        let videoLink = "";
+        if (menuUrl) {
+            videoLink = `<a href="${menuUrl}" target="_blank" style="font-size:12px; color:#1e88e5; text-decoration:none; display:block; margin-top:5px;">📺 動画を見る</a>`;
+        }
+
+        let imageHtml = "";
+        if (menuImg) {
+            imageHtml = `
+                <div style="flex: 0 0 80px; margin-right: 10px; display:flex; align-items:center; justify-content:center;">
+                    <img src="${menuImg}" alt="img" style="width:100%; height:auto; max-height:60px; object-fit:contain; border-radius:4px; border:1px solid #eee;">
+                </div>
+            `;
+        }
+
+        const div = document.createElement("div");
+        div.style.cssText = "padding: 10px; border-bottom: 1px solid #eee; display: flex; align-items: flex-start;";
+        
+        div.innerHTML = `
+            ${imageHtml}
+            <div style="flex: 1;">
+                <div style="font-weight:bold; color:#333; font-size:15px; margin-bottom:4px;">
+                    <span style="color:#ff6f00; margin-right:5px;">${index + 1}.</span>${menuName}
+                </div>
+                <div style="font-size:13px; color:#666; line-height:1.4;">
+                    ${menuDesc}
+                </div>
+                ${videoLink}
+            </div>
+        `;
+        listContainer.appendChild(div);
+    });
+
+    listContainer.style.display = "block";
+    
+    // ボタンの有効化
+    const btn = document.getElementById("btn-complete-challenge");
+    if(btn) {
+        btn.disabled = false;
+        btn.textContent = "✅ チャレンジ達成！";
+        btn.style.background = "#ff6f00";
+        btn.style.cursor = "pointer";
+    }
+}
+
+// --- 4. チャレンジ達成処理 ---
+function completeDailyChallenge() {
+    if(typeof playSportsDrum === 'function') playSportsDrum();
+
+    const currentData = loadDailyData();
+    const today = new Date().toLocaleDateString("ja-JP");
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("ja-JP");
+
+    if (currentData.lastDate === today) return;
+
+    if (currentData.lastDate === yesterday) {
+        currentData.streak++;
+    } else {
+        currentData.streak = 1;
+    }
+
+    currentData.lastDate = today;
+    currentData.totalBadges++;
+
+    let alertMsg = "🎖️ バッジを獲得しました！";
+
+    if (currentData.streak > 0 && currentData.streak % 7 === 0) {
+        currentData.weeklyBadges++;
+        alertMsg += "\n🏆 1週間継続達成！スペシャルバッジ獲得！";
+        if(typeof playBuzz === 'function') playBuzz(500, 600);
+    }
+
+    saveDailyData(currentData);
+    alert(alertMsg);
+}
+
+// --- 5. 初期化イベント ---
+document.addEventListener("DOMContentLoaded", () => {
+    updateDailyUI();
+});
+</script>
 </body>
 </html>
    
