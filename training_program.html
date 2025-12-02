@@ -2010,21 +2010,32 @@ async function downloadKnowledgePDF() {
 
     <hr style="border: 0; border-top: 1px dashed #ffe0b2; margin: 25px 0;">
 
-    <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;">
-      <div style="background: #fff; padding: 15px 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">連続達成</span></div>
-        <div style="font-size: 24px; font-weight: bold; color: #ff6f00;">
-          <span id="streak-count">0</span> Days
+    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;">
+      
+      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">🔥 連続達成</span></div>
+        <div style="font-size: 28px; font-weight: bold; color: #ff6f00;">
+          <span id="streak-count">0</span> <span style="font-size:14px;">Days</span>
         </div>
       </div>
-      <div style="background: #fff; padding: 15px 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">獲得バッジ</span></div>
-        <div style="font-size: 24px; font-weight: bold; color: #fbc02d;">
-          🎖️ × <span id="badge-count">0</span>
+
+      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">🎖️ 獲得バッジ</span></div>
+        <div style="font-size: 28px; font-weight: bold; color: #fbc02d;">
+          <span id="badge-count">0</span> <span style="font-size:14px;">個</span>
         </div>
       </div>
     </div>
-  </div>
+
+    <div style="margin-top: 20px; text-align: right;">
+        <button onclick="resetDailyData()" style="
+            background: #b0bec5; color: white; border: none; 
+            padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
+        ">
+            🗑️ 旅の記録をすべてリセット
+        </button>
+    </div>
+    </div>
 </section>
 
 <section id="english-unified-section" style="
@@ -6306,6 +6317,38 @@ function completeDailyChallenge() {
 document.addEventListener("DOMContentLoaded", () => {
     updateDailyUI();
 });
+
+// ==========================================
+// 🗑️ データリセット機能
+// ==========================================
+function resetDailyData() {
+    // 誤操作防止の確認アラート
+    if (!confirm("⚠️ 【警告】\nこれまでの日本一周・世界一周の進捗、獲得したバッジ、連続達成記録がすべて消去されます。\n\n本当にリセットして最初からやり直しますか？")) {
+        return;
+    }
+
+    // 1. ローカルストレージのデータを削除
+    localStorage.removeItem("smartCoachDailyData");
+
+    // 2. 変数を初期状態に戻す
+    mapProgress = { japan: 0, world: 0, japanCompleted: false };
+    currentMapMode = "japan";
+
+    // 3. 画面表示を更新（初期化）
+    updateDailyUI();  // バッジやボタン状態の更新
+    renderMap();      // 地図の更新（スタート地点へ）
+    
+    // 4. マップのロック状態も更新（世界一周ボタンをロック）
+    if (typeof updateMapUnlockState === "function") {
+        updateMapUnlockState();
+    }
+
+    // 5. 完了メッセージ
+    const msgEl = document.getElementById("daily-message");
+    if(msgEl) msgEl.textContent = ""; // メッセージクリア
+    
+    alert("データをリセットしました。\n新たな旅を始めましょう！🎌");
+}
 
 // ==========================================
 // 🗺️ 日本一周＆世界一周 マップ機能 (Google Charts版)
