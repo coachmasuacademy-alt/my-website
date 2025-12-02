@@ -65,7 +65,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// ⚠️ グループの秘密の合言葉を入力 ⚠️
+//⚠️ グループの秘密の合言葉を入力 ⚠️
 const GROUP_SECRET_PASSWORD = "badmintontraining2025"; // 👈 ここに自分で決めた合言葉を設定
 
 let currentProgramId = "default_program"; 
@@ -5927,9 +5927,9 @@ async function generateDailyChallenge() {
 
     // 「補強」メニューの抽出（検索条件を緩く設定）
     const strengthMenus = sheetData.filter(m => {
-        const cat = (m.カテゴリ || m.category || "").toString();
-        return cat.includes("補強") || cat.includes("Strength") || cat.includes("Physical");
-    });
+    const cat = (m.カテゴリ || m.category || "").toString();
+     return cat.includes("補強") ;
+});
 
     if (strengthMenus.length === 0) {
         const existingCats = [...new Set(sheetData.map(m => m.カテゴリ || m.category))].join(", ");
