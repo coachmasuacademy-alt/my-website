@@ -29,23 +29,94 @@
     #menu-list, #selected-list { margin-top: 20px; }
     #program-output, #share-preview { margin-top: 30px; padding: 15px; background: #fff; border: 1px solid #ccc; border-radius: 6px; }
     textarea { width: 100%; height: 60px; }
-  .status-message { margin-bottom: 10px; font-weight: bold; color: green; }
-</style>
+    .status-message { margin-bottom: 10px; font-weight: bold; color: green; }
 
-<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    /* 🎓 ルール学習シミュレーター用CSS */
+    .visual-court-container {
+      position: relative;
+      width: 100%;
+      max-width: 350px; 
+      height: 190px;
+      margin: 0 auto 20px auto;
+      background: #2e7d32;
+      border: 2px solid white;
+      box-sizing: border-box;
+      overflow: hidden; 
+    }
 
-<!-- ✅ 日本語が確実に表示される設定（Robotoを使用） -->
-<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.9/build/pdfmake.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.9/build/vfs_fonts.js"></script>
-<script src="custom_fonts.js"></script>
+    .court-grid {
+      display: grid;
+      grid-template-columns: 1fr 4fr 4fr 1fr;
+      grid-template-rows: 1fr 4fr 4fr 1fr;
+      width: 100%;
+      height: 100%;
+    }
 
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    .c-cell {
+      border: 1px solid rgba(255,255,255,0.6);
+      position: relative;
+    }
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    .court-net {
+      position: absolute;
+      top: 0; left: 50%;
+      width: 2px;
+      height: 100%;
+      background: white;
+      z-index: 5;
+      transform: translateX(-50%);
+      border-left: 1px dashed #ddd;
+    }
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    .player-label {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: bold;
+      border: 1px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      z-index: 10;
+      white-space: nowrap;
+    }
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    /* ダブルスのエリア外（グレーアウト用） */
+    .area-out {
+      background-color: rgba(0,0,0,0.2) !important;
+    }
+
+    /* 🗺️ Google Charts マップ用CSS */
+    #map-visual-container {
+      width: 100%;
+      min-height: 300px; 
+      margin: 0 auto;
+      background-color: #b3e5fc; /* 海の色 */
+      border-radius: 8px;
+      border: 2px solid #81d4fa;
+      overflow: hidden;
+    }
+    /* ツールチップのスタイル調整 */
+    .google-visualization-tooltip {
+      border-radius: 4px !important;
+      border: none !important;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
+    }
+  </style>
+
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.9/build/pdfmake.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.9/build/vfs_fonts.js"></script>
+  <script src="custom_fonts.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
 <script>
 const firebaseConfig = {
@@ -1863,70 +1934,97 @@ async function downloadKnowledgePDF() {
 
 <section id="daily-challenge-section" style="
   margin-top: 30px;
-  padding: 20px;
-  background: linear-gradient(135deg, #fff8e1, #ffecb3);
-  border: 2px solid #ffca28;
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  text-align: center;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
 ">
-  <h2 style="color: #ff6f00; margin-top: 0; display:flex; align-items:center; justify-content:center; gap:10px;">
-    🔥 <span id="daily-title">日替わり補強チャレンジ</span> 🔥
-  </h2>
-  
-  <p style="font-size: 14px; color: #555;">
-    <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、バッジを集めよう！</span>
-  </p>
-
-  <div style="margin-bottom: 15px;">
-    <label for="daily-count" style="font-weight:bold;"><span id="lbl-daily-count">種目数:</span></label>
-    <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center;">
-    <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
-      background: #ff6f00; color: white; border: none; 
-      padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    ">
-      🎰 チャレンジ生成
-    </button>
+  <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
+    <h2 style="color: #1a237e; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
+       <span id="daily-title">日本一周フィジカル強化の旅</span>
+    </h2>
+    <p style="font-size: 13px; color: #666; margin: 5px 0 0 0;">
+      <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、地図を塗りつぶそう！</span>
+    </p>
   </div>
 
-  <div id="daily-menu-list" style="text-align: left; background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 15px; display: none;">
-  </div>
-
-  <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
-    background: #ccc; color: white; border: none; 
-    padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
-    cursor: not-allowed; transition: all 0.3s;
-  ">
-    ✅ チャレンジ達成！
-  </button>
-
-  <hr style="border: 0; border-top: 1px dashed #ffb74d; margin: 20px 0;">
-
-  <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;">
-    <div style="background: #fff; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <div style="font-size: 12px; color: #666;"><span id="lbl-streak">連続達成</span></div>
-      <div style="font-size: 24px; font-weight: bold; color: #ff6f00;">
-        <span id="streak-count">0</span> Days
-      </div>
-    </div>
+  <div style="padding: 20px; text-align: center;">
     
-    <div style="background: #fff; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <div style="font-size: 12px; color: #666;"><span id="lbl-badges">獲得バッジ</span></div>
-      <div style="font-size: 24px; font-weight: bold; color: #fbc02d;">
-        🎖️ × <span id="badge-count">0</span>
+    <div style="margin-bottom: 20px;">
+  <div onclick="toggleMapDisplay()" style="
+      background: #f0f4c3; color: #33691e; padding: 10px; border-radius: 8px; border: 2px solid #dce775; 
+      cursor: pointer; text-align: center; font-weight: bold; display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  ">
+    <span>🗺️ マップ・現在地を確認</span>
+    <span id="map-toggle-icon">▼</span>
+  </div>
+
+  <div id="map-collapsible-area" style="display: none; margin-top: 10px; background: #f0f4c3; padding: 15px; border-radius: 10px; border: 2px solid #dce775;">
+      
+      <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
+          <button onclick="switchMapMode('japan')" id="btn-map-japan" style="padding:6px 16px; border-radius:20px; border:none; background:#8bc34a; color:white; font-weight:bold; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              🇯🇵 日本一周
+          </button>
+          <button onclick="switchMapMode('world')" id="btn-map-world" disabled style="padding:6px 16px; border-radius:20px; border:none; background:#ccc; color:#666; font-weight:bold; cursor:not-allowed; box-shadow: none;">
+              🔒 世界一周 (日本クリアで解放)
+          </button>
       </div>
+      
+      <div style="font-weight:bold; color:#33691e; margin-bottom:5px; text-align: center;">
+          現在地: <span id="current-location-name" style="font-size:18px; color:#d84315;">読み込み中...</span>
+      </div>
+      <div style="font-size:12px; color:#555; margin-bottom:10px; text-align: center;">
+          <span id="map-progress-text">-- / -- 制覇</span>
+      </div>
+
+      <div id="map-visual-container" style="width:100%; min-height:300px; margin:0 auto; background-color:#b3e5fc; border-radius:8px; border:2px solid #81d4fa; overflow:hidden;"></div>
+  </div>
+</div>
+
+    <div style="margin-bottom: 15px;">
+      <label for="daily-count" style="font-weight:bold; color:#333;"><span id="lbl-daily-count">種目数:</span></label>
+      <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 4px;">
+      <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
+        background: #ff6f00; color: white; border: none; 
+        padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-left: 10px;
+      ">
+        🎰 チャレンジ生成
+      </button>
     </div>
 
-    <div style="background: #fff; padding: 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-      <div style="font-size: 12px; color: #666;"><span id="lbl-weekly">週間コンプ</span></div>
-      <div style="font-size: 24px; font-weight: bold; color: #d84315;">
-        🏆 × <span id="weekly-count">0</span>
+    <div id="daily-menu-list" style="text-align: left; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; display: none;">
+    </div>
+
+    <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
+      background: #ccc; color: white; border: none; 
+      padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
+      cursor: not-allowed; transition: all 0.3s;
+    ">
+      ✅ チャレンジ達成！ (進む)
+    </button>
+    <div id="daily-message" style="margin-top:10px; font-weight:bold; color:#e65100; height:20px;"></div>
+
+    <hr style="border: 0; border-top: 1px dashed #ffe0b2; margin: 25px 0;">
+
+    <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 10px;">
+      <div style="background: #fff; padding: 15px 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">連続達成</span></div>
+        <div style="font-size: 24px; font-weight: bold; color: #ff6f00;">
+          <span id="streak-count">0</span> Days
+        </div>
+      </div>
+      <div style="background: #fff; padding: 15px 10px; border-radius: 8px; flex: 1; min-width: 120px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">獲得バッジ</span></div>
+        <div style="font-size: 24px; font-weight: bold; color: #fbc02d;">
+          🎖️ × <span id="badge-count">0</span>
+        </div>
       </div>
     </div>
   </div>
-  
-  <p id="daily-message" style="margin-top: 10px; font-weight: bold; color: #d84315; min-height: 20px;"></p>
 </section>
 
 <section id="english-unified-section" style="
@@ -2182,6 +2280,107 @@ async function downloadKnowledgePDF() {
     </div>
   </div>
 </section>
+
+<section id="learning-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
+    <h3 style="margin:0; color:#1a237e; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      🎓 ルール学習シミュレーション
+    </h3>
+  </div>
+
+  <div style="padding: 20px;">
+
+    <div id="sim-start-screen" style="text-align: center; padding: 20px 0;">
+      <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+        実際の試合の流れを見ながら、<br>
+        ダブルスの複雑なサーブ権移動やポジションを学びましょう。
+      </p>
+      <button onclick="openSimulation()" style="
+        background: #ff9800; color: white; border: none; 
+        padding: 12px 30px; border-radius: 30px; 
+        font-size: 16px; font-weight: bold; cursor: pointer;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        display: inline-flex; align-items: center; gap: 8px;
+        transition: transform 0.2s;
+      ">
+        ▶ シミュレーションを開始
+      </button>
+    </div>
+
+    <div id="sim-game-screen" style="display: none; animation: fadeIn 0.5s;">
+      
+      <div style="background:#fff3e0; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #ffe0b2;">
+        <div style="font-weight:bold; color:#d84315; margin-bottom:5px;">Scenario: <span id="scenario-title">ダブルスの基本</span></div>
+        
+        <div id="scenario-text" style="font-size:14px; min-height:40px; margin-bottom:10px;">
+          試合開始！0-0です。まずはポジションを確認しましょう。
+        </div>
+
+        <div id="sim-options-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">
+        </div>
+
+        <div style="display:flex; justify-content:center; gap:10px;">
+          <button onclick="prevStep()" style="background:#ccc; color:#333; border:none; padding:8px 15px; border-radius:20px; font-size:12px;">◀ 前へ</button>
+          <button onclick="nextStep()" id="btn-next-step" style="display:none; background:#ff9800; color:white; border:none; padding:8px 25px; border-radius:20px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2);">次へ進む ▶</button>
+        </div>
+      </div>
+
+      <div class="visual-court-container" style="margin-bottom:10px;">
+        <div class="court-net"></div>
+        <div class="court-grid">
+          <div class="c-cell" id="sim-c-l-odd"  style="grid-row: 2/3; grid-column: 2/3;"></div>
+          <div class="c-cell" id="sim-c-l-even" style="grid-row: 3/4; grid-column: 2/3;"></div>
+          <div class="c-cell" id="sim-c-r-even" style="grid-row: 3/4; grid-column: 3/4;"></div>
+          <div class="c-cell" id="sim-c-r-odd"  style="grid-row: 2/3; grid-column: 3/4;"></div>
+          <div class="c-cell area-out" style="grid-row: 2/4; grid-column: 1/2; background:rgba(0,0,0,0.1);"></div>
+          <div class="c-cell area-out" style="grid-row: 2/4; grid-column: 4/5; background:rgba(0,0,0,0.1);"></div>
+        </div>
+        
+        <div id="p-A1" class="player-label" style="background:#ffcdd2; color:#b71c1c;">A1</div>
+        <div id="p-A2" class="player-label" style="background:#ffcdd2; color:#b71c1c;">A2</div>
+        <div id="p-B1" class="player-label" style="background:#bbdefb; color:#0d47a1;">B1</div>
+        <div id="p-B2" class="player-label" style="background:#bbdefb; color:#0d47a1;">B2</div>
+
+        <div id="sim-shuttle" style="position:absolute; font-size:20px; z-index:20; transition:all 0.5s;">🏸</div>
+      </div>
+
+      <div style="display:flex; justify-content:center; align-items:center; gap:20px; font-weight:bold; font-size:20px;">
+        <span style="color:#d32f2f;">A: <span id="sim-score-a">0</span></span>
+        <span>-</span>
+        <span style="color:#1976d2;">B: <span id="sim-score-b">0</span></span>
+      </div>
+      
+      <div id="sim-explanation" style="display:none; margin-top:15px; background:#e8f5e9; padding:10px; border-radius:6px; border-left:4px solid #4caf50;">
+        <div style="font-weight:bold; color:#2e7d32; margin-bottom:5px;">💡 解説</div>
+        <div id="sim-explanation-text" style="font-size:13px;"></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<script>
+function openSimulation() {
+  document.getElementById('sim-start-screen').style.display = 'none';
+  document.getElementById('sim-game-screen').style.display = 'block';
+  // 必要であればここで初期化関数を呼ぶ (例: initSimulation())
+}
+</script>
+
+<style>
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
 
 <div id="auth-container" class="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-inner">
     <h3 class="text-lg font-semibold text-gray-700 mb-2">講習会用ログイン</h3>
@@ -5947,6 +6146,33 @@ function updateDailyUI() {
     }
 }
 
+// ==========================================
+// 🗺️ マップ開閉機能
+// ==========================================
+function toggleMapDisplay() {
+    const mapArea = document.getElementById("map-collapsible-area");
+    const icon = document.getElementById("map-toggle-icon");
+    
+    if (!mapArea) return;
+
+    if (mapArea.style.display === "none") {
+        // 開く
+        mapArea.style.display = "block";
+        if (icon) icon.textContent = "▲";
+        
+        // ★重要: Google Chartsは非表示状態で描画するとサイズがおかしくなるため、
+        // 表示したタイミングで再描画(renderMap)を呼び出します。
+        if (typeof renderMap === "function" && isChartLoaded) {
+            renderMap();
+        }
+    } else {
+        // 閉じる
+        mapArea.style.display = "none";
+        if (icon) icon.textContent = "▼";
+    }
+}
+
+
 // --- 3. チャレンジ生成処理 ---
 async function generateDailyChallenge() {
     console.log("🔥 チャレンジ生成ボタンが押されました");
@@ -6080,6 +6306,630 @@ function completeDailyChallenge() {
 document.addEventListener("DOMContentLoaded", () => {
     updateDailyUI();
 });
+
+// ==========================================
+// 🗺️ 日本一周＆世界一周 マップ機能 (Google Charts版)
+// ==========================================
+
+// --- 設定 ---
+let chart; // Google Chartインスタンス
+let isChartLoaded = false; // ライブラリ読み込み完了フラグ
+
+// Google Charts ライブラリのロード
+if (typeof google !== 'undefined' && google.charts) {
+    google.charts.load('current', {
+        'packages': ['geochart']
+    });
+    google.charts.setOnLoadCallback(() => {
+        isChartLoaded = true;
+        renderMap(); // 準備ができたら描画
+    });
+}
+
+// 📍 日本一周ルート (JIS X 0401 都道府県コード順: 北から南へ)
+// Google Chartsでは "JP-01" のようなISO 3166-2コードを使用します
+const JAPAN_ROUTE = [
+    {name:"北海道", code:"JP-01"}, {name:"青森", code:"JP-02"}, {name:"岩手", code:"JP-03"}, {name:"宮城", code:"JP-04"},
+    {name:"秋田", code:"JP-05"}, {name:"山形", code:"JP-06"}, {name:"福島", code:"JP-07"}, {name:"茨城", code:"JP-08"},
+    {name:"栃木", code:"JP-09"}, {name:"群馬", code:"JP-10"}, {name:"埼玉", code:"JP-11"}, {name:"千葉", code:"JP-12"},
+    {name:"東京", code:"JP-13"}, {name:"神奈川", code:"JP-14"}, {name:"新潟", code:"JP-15"}, {name:"富山", code:"JP-16"},
+    {name:"石川", code:"JP-17"}, {name:"福井", code:"JP-18"}, {name:"山梨", code:"JP-19"}, {name:"長野", code:"JP-20"},
+    {name:"岐阜", code:"JP-21"}, {name:"静岡", code:"JP-22"}, {name:"愛知", code:"JP-23"}, {name:"三重", code:"JP-24"},
+    {name:"滋賀", code:"JP-25"}, {name:"京都", code:"JP-26"}, {name:"大阪", code:"JP-27"}, {name:"兵庫", code:"JP-28"},
+    {name:"奈良", code:"JP-29"}, {name:"和歌山", code:"JP-30"}, {name:"鳥取", code:"JP-31"}, {name:"島根", code:"JP-32"},
+    {name:"岡山", code:"JP-33"}, {name:"広島", code:"JP-34"}, {name:"山口", code:"JP-35"}, {name:"徳島", code:"JP-36"},
+    {name:"香川", code:"JP-37"}, {name:"愛媛", code:"JP-38"}, {name:"高知", code:"JP-39"}, {name:"福岡", code:"JP-40"},
+    {name:"佐賀", code:"JP-41"}, {name:"長崎", code:"JP-42"}, {name:"熊本", code:"JP-43"}, {name:"大分", code:"JP-44"},
+    {name:"宮崎", code:"JP-45"}, {name:"鹿児島", code:"JP-46"}, {name:"沖縄", code:"JP-47"}
+];
+
+// 📍 世界一周ルート (国連加盟国193カ国ベース + バチカン等)
+// 日本発 → アジア → オセアニア → ヨーロッパ → アフリカ → 南北アメリカ (ISO 3166-1 alpha-2)
+const WORLD_ROUTE = [
+    // 東アジア
+    {name:"日本", code:"JP"}, {name:"韓国", code:"KR"}, {name:"中国", code:"CN"}, {name:"モンゴル", code:"MN"}, {name:"北朝鮮", code:"KP"},
+    // 東南アジア
+    {name:"ベトナム", code:"VN"}, {name:"ラオス", code:"LA"}, {name:"カンボジア", code:"KH"}, {name:"タイ", code:"TH"}, {name:"ミャンマー", code:"MM"},
+    {name:"マレーシア", code:"MY"}, {name:"シンガポール", code:"SG"}, {name:"ブルネイ", code:"BN"}, {name:"フィリピン", code:"PH"}, {name:"インドネシア", code:"ID"}, {name:"東ティモール", code:"TL"},
+    // 南アジア
+    {name:"インド", code:"IN"}, {name:"バングラデシュ", code:"BD"}, {name:"ブータン", code:"BT"}, {name:"ネパール", code:"NP"}, {name:"スリランカ", code:"LK"}, {name:"モルディブ", code:"MV"}, {name:"パキスタン", code:"PK"},
+    // オセアニア
+    {name:"オーストラリア", code:"AU"}, {name:"ニュージーランド", code:"NZ"}, {name:"パプアニューギニア", code:"PG"}, {name:"ソロモン諸島", code:"SB"}, {name:"バヌアツ", code:"VU"}, {name:"フィジー", code:"FJ"}, {name:"サモア", code:"WS"}, {name:"トンガ", code:"TO"}, {name:"ツバル", code:"TV"}, {name:"キリバス", code:"KI"}, {name:"マーシャル諸島", code:"MH"}, {name:"ミクロネシア", code:"FM"}, {name:"パラオ", code:"PW"}, {name:"ナウル", code:"NR"},
+    // 中央アジア・西アジア
+    {name:"アフガニスタン", code:"AF"}, {name:"タジキスタン", code:"TJ"}, {name:"キルギス", code:"KG"}, {name:"カザフスタン", code:"KZ"}, {name:"ウズベキスタン", code:"UZ"}, {name:"トルクメニスタン", code:"TM"}, {name:"イラン", code:"IR"},
+    // 中東
+    {name:"イラク", code:"IQ"}, {name:"クウェート", code:"KW"}, {name:"バーレーン", code:"BH"}, {name:"カタール", code:"QA"}, {name:"UAE", code:"AE"}, {name:"オマーン", code:"OM"}, {name:"イエメン", code:"YE"}, {name:"サウジアラビア", code:"SA"}, {name:"ヨルダン", code:"JO"}, {name:"イスラエル", code:"IL"}, {name:"レバノン", code:"LB"}, {name:"シリア", code:"SY"}, {name:"トルコ", code:"TR"},
+    // コーカサス
+    {name:"アゼルバイジャン", code:"AZ"}, {name:"ジョージア", code:"GE"}, {name:"アルメニア", code:"AM"},
+    // ヨーロッパ（東・北）
+    {name:"ロシア", code:"RU"}, {name:"ウクライナ", code:"UA"}, {name:"ベラルーシ", code:"BY"}, {name:"モルドバ", code:"MD"}, {name:"ルーマニア", code:"RO"}, {name:"ブルガリア", code:"BG"},
+    {name:"フィンランド", code:"FI"}, {name:"スウェーデン", code:"SE"}, {name:"ノルウェー", code:"NO"}, {name:"アイスランド", code:"IS"}, {name:"デンマーク", code:"DK"}, {name:"エストニア", code:"EE"}, {name:"ラトビア", code:"LV"}, {name:"リトアニア", code:"LT"},
+    // ヨーロッパ（中・西・南）
+    {name:"ポーランド", code:"PL"}, {name:"チェコ", code:"CZ"}, {name:"スロバキア", code:"SK"}, {name:"ハンガリー", code:"HU"}, {name:"オーストリア", code:"AT"}, {name:"ドイツ", code:"DE"}, {name:"スイス", code:"CH"}, {name:"リヒテンシュタイン", code:"LI"},
+    {name:"オランダ", code:"NL"}, {name:"ベルギー", code:"BE"}, {name:"ルクセンブルク", code:"LU"}, {name:"イギリス", code:"GB"}, {name:"アイルランド", code:"IE"}, {name:"フランス", code:"FR"}, {name:"モナコ", code:"MC"},
+    {name:"スペイン", code:"ES"}, {name:"ポルトガル", code:"PT"}, {name:"アンドラ", code:"AD"}, {name:"イタリア", code:"IT"}, {name:"バチカン", code:"VA"}, {name:"サンマリノ", code:"SM"}, {name:"マルタ", code:"MT"},
+    {name:"ギリシャ", code:"GR"}, {name:"キプロス", code:"CY"}, {name:"アルバニア", code:"AL"}, {name:"北マケドニア", code:"MK"}, {name:"セルビア", code:"RS"}, {name:"モンテネグロ", code:"ME"}, {name:"ボスニア・ヘルツェゴビナ", code:"BA"}, {name:"クロアチア", code:"HR"}, {name:"スロベニア", code:"SI"},
+    // アフリカ（北・西）
+    {name:"エジプト", code:"EG"}, {name:"リビア", code:"LY"}, {name:"チュニジア", code:"TN"}, {name:"アルジェリア", code:"DZ"}, {name:"モロッコ", code:"MA"}, {name:"モーリタニア", code:"MR"}, {name:"マリ", code:"ML"}, {name:"ニジェール", code:"NE"}, {name:"チャド", code:"TD"}, {name:"スーダン", code:"SD"},
+    {name:"セネガル", code:"SN"}, {name:"ガンビア", code:"GM"}, {name:"ギニアビサウ", code:"GW"}, {name:"ギニア", code:"GN"}, {name:"シエラレオネ", code:"SL"}, {name:"リベリア", code:"LR"}, {name:"コートジボワール", code:"CI"}, {name:"ガーナ", code:"GH"}, {name:"トーゴ", code:"TG"}, {name:"ベナン", code:"BJ"}, {name:"ナイジェリア", code:"NG"}, {name:"ブルキナファソ", code:"BF"}, {name:"カーボベルデ", code:"CV"},
+    // アフリカ（中央・東・南）
+    {name:"カメルーン", code:"CM"}, {name:"中央アフリカ", code:"CF"}, {name:"南スーダン", code:"SS"}, {name:"エチオピア", code:"ET"}, {name:"エリトリア", code:"ER"}, {name:"ジブチ", code:"DJ"}, {name:"ソマリア", code:"SO"}, {name:"ケニア", code:"KE"}, {name:"ウガンダ", code:"UG"}, {name:"ルワンダ", code:"RW"}, {name:"ブルンジ", code:"BI"}, {name:"タンザニア", code:"TZ"},
+    {name:"赤道ギニア", code:"GQ"}, {name:"ガボン", code:"GA"}, {name:"コンゴ共和国", code:"CG"}, {name:"コンゴ民主共和国", code:"CD"}, {name:"サントメ・プリンシペ", code:"ST"},
+    {name:"アンゴラ", code:"AO"}, {name:"ザンビア", code:"ZM"}, {name:"マラウイ", code:"MW"}, {name:"モザンビーク", code:"MZ"}, {name:"マダガスカル", code:"MG"}, {name:"コモロ", code:"KM"}, {name:"モーリシャス", code:"MU"}, {name:"セーシェル", code:"SC"},
+    {name:"ジンバブエ", code:"ZW"}, {name:"ボツワナ", code:"BW"}, {name:"ナミビア", code:"NA"}, {name:"南アフリカ", code:"ZA"}, {name:"レソト", code:"LS"}, {name:"エスワティニ", code:"SZ"},
+    // 南米
+    {name:"ブラジル", code:"BR"}, {name:"ウルグアイ", code:"UY"}, {name:"アルゼンチン", code:"AR"}, {name:"チリ", code:"CL"}, {name:"パラグアイ", code:"PY"}, {name:"ボリビア", code:"BO"}, {name:"ペルー", code:"PE"}, {name:"エクアドル", code:"EC"}, {name:"コロンビア", code:"CO"}, {name:"ベネズエラ", code:"VE"}, {name:"ガイアナ", code:"GY"}, {name:"スリナム", code:"SR"},
+    // 中米・カリブ
+    {name:"パナマ", code:"PA"}, {name:"コスタリカ", code:"CR"}, {name:"ニカラグア", code:"NI"}, {name:"ホンジュラス", code:"HN"}, {name:"エルサルバドル", code:"SV"}, {name:"グアテマラ", code:"GT"}, {name:"ベリーズ", code:"BZ"}, {name:"メキシコ", code:"MX"},
+    {name:"キューバ", code:"CU"}, {name:"ジャマイカ", code:"JM"}, {name:"ハイチ", code:"HT"}, {name:"ドミニカ共和国", code:"DO"}, {name:"バハマ", code:"BS"}, {name:"セントクリストファー・ネイビス", code:"KN"}, {name:"アンティグア・バーブーダ", code:"AG"}, {name:"ドミニカ国", code:"DM"}, {name:"セントルシア", code:"LC"}, {name:"セントビンセント・グレナディーン", code:"VC"}, {name:"バルバドス", code:"BB"}, {name:"グレナダ", code:"GD"}, {name:"トリニダード・トバゴ", code:"TT"},
+    // 北米
+    {name:"アメリカ", code:"US"}, {name:"カナダ", code:"CA"}
+];
+
+// 状態変数
+let currentMapMode = "japan";
+let mapProgress = { japan: 0, world: 0 }; 
+
+// --- データ保存・読み込み ---
+function loadMapData() {
+    const json = localStorage.getItem("smartCoachDailyData");
+    const data = json ? JSON.parse(json) : {};
+    mapProgress.japan = data.mapJapanIdx || 0;
+    mapProgress.world = data.mapWorldIdx || 0;
+    currentMapMode = data.currentMapMode || "japan";
+    
+    // ★追加: クリアフラグの読み込み
+    // まだデータがない場合は false
+    mapProgress.japanCompleted = data.japanCompleted || false;
+
+    // ボタンの状態を更新
+    updateMapUnlockState();
+
+    return data;
+}
+
+// --- ★新規: ロック解除状態の更新 ---
+function updateMapUnlockState() {
+    const btnWorld = document.getElementById("btn-map-world");
+    if (!btnWorld) return;
+
+    if (mapProgress.japanCompleted) {
+        // 解放済み
+        btnWorld.disabled = false;
+        btnWorld.innerHTML = "🌏 世界一周";
+        btnWorld.style.background = (currentMapMode === "world") ? "#0288d1" : "#b0bec5"; // 選択状態によって色を変える
+        btnWorld.style.color = "white";
+        btnWorld.style.cursor = "pointer";
+        btnWorld.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+    } else {
+        // ロック中
+        btnWorld.disabled = true;
+        btnWorld.innerHTML = "🔒 世界一周 (日本クリアで解放)";
+        btnWorld.style.background = "#e0e0e0";
+        btnWorld.style.color = "#999";
+        btnWorld.style.cursor = "not-allowed";
+        btnWorld.style.boxShadow = "none";
+    }
+    
+    // 日本ボタンのスタイルも更新（選択状態の反映）
+    const btnJapan = document.getElementById("btn-map-japan");
+    if (btnJapan) {
+        btnJapan.style.background = (currentMapMode === "japan") ? "#8bc34a" : "#b0bec5";
+    }
+}
+
+function saveMapData() {
+    let data = loadDailyData(); 
+    data.mapJapanIdx = mapProgress.japan;
+    data.mapWorldIdx = mapProgress.world;
+    data.currentMapMode = currentMapMode;
+    // ★追加: クリアフラグの保存
+    data.japanCompleted = mapProgress.japanCompleted;
+    saveDailyData(data);
+}
+
+// --- マップ描画 (Google Charts使用) ---
+function renderMap() {
+    if (!isChartLoaded) return;
+
+    const isJapan = (currentMapMode === "japan");
+    const route = isJapan ? JAPAN_ROUTE : WORLD_ROUTE;
+    const currentIdx = isJapan ? mapProgress.japan : mapProgress.world;
+
+    // データテーブルの作成
+    // 変更点: 3列目に {role: 'tooltip'} を追加して、コードではなく名前を表示させます
+    const dataArray = [['Code', 'Status', {role: 'tooltip'}]];
+    
+    route.forEach((item, index) => {
+        let status = 0; // 未到達
+        if (index < currentIdx) status = 1; // 通過済み
+        if (index === currentIdx) status = 2; // 現在地
+        
+        // [国コード, ステータス値, 表示名(ツールチップ)]
+        dataArray.push([item.code, status, item.name]);
+    });
+
+    const data = google.visualization.arrayToDataTable(dataArray);
+
+    // オプション設定
+    const options = {
+        // 色の設定: [未到達, 通過済み, 現在地]
+        colorAxis: { values: [0, 1, 2], colors: ['#e0e0e0', '#ffcc80', '#d50000'] },
+        backgroundColor: '#b3e5fc', // 海の色
+        datalessRegionColor: '#f5f5f5', // データがない地域の色
+        defaultColor: '#f5f5f5',
+        legend: 'none', // 凡例非表示
+        // ツールチップ設定: HTML形式にして見やすく、余計なカラーコードを消す
+        tooltip: { isHtml: true, showColorCode: false } 
+    };
+
+    if (isJapan) {
+        options.region = 'JP'; // 日本地図
+        options.resolution = 'provinces'; // 都道府県レベル
+    } else {
+        options.region = 'world'; // 世界地図
+        options.resolution = 'countries'; // 国レベル
+    }
+
+    const container = document.getElementById('map-visual-container');
+    chart = new google.visualization.GeoChart(container);
+    chart.draw(data, options);
+
+    // テキスト情報の更新
+    const currentItem = route[currentIdx];
+    const currentName = currentItem ? currentItem.name : "GOAL!";
+    
+    document.getElementById("current-location-name").textContent = currentName;
+    document.getElementById("map-progress-text").textContent = 
+        `${Math.min(currentIdx + 1, route.length)} / ${route.length} ${isJapan ? '都道府県' : 'Countries'}`;
+
+    // ロック状態・ボタン色の更新（前回の機能維持）
+    if (typeof updateMapUnlockState === "function") {
+        updateMapUnlockState();
+    }
+}
+// --- モード切替 ---
+function switchMapMode(mode) {
+    currentMapMode = mode;
+    saveMapData();
+    renderMap();
+}
+
+// --- 進捗更新 ---
+function advanceMapProgress() {
+    const route = currentMapMode === "japan" ? JAPAN_ROUTE : WORLD_ROUTE;
+    const key = currentMapMode === "japan" ? "japan" : "world";
+    
+    // まだゴールしていない場合
+    if (mapProgress[key] < route.length - 1) {
+        mapProgress[key]++;
+        
+    } else {
+        // ゴール到達時
+        if (currentMapMode === "japan") {
+            // 日本一周クリア時の特別処理
+            if (!mapProgress.japanCompleted) {
+                alert("🎉 日本一周達成おめでとうございます！\n\n🔓 新たな挑戦「世界一周モード」が解放されました！");
+                mapProgress.japanCompleted = true; // フラグON
+            } else {
+                alert("🎉 日本一周達成！おめでとうございます！");
+            }
+            mapProgress.japan = 0; // ループ
+        } else {
+            // 世界一周クリア時
+            alert("🎉 世界一周達成！Amazing! 素晴らしい偉業です！");
+            mapProgress.world = 0; // ループ
+        }
+    }
+    
+    saveMapData(); // 保存（フラグ含む）
+    renderMap();   // 再描画
+}
+
+// --- イベントリスナー ---
+// 画面リサイズ時に再描画（レスポンシブ対応）
+window.addEventListener('resize', () => {
+    if(isChartLoaded) renderMap();
+});
+
+// 初期化
+document.addEventListener("DOMContentLoaded", () => {
+    loadMapData(); 
+    // Google ChartsのロードコールバックでrenderMapが呼ばれます
+});
+
+// チャレンジ達成時の上書き
+window.completeDailyChallenge = function() {
+    if(typeof playSportsDrum === 'function') playSportsDrum();
+
+    const currentData = loadDailyData(); 
+    const today = new Date().toLocaleDateString("ja-JP");
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("ja-JP");
+
+    if (currentData.lastDate === today) return;
+
+    if (currentData.lastDate === yesterday) {
+        currentData.streak++;
+    } else {
+        currentData.streak = 1;
+    }
+
+    currentData.lastDate = today;
+    currentData.totalBadges++;
+
+    let alertMsg = "🎖️ バッジを獲得しました！";
+    if (currentData.streak > 0 && currentData.streak % 7 === 0) {
+        currentData.weeklyBadges++;
+        alertMsg += "\n🏆 1週間継続達成！スペシャルバッジ獲得！";
+        if(typeof playBuzz === 'function') playBuzz(500, 600);
+    }
+
+    // 進行処理
+    saveDailyData(currentData);
+    advanceMapProgress();
+    updateDailyUI();
+    
+    const msgEl = document.getElementById("daily-message");
+    if(msgEl) msgEl.textContent = "🎉 エリア制覇！次の目的地へ進みます！";
+};
+
+// ==========================================
+// 🔄 既存関数の修正・上書き
+// ==========================================
+
+// 初期化時にマップデータを読み込む
+const originalDOMReady = window.onload; // もしあれば
+document.addEventListener("DOMContentLoaded", () => {
+    // 既存の処理...
+    updateDailyUI();
+    
+    // ★マップ初期化
+    loadMapData(); 
+    renderMap();
+});
+
+// チャレンジ達成時の処理をオーバーライド（マップ進行を追加）
+// ※既存の completeDailyChallenge 関数を完全に置き換えます
+window.completeDailyChallenge = function() {
+    if(typeof playSportsDrum === 'function') playSportsDrum();
+
+    const currentData = loadDailyData(); // Mapデータもここで読み込まれる
+    const today = new Date().toLocaleDateString("ja-JP");
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("ja-JP");
+
+    if (currentData.lastDate === today) return;
+
+    if (currentData.lastDate === yesterday) {
+        currentData.streak++;
+    } else {
+        currentData.streak = 1;
+    }
+
+    currentData.lastDate = today;
+    currentData.totalBadges++;
+
+    let alertMsg = "🎖️ バッジを獲得しました！";
+
+    if (currentData.streak > 0 && currentData.streak % 7 === 0) {
+        currentData.weeklyBadges++;
+        alertMsg += "\n🏆 1週間継続達成！スペシャルバッジ獲得！";
+        if(typeof playBuzz === 'function') playBuzz(500, 600);
+    }
+
+    // ★ マップを進める
+    // currentDataオブジェクトを更新してから保存する流れにするため、
+    // advanceMapProgressのロジックをここに統合するか、保存後に呼ぶ
+    saveDailyData(currentData); // まずバッジ等を保存
+
+    // マップ進行（内部で再保存・描画）
+    advanceMapProgress();
+    
+    // UI更新
+    updateDailyUI();
+    
+    // メッセージ表示
+    const msgEl = document.getElementById("daily-message");
+    if(msgEl) msgEl.textContent = "🎉 次の目的地へ進みました！";
+};
+
+
+
+// ==========================================
+// 🎓 ルール学習シミュレーター (修正版)
+// ==========================================
+
+// ポジション座標の定義 (修正: Bチームを対角線配置に)
+/*
+  【画面上の配置】
+  [ Aチーム(左) ]  vs  [ Bチーム(右) ]
+  
+  上側(25%): A-Odd(左)  /  B-Even(右)  <-- 対角線
+  下側(75%): A-Even(右) /  B-Odd(左)   <-- 対角線
+  
+  ※バドミントンのコートは対角線で向かい合います。
+  A(下/Even)から打つと、受けるのはB(上/Even)になります。
+*/
+const posMap = {
+    // Aチーム (左側)
+    "l-odd":  {t:"25%", l:"35%"}, // 上 (奇数コート)
+    "l-even": {t:"75%", l:"35%"}, // 下 (偶数コート)
+    // Bチーム (右側) - ここを修正
+    "r-even": {t:"25%", l:"65%"}, // 上 (偶数コート) ※Aの下と対角
+    "r-odd":  {t:"75%", l:"65%"}  // 下 (奇数コート) ※Aの上と対角
+};
+
+// シナリオデータ
+const scenarioData = [
+  // --- Q1: 0-0 ---
+  {
+    text: "試合開始！スコア 0-0。\nAチームがサーブ権を持っています。\nA1(Even)はどこから、誰に向かって打ちますか？",
+    score: {a:0, b:0},
+    // A1(下/Even), A2(上/Odd) vs B1(上/Even), B2(下/Odd)
+    pos: {A1:"l-even", A2:"l-odd", B1:"r-even", B2:"r-odd"}, 
+    shuttlePos: "l-even",
+    options: [
+      "A1が右(偶数コート)から、B2(左/正面)へ",
+      "A1が右(偶数コート)から、B1(右/対角)へ", // 正解
+      "A2が左(奇数コート)から、B2(下/対角)へ"
+    ],
+    correctIdx: 1,
+    explain: "正解！🙆‍♂️\n0点は偶数なので、A1は右(偶数コート/画面下)から打ちます。\nレシーバーは対角線のエリア(画面上)にいるB1です。"
+  },
+
+  // --- Q2: 1-0 (Aが得点) ---
+  {
+    text: "【ラリー】Aチーム得点！ 1-0。\nサーバー側が得点したのでAはローテーションします。\n次は誰がどこから？",
+    score: {a:1, b:0},
+    // Aローテ(A1上へ, A2下へ)。 B不動(B1上まま, B2下まま)。
+    pos: {A1:"l-odd", A2:"l-even", B1:"r-even", B2:"r-odd"}, 
+    shuttlePos: "l-odd",
+    options: [
+      "A1が左(奇数コート)からサーブ", // 正解
+      "A1が右(偶数コート)からサーブ",
+      "A2が左(奇数コート)からサーブ"
+    ],
+    correctIdx: 0,
+    explain: "正解！🙆‍♂️\nA1は得点したので位置を交代(ローテ)し、1点(奇数)なので左(画面上)から打ちます。\n★Bチームはレシーブ側だったので動きません。"
+  },
+
+  // --- Q3: 1-1 (Bが得点 / サイドアウト) ---
+  {
+    text: "【ラリー】Bチーム得点！ 1-1。\nサーブ権がBへ移ります(サイドアウト)。\n誰がサーブを打ちますか？",
+    score: {a:1, b:1},
+    // サイドアウト時は誰も動かない。位置はQ2と同じ。
+    // B1(上/Even), B2(下/Odd)。
+    pos: {A1:"l-odd", A2:"l-even", B1:"r-even", B2:"r-odd"}, 
+    shuttlePos: "r-odd",
+    options: [
+      "B1が 右(偶数コート) からサーブ",
+      "B2が 左(奇数コート) からサーブ", // 正解
+      "位置を交代してB1が左(奇数コート)から"
+    ],
+    correctIdx: 1,
+    explain: "その通り！🙆‍♂️\nサーブ権が移る時はローテーションしません。\nBの得点は「1点(奇数)」です。\n現在、奇数コート(画面下)に立っている【B2】がサーブ権を得ます。"
+  },
+
+  // --- Q4: 1-2 (Bが連続得点) ---
+  {
+    text: "【ラリー】Bチーム連続得点！ 1-2。\nBチームの動きは？",
+    score: {a:1, b:2},
+    // Bがサーバー側で得点。Bのみローテ(B1下へ, B2上へ)。A不動。
+    pos: {A1:"l-odd", A2:"l-even", B1:"r-odd", B2:"r-even"}, 
+    shuttlePos: "r-even",
+    options: [
+      "B2が 右(偶数コート) へ移動してサーブ", // 正解
+      "B2が 左(奇数コート) のままサーブ",
+      "B1が 右(偶数コート) からサーブ"
+    ],
+    correctIdx: 0,
+    explain: "正解！🙆‍♂️\nサーブ側が得点したのでBチームは位置を入れ替えます。\n2点(偶数)なので、B2は偶数コート(画面上)へ移動して打ちます。"
+  },
+
+  // --- Q5: 2-2 (Aが得点 / サイドアウト) ---
+  {
+    text: "【ラリー】Aチーム得点！ 2-2。\nサーブ権がAに戻りました。\n誰がどこから？",
+    score: {a:2, b:2},
+    // サイドアウト。誰も動かない。位置はQ4と同じ。
+    // A1(上/Odd), A2(下/Even)。
+    pos: {A1:"l-odd", A2:"l-even", B1:"r-odd", B2:"r-even"},
+    shuttlePos: "l-even",
+    options: [
+      "A1が 左(奇数コート) からサーブ",
+      "A2が 右(偶数コート) からサーブ", // 正解
+      "ローテしてA1が右(偶数コート)から"
+    ],
+    correctIdx: 1,
+    explain: "正解！🙆‍♂️\nサイドアウトなので位置はそのまま。\nAの得点は「2点(偶数)」です。\n現在、偶数コート(画面下)にいる【A2】がサーブ権を得ます。"
+  },
+
+  // --- Q6: 3-2 (Aが連続得点) ---
+  {
+    text: "【ラリー】Aチーム逆転！ 3-2。\nAチームはどう動く？",
+    score: {a:3, b:2},
+    // Aのみローテ(A1下へ, A2上へ)。
+    pos: {A1:"l-even", A2:"l-odd", B1:"r-odd", B2:"r-even"},
+    shuttlePos: "l-odd",
+    options: [
+      "A2が 左(奇数コート) へ移動してサーブ", // 正解
+      "A2が 右(偶数コート) のままサーブ",
+      "A1が 左(奇数コート) へ移動してサーブ"
+    ],
+    correctIdx: 0,
+    explain: "その通り！🙆‍♂️\nサーバー側が得点したのでAはローテーションします。\n3点(奇数)なので、A2は奇数コート(画面上)へ移動して打ちます。"
+  },
+
+  // --- Q7: 5-2 (Aが連取して試合終了) ---
+  {
+    text: "【ラリー】Aチームが得点を重ね 5-2 で勝利！(5点マッチ)\n最後のアクションは？",
+    score: {a:5, b:2},
+    // 試合終了。
+    pos: {A1:"l-even", A2:"l-odd", B1:"r-odd", B2:"r-even"},
+    shuttlePos: "l-odd",
+    options: [
+      "相互に握手して終了", // 正解
+      "サーブ権移動を確認",
+      "まだ終わっていない"
+    ],
+    correctIdx: 0,
+    explain: "ゲームセット！🎉\nAチームの勝利です。お疲れ様でした！\n(※実際の試合では21点ですが、今回は短縮版でした)"
+  }
+];
+
+let currentStepIndex = 0;
+
+// 初期化
+function initSimulation() {
+  currentStepIndex = 0;
+  renderStep(0);
+}
+
+// ステップ描画
+function renderStep(index) {
+  const data = scenarioData[index];
+  
+  // テキスト更新
+  document.getElementById("scenario-text").textContent = data.text;
+  document.getElementById("sim-score-a").textContent = data.score.a;
+  document.getElementById("sim-score-b").textContent = data.score.b;
+  document.getElementById("sim-explanation").style.display = "none";
+  
+  // 「次へ」ボタンを隠す
+  const nextBtn = document.getElementById("btn-next-step");
+  nextBtn.style.display = "none";
+  nextBtn.textContent = "次の問題へ ▶";
+
+  // 選択肢ボタンの生成
+  const optContainer = document.getElementById("sim-options-container");
+  optContainer.innerHTML = ""; 
+
+  data.options.forEach((optText, i) => {
+    const btn = document.createElement("button");
+    btn.textContent = optText;
+    btn.style.cssText = "width:100%; padding:10px; border:1px solid #ccc; background:#fff; color:#333; border-radius:6px; cursor:pointer; text-align:left; font-size:14px; transition:background 0.2s; margin-bottom:5px;";
+    btn.onclick = () => checkSimulationAnswer(i, btn, data);
+    optContainer.appendChild(btn);
+  });
+
+  // プレイヤー配置（CSSアニメーション付きで移動）
+  moveSimPlayer("p-A1", posMap[data.pos.A1]);
+  moveSimPlayer("p-A2", posMap[data.pos.A2]);
+  moveSimPlayer("p-B1", posMap[data.pos.B1]);
+  moveSimPlayer("p-B2", posMap[data.pos.B2]);
+
+  // シャトルの位置（サーブ権のある場所）
+  const shuttleEl = document.getElementById("sim-shuttle");
+  if(data.shuttlePos) {
+      const sPos = posMap[data.shuttlePos];
+      // プレイヤーの少し横に配置
+      shuttleEl.style.display = "block";
+      shuttleEl.style.top = `calc(${sPos.t} - 5px)`;
+      shuttleEl.style.left = sPos.l;
+  } else {
+      shuttleEl.style.display = "none";
+  }
+  
+  // エリアハイライトリセット
+  document.querySelectorAll(".c-cell").forEach(el=>el.style.background="transparent");
+}
+
+function moveSimPlayer(id, coords) {
+  const el = document.getElementById(id);
+  el.style.position = "absolute";
+  el.style.transition = "all 0.6s cubic-bezier(0.22, 1, 0.36, 1)"; // 滑らかな移動
+  el.style.top = coords.t;
+  el.style.left = coords.l;
+  el.style.transform = "translate(-50%, -50%)";
+}
+
+// 正誤判定
+function checkSimulationAnswer(selectedIndex, btnElement, data) {
+  const isCorrect = (selectedIndex === data.correctIdx);
+  const allBtns = document.querySelectorAll("#sim-options-container button");
+
+  // ボタンを無効化
+  allBtns.forEach(b => b.disabled = true);
+
+  if (isCorrect) {
+    // 正解演出
+    btnElement.style.background = "#d4edda"; 
+    btnElement.style.borderColor = "#28a745";
+    btnElement.textContent += " ✅";
+    if(typeof playSportsDrum === 'function') playSportsDrum();
+
+    // 解説表示
+    document.getElementById("sim-explanation-text").textContent = data.explain;
+    document.getElementById("sim-explanation").style.display = "block";
+    document.getElementById("sim-explanation").style.borderLeftColor = "#4caf50";
+
+    // 次へボタン表示
+    const nextBtn = document.getElementById("btn-next-step");
+    nextBtn.style.display = "inline-block";
+
+  } else {
+    // 不正解演出
+    btnElement.style.background = "#ffebee"; 
+    btnElement.style.borderColor = "#d32f2f";
+    btnElement.textContent += " ❌";
+    if(typeof playBuzz === 'function') playBuzz(200, 150);
+
+    // 正解のボタンを教えてあげる
+    allBtns[data.correctIdx].style.background = "#d4edda";
+    allBtns[data.correctIdx].textContent += " (正解)";
+    
+    // 解説表示
+    document.getElementById("sim-explanation-text").textContent = "残念！正解は...\n" + data.explain;
+    document.getElementById("sim-explanation").style.display = "block";
+    document.getElementById("sim-explanation").style.borderLeftColor = "#d32f2f"; 
+
+    // 次へボタン表示
+    const nextBtn = document.getElementById("btn-next-step");
+    nextBtn.style.display = "inline-block";
+  }
+}
+
+// 次のステップへ
+function nextStep() {
+  if (currentStepIndex < scenarioData.length - 1) {
+    currentStepIndex++;
+    renderStep(currentStepIndex);
+  } else {
+    // 終了時
+    if(confirm("全問終了です！最初からやり直しますか？")) {
+        initSimulation();
+    }
+  }
+}
+
+function prevStep() {
+  if (currentStepIndex > 0) {
+    currentStepIndex--;
+    renderStep(currentStepIndex);
+  }
+}
+
+// ページ読み込み時に実行
+document.addEventListener("DOMContentLoaded", initSimulation);
+
 </script>
 </body>
 </html>
