@@ -65,7 +65,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-//⚠️ グループの秘密の合言葉を入力 ⚠️
+// ⚠️ グループの秘密の合言葉を入力 ⚠️
 const GROUP_SECRET_PASSWORD = "badmintontraining2025"; // 👈 ここに自分で決めた合言葉を設定
 
 let currentProgramId = "default_program"; 
@@ -677,14 +677,20 @@ function updateTimeProgress() {
 
       const label = {
   "ラリー系": "ラリー", 
-  "ノック系": "ノック", 
-  "フットワーク": "フットワーク",
-  "フィジカル": "フィジカル",
-  "補強": "補強",  
-  "ウォームアップ": "ウォームアップ", 
-  "知識": "知識",
-"法政大学練習": "法政大学練習",
-"休憩（次のメニュー準備）": "休憩"
+    "ノック系": "ノック", 
+    "フットワーク": "フットワーク",
+    "フィジカル": "フィジカル",
+    "補強": "補強",  
+    "ウォームアップ": "ウォームアップ", 
+    "知識": "知識",
+    "法政大学練習": "法政大学練習",
+    "休憩（次のメニュー準備）": "休憩",
+    // ▼▼▼ 追加 ▼▼▼
+    "ゲーム": "ゲーム練習",
+    "Game": "Game",
+    // AI抽出などで「系」がつかない場合への保険
+    "ラリー": "ラリー",
+    "ノック": "ノック"
 };
 
       let programName = (currentLang === 'ja') ? "総合トレーニングプログラム" : "Comprehensive Training Program";
@@ -727,17 +733,22 @@ function updateTimeProgress() {
 
 // 中心カテゴリの比率が50%以上の場合に詳細文章を設定
 if (mainShare >= 0.4) {
-  switch (mainCategory) {
-    case "ノック系":
-      purpose = `本プログラムではノック練習を中心に構成し、反復動作によるフィジカル強化と技術の安定性向上を目的としています。
-高い強度での打撃やフットワークを通じて、試合中でも安定して動ける身体能力を養うとともに、各ショットの精度を高めます。
-また、場面ごとに必要なスキルを整理し、多様な技術を習得することを狙いとしています。`;
-      break;
-    case "ラリー系":
-      purpose = `本プログラムではラリー練習を多く取り入れ、実践的な状況の中で技術を高めることを目的としています。
-相手との駆け引きやラリー展開を通じて、判断力・戦術理解・応用力を養い、試合で生きるプレーの質を向上させます。
-技術の単発的な習得ではなく、ゲームコンテクストの中での最適化を目指します。`;
-      break;
+    switch (mainCategory) {
+      case "ノック系":
+      case "ノック": // ← 保険として追加
+        purpose = `本プログラムではノック練習を中心に構成し、フィジカル強化と技術の安定性向上を目的としています。
+高い強度での打撃やフットワークを通じて、試合中でも安定して動ける身体能力を養うとともに、各ショットの精度を高めます。`;
+        break;
+      case "ラリー系":
+      case "ラリー": 
+        purpose = `本プログラムではラリー練習を多く取り入れ、実践的な状況の中で技術を高めることを目的としています。
+相手との駆け引きやラリー展開を通じて、判断力・戦術理解・応用力を養い、試合で生きるプレーの質を向上させます。`;
+        break;
+      case "ゲーム":
+      case "Game":
+        purpose = `本プログラムではゲーム（実戦）形式の練習を中心に、戦術の確認と応用力の向上を目的としています。
+練習で培った技術を実戦の中でどう活かすかを確認し、ゲーム勘や駆け引きの能力を養います。`;
+        break;
     case "ウォームアップ":
       purpose = `本プログラムでは、練習前に身体を安全かつ効率的に動かすためのウォームアップを行います。
 関節可動域の拡大と筋温の上昇を目的とし、怪我の予防と動作のキレを高めることを狙います。`;
@@ -822,7 +833,18 @@ async function displayProgram() {
       return `${h}:${m.toString().padStart(2, "0")}`;
     };
 
-    const mainCategories = ["ウォームアップ", "ラリー系", "ノック系", "フットワーク", "フィジカル", "補強", "休憩（次のメニュー準備）", "知識", "法政大学練習", "新規作成", "Warm-up", "Rally", "Knock", "Footwork", "Physical", "Strength", "Break (Preparing the next plan)", "Knowledge", "Hosei Univ Practice"];
+    const mainCategories = [
+    "ウォームアップ", "ラリー系", "ノック系", "フットワーク", "フィジカル", "補強", 
+    "休憩（次のメニュー準備）", "知識", "法政大学練習", "新規作成",
+    // ▼ 追加 ▼
+    "ゲーム", "ノック", "ラリー", 
+    // ▲ 追加 ▲
+    "Warm-up", "Rally", "Knock", "Footwork", "Physical", "Strength", 
+    "Break (Preparing the next plan)", "Knowledge", "Hosei Univ Practice",
+    // ▼ 追加 ▼
+    "Game"
+    // ▲ 追加 ▲
+];
     const mainList = selectedMenus.filter(m => mainCategories.includes(m.category));
 
     let html = `
@@ -921,7 +943,18 @@ async function displayProgram() {
     return `${h}:${m.toString().padStart(2, "0")}`;
   };
 
-  const mainCategories = ["ウォームアップ","ラリー系","ノック系","フットワーク","フィジカル","補強","休憩（次のメニュー準備）","知識","法政大学練習","新規作成","Warm-up","Rally","Knock","Footwork","Physical","Strength","Break (Preparing the next plan)","Knowledge","Hosei Univ Practice"];
+  const mainCategories = [
+    "ウォームアップ", "ラリー系", "ノック系", "フットワーク", "フィジカル", "補強", 
+    "休憩（次のメニュー準備）", "知識", "法政大学練習", "新規作成",
+    // ▼ 追加 ▼
+    "ゲーム", "ノック", "ラリー",
+    // ▲ 追加 ▲
+    "Warm-up", "Rally", "Knock", "Footwork", "Physical", "Strength", 
+    "Break (Preparing the next plan)", "Knowledge", "Hosei Univ Practice",
+    // ▼ 追加 ▼
+    "Game"
+    // ▲ 追加 ▲
+];
   const mainList = selectedMenus.filter(m => mainCategories.includes(m.category));
 
   let rows = "";
@@ -1430,9 +1463,6 @@ async function downloadKnowledgePDF() {
         <span id="channel-title" style="font-weight:bold; color:#1a237e;">MASU Badminton Academy YouTubeチャンネル</span>
       </a>
    </div>
-    <p id="update-message" style="font-size:14px; color:#1a237e; margin:10px 0; line-height:1.4; opacity: 0.8;">
-      本アプリは改良を重ねて随時バージョンアップを行っております。<br>
-      最新バージョンのアプリは、YouTubeからご利用いただけます。<br>
     </p>
 <div style="margin-top: 10px;">
     <button onclick="setLanguage('ja')">日本語</button>
@@ -1516,9 +1546,10 @@ async function downloadKnowledgePDF() {
   <option value="">--選択してください--</option>
   <optgroup label="日本語メニュー">
     <option value="ウォームアップ">ウォームアップ</option>
+<option value="フットワーク">フットワーク</option>
+<option value="ノック系">ノック系</option>
     <option value="ラリー系">ラリー系</option>
-    <option value="ノック系">ノック系</option>
-    <option value="フットワーク">フットワーク</option>
+    <option value="ゲーム">ゲーム</option>
     <option value="フィジカル">フィジカル</option>
     <option value="補強">補強</option>
     <option value="休憩（次のメニュー準備）">休憩（次のメニュー準備）</option>
@@ -1527,10 +1558,11 @@ async function downloadKnowledgePDF() {
   </optgroup>
   <optgroup label="English Plan">
     <option value="Warm-up">Warm-up</option>
+<option value="Footwork">Footwork</option>
+<option value="Knock">Knock</option>
     <option value="Rally">Rally</option>
-    <option value="Knock">Knock</option>
-    <option value="Footwork">Footwork</option>
-    <option value="Physical">Physical</option>
+        <option value="Game">Game</option>
+        <option value="Physical">Physical</option>
     <option value="Strength">Strength</option>
     <option value="Break (Preparing the next plan)">Break (Preparing the next plan)</option>
     <option value="Knowledge">Knowledge</option>
@@ -3276,7 +3308,18 @@ function clearBrowserData() {
         return `${h}:${m.toString().padStart(2, "0")}`;
     };
 
-    const mainCategories = ["ウォームアップ", "ラリー系", "ノック系", "フットワーク", "フィジカル", "補強", "休憩（次のメニュー準備）", "知識", "法政大学練習", "新規作成", "Warm-up", "Rally", "Knock", "Footwork", "Physical", "Strength", "Break (Preparing the next plan)", "Knowledge", "Hosei Univ Practice"];
+    const mainCategories = [
+    "ウォームアップ", "ラリー系", "ノック系", "フットワーク", "フィジカル", "補強", 
+    "休憩（次のメニュー準備）", "知識", "法政大学練習", "新規作成",
+    // ▼ 追加 ▼
+    "ゲーム", "ノック", "ラリー",
+    // ▲ 追加 ▲
+    "Warm-up", "Rally", "Knock", "Footwork", "Physical", "Strength", 
+    "Break (Preparing the next plan)", "Knowledge", "Hosei Univ Practice",
+    // ▼ 追加 ▼
+    "Game"
+    // ▲ 追加 ▲
+];
     const mainList = selectedMenus.filter(m => mainCategories.includes(m.category));
 
     let rows = "";
@@ -3420,7 +3463,7 @@ if (pdfBtn) {
 var suggestedMenusData = [];
 
 // もしSHEET_URLが定義されていない場合の予備
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyxlldyv0gy5zH8vjQ_fmtd99KPCM9U4RZIhanydzG8NGT1PNrKOdhI_UxaAqv3vXInIg/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzAlpJG2v9LrJf1SKtEnaRpd9gkyz7LM3JRfdY5295FkU_NSm1_UksXxaLp0ZbXIQxgog/exec";
 
 // ✅ 1. Gemini API呼び出し関数
 window.analyzeAndSuggest = async function() {
