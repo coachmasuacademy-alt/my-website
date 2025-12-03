@@ -145,7 +145,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbyxlldyv0gy5zH8vjQ_fmtd99KPCM9U4RZIhanydzG8NGT1PNrKOdhI_UxaAqv3vXInIg/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbxNUGti2mki0Jw0Rfsu0Y1VowtXuZP57ADs2rrgydCI84yUdrhTifTce_TvsTzARptKBg/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -1377,7 +1377,296 @@ document.addEventListener('DOMContentLoaded', () => {
     loadEnglishPhrases(); 
     loadQuizData(); 
 　　loadKnowledgeData();
+loadVideoQuizData(); 
 });
+
+// ==========================================
+// 🎥 動画セッション＆クイズ機能
+// ==========================================
+let videoQuizData = [];   // 生データ
+let groupedSessions = {}; // GroupIDごとのデータ
+let currentSessionId = "";
+
+// 1. データ読み込み
+async function loadVideoQuizData() {
+    const statusEl = document.getElementById("vq-status-msg");
+    const listEl = document.getElementById("vq-list");
+    
+    try {
+        const res = await fetch(SHEET_URL + "?sheet=VideoQuiz&t=" + new Date().getTime());
+        const data = await res.json();
+
+        if (data.error || !data.length) {
+            statusEl.textContent = "利用可能なセッションが見つかりません。";
+            return;
+        }
+
+        videoQuizData = data;
+        
+        groupedSessions = {};
+        videoQuizData.forEach(row => {
+            // GroupIDやTitleが空の場合はスキップ（念のため）
+            if (!row.GroupID && !row.Question) return;
+
+            const gid = row.GroupID || "default";
+            if (!groupedSessions[gid]) {
+                groupedSessions[gid] = {
+                    title: row.Title || "無題のセッション",
+                    url: row.URL || "",
+                    questions: []
+                };
+            }
+            
+            // ▼ Option4対応（半角・全角どちらでも拾えるように）
+            const opt4 = row.Option4 || row.Option４ || "";
+
+            groupedSessions[gid].questions.push({
+                q: row.Question,
+                // ▼ ここを4択に修正
+                opts: [row.Option1, row.Option2, row.Option3, opt4],
+                ans: row.Answer,
+                exp: row.Explanation
+            });
+        });
+
+        // リスト描画
+        statusEl.style.display = "none";
+        listEl.innerHTML = "";
+        
+        // セッションがない場合の表示
+        if (Object.keys(groupedSessions).length === 0) {
+             listEl.innerHTML = "<p>有効な問題データがありません。</p>";
+             return;
+        }
+
+        Object.keys(groupedSessions).forEach(gid => {
+            const session = groupedSessions[gid];
+            const qCount = session.questions.length;
+            
+            // 問題数が0の場合は表示しない
+            if(qCount === 0) return;
+
+            const card = document.createElement("div");
+            card.style.cssText = "background:#fafafa; border:1px solid #eee; border-radius:8px; padding:15px; transition:0.2s; cursor:pointer; border-left:4px solid #ff9800;";
+            card.onmouseover = () => { card.style.background = "#fff3e0"; };
+            card.onmouseout = () => { card.style.background = "#fafafa"; };
+            card.onclick = () => startVideoSession(gid);
+
+            card.innerHTML = `
+                <div style="font-weight:bold; color:#1a237e; margin-bottom:5px;">${session.title}</div>
+                <div style="font-size:12px; color:#666;">
+                    📝 問題数: ${qCount}問<br>
+                    🎥 YouTube視聴あり
+                </div>
+            `;
+            listEl.appendChild(card);
+        });
+
+    } catch (e) {
+        console.error("Video Quiz Load Error:", e);
+        statusEl.textContent = "データの読み込みに失敗しました。";
+        statusEl.style.color = "red";
+    }
+}
+
+// 2. セッション開始
+function startVideoSession(gid) {
+    currentSessionId = gid;
+    const session = groupedSessions[gid];
+    
+    // 画面切り替え
+    document.getElementById("vq-select-screen").style.display = "none";
+    document.getElementById("vq-result-screen").style.display = "none";
+    document.getElementById("vq-play-screen").style.display = "block";
+
+    // 情報セット
+    document.getElementById("vq-current-title").textContent = session.title;
+    document.getElementById("vq-video-link").href = session.url;
+
+    // 問題描画
+    const container = document.getElementById("vq-questions-container");
+    container.innerHTML = "";
+
+    session.questions.forEach((qData, idx) => {
+        const qDiv = document.createElement("div");
+        qDiv.className = "vq-question-block";
+        qDiv.style.cssText = "margin-bottom:20px; background:#fff; padding:15px; border-radius:8px; border:1px solid #ddd;";
+        
+        let optionsHtml = "";
+        qData.opts.forEach((opt, optIdx) => {
+            if(!opt) return;
+            const val = optIdx + 1;
+            optionsHtml += `
+                <label style="display:block; padding:8px; margin-bottom:5px; border:1px solid #eee; border-radius:4px; cursor:pointer;">
+                    <input type="radio" name="vq-q-${idx}" value="${val}"> ${opt}
+                </label>
+            `;
+        });
+
+        qDiv.innerHTML = `
+            <div style="font-weight:bold; color:#333; margin-bottom:10px;">Q${idx + 1}. ${qData.q}</div>
+            <div>${optionsHtml}</div>
+            <div id="vq-feedback-${idx}" style="display:none; margin-top:10px; padding:10px; background:#f0f0f0; border-radius:4px; font-size:13px;"></div>
+        `;
+        container.appendChild(qDiv);
+    });
+}
+
+// 3. 採点処理
+function submitVideoQuiz() {
+    const session = groupedSessions[currentSessionId];
+    let score = 0;
+    
+    // 詳細レポート用のHTMLビルダー
+    let detailsHtml = "";
+
+    session.questions.forEach((qData, idx) => {
+        const inputs = document.querySelectorAll(`input[name="vq-q-${idx}"]`);
+        const selected = document.querySelector(`input[name="vq-q-${idx}"]:checked`);
+        const fbDiv = document.getElementById(`vq-feedback-${idx}`);
+
+        // 入力ロック
+        inputs.forEach(i => i.disabled = true);
+        
+        // 画面上の簡易フィードバック表示（ここは○×だけでシンプルに）
+        fbDiv.style.display = "block";
+
+        const userVal = selected ? parseInt(selected.value) : null;
+        const isCorrect = (userVal === parseInt(qData.ans));
+        
+        // 選択肢のテキストを取得
+        const userAnsText = userVal ? qData.opts[userVal - 1] : "（未回答）";
+        const correctAnsText = qData.opts[parseInt(qData.ans) - 1];
+
+        // --- PDF/結果画面用の詳細HTML生成 ---
+        const resultColor = isCorrect ? "#155724" : "#721c24";
+        const resultIcon = isCorrect ? "⭕ 正解" : "❌ 不正解";
+
+        if (isCorrect) {
+            score++;
+            fbDiv.style.background = "#d4edda";
+            fbDiv.style.color = "#155724";
+            fbDiv.textContent = `⭕ 正解！`;
+        } else {
+            fbDiv.style.background = "#f8d7da";
+            fbDiv.style.color = "#721c24";
+            fbDiv.textContent = `❌ 不正解...`;
+        }
+
+        // レポート用HTMLの組み立て（解説部分を削除）
+        detailsHtml += `
+            <div style="border-bottom: 1px solid #ccc; padding: 10px 0; margin-bottom: 10px; page-break-inside: avoid;">
+                <p style="margin:0 0 5px 0; font-weight:bold; color:#333;">Q${idx + 1}. ${qData.q}</p>
+                <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;">
+                    <span style="color:${resultColor}; font-weight:bold;">あなたの回答: ${userAnsText} (${resultIcon})</span>
+                </div>
+                ${!isCorrect ? `<p style="margin:0 0 5px 0; font-size:13px; color:#d32f2f;"><strong>正解:</strong> ${correctAnsText}</p>` : ""}
+            </div>
+        `;
+    });
+
+    // 結果画面へ移動
+    setTimeout(() => {
+        document.getElementById("vq-play-screen").style.display = "none";
+        document.getElementById("vq-result-screen").style.display = "block";
+        
+        // 結果ヘッダー情報
+        document.getElementById("vq-score-display").textContent = `${score} / ${session.questions.length}`;
+        document.getElementById("vq-session-name").textContent = session.title;
+        document.getElementById("vq-date").textContent = new Date().toLocaleDateString("ja-JP");
+        
+        // ★ ここに詳細レポートを挿入
+        document.getElementById("vq-feedback-list").innerHTML = detailsHtml;
+
+        // 効果音
+        if(score === session.questions.length && typeof playSportsDrum === 'function') {
+            playSportsDrum();
+        }
+    }, 1500);
+}
+
+// 4. 一覧に戻る
+function backToVideoList() {
+    document.getElementById("vq-play-screen").style.display = "none";
+    document.getElementById("vq-result-screen").style.display = "none";
+    document.getElementById("vq-select-screen").style.display = "block";
+}
+
+// 5. PDF出力
+async function downloadVideoQuizPDF() {
+    const element = document.getElementById("vq-result-content");
+    const btn = event.target || document.querySelector("#vq-result-screen button");
+    const originalText = btn ? btn.textContent : "PDF出力";
+    
+    if (btn) {
+        btn.textContent = "PDF生成中...";
+        btn.disabled = true;
+    }
+
+    try {
+        // --- 1. チラつき防止：画面外でクローンを作成 ---
+        // 元の要素をクローン（複製）
+        const clone = element.cloneNode(true);
+        
+        // 画面外（左側 -10000px）に配置して見えないようにする
+        // 幅を固定(600px)して、レイアウト崩れを防ぐ
+        clone.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: -10000px;
+            width: 600px;
+            background: #fff;
+            padding: 20px;
+            z-index: -1;
+        `;
+        
+        // 一時的にbodyに追加（html2canvasはDOMに存在しないと撮影できないため）
+        document.body.appendChild(clone);
+
+        // --- 2. 画像化処理 ---
+        const canvas = await html2canvas(clone, { 
+            scale: 2, // 高画質
+            useCORS: true,
+            windowWidth: 800 // 仮想ウィンドウ幅を指定してレイアウトを安定させる
+        });
+        
+        // 用が済んだら即削除
+        document.body.removeChild(clone);
+        
+        const imgData = canvas.toDataURL("image/png");
+
+        // --- 3. PDF設定（1枚に収める） ---
+        const docDefinition = {
+            content: [
+                {
+                    image: imgData,
+                    // ★ここが重要：A4サイズ(約595x842pt)から余白を引いたサイズに収まるよう自動縮小
+                    fit: [500, 750], 
+                    alignment: 'center',
+                    margin: [0, 10, 0, 0]
+                }
+            ],
+            pageSize: 'A4',
+            pageMargins: [40, 40, 40, 40], // 上下左右の余白
+            defaultStyle: { font: 'Roboto' }
+        };
+
+        const fileName = `VideoQuiz_Result_${new Date().toISOString().slice(0,10)}.pdf`;
+        pdfMake.createPdf(docDefinition).download(fileName);
+
+    } catch (e) {
+        console.error("PDF Error:", e);
+        alert("PDF作成に失敗しました。\nエラー: " + e.message);
+        // エラー時も念のためクローンが残っていたら削除
+        const ghosts = document.querySelectorAll('[style*="left: -10000px"]');
+        ghosts.forEach(g => g.remove());
+    } finally {
+        if (btn) {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+    }
+}
 
 // ==========================================
 // ✅ PDF発行機能
@@ -1706,7 +1995,7 @@ async function downloadKnowledgePDF() {
 
 <div id="tactics-board-box" style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
   <div style="margin-bottom: 15px;">
-    <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード (Tactics Board)</h3>
+    <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード</h3>
   </div>
   
   <div id="tactics-content" style="display:block;">
@@ -1932,110 +2221,90 @@ async function downloadKnowledgePDF() {
   </div>
 </div>
 
-<section id="daily-challenge-section" style="
-  margin-top: 30px;
-  padding: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  overflow: hidden;
+<section id="video-quiz-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
   box-shadow: 0 4px 8px rgba(0,0,0,0.05);
 ">
   <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
-    <h2 style="color: #1a237e; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
-       <span id="daily-title">日本一周フィジカル強化の旅</span>
+    <h2 style="color: #1a237e; margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+      Video Learning & Check （動画学習＆理解度チェック）
     </h2>
     <p style="font-size: 13px; color: #666; margin: 5px 0 0 0;">
-      <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、地図を塗りつぶそう！</span>
+      動画を視聴し、理解度チェックテストに合格して提出用PDFを作成しましょう。
     </p>
   </div>
 
-  <div style="padding: 20px; text-align: center;">
+  <div style="padding: 20px;">
     
-    <div style="margin-bottom: 20px;">
-  <div onclick="toggleMapDisplay()" style="
-      background: #f0f4c3; color: #33691e; padding: 10px; border-radius: 8px; border: 2px solid #dce775; 
-      cursor: pointer; text-align: center; font-weight: bold; display: flex; justify-content: space-between; align-items: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  ">
-    <span>🗺️ マップ・現在地を確認</span>
-    <span id="map-toggle-icon">▼</span>
-  </div>
+    <div id="vq-select-screen">
+      <p id="vq-status-msg">セッション一覧を読み込み中...</p>
+      <div id="vq-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px;"></div>
+    </div>
 
-  <div id="map-collapsible-area" style="display: none; margin-top: 10px; background: #f0f4c3; padding: 15px; border-radius: 10px; border: 2px solid #dce775;">
+    <div id="vq-play-screen" style="display: none;">
+      <button onclick="backToVideoList()" style="background: #999; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; margin-bottom: 10px; cursor: pointer;">◀ 一覧に戻る</button>
       
-      <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
-          <button onclick="switchMapMode('japan')" id="btn-map-japan" style="padding:6px 16px; border-radius:20px; border:none; background:#8bc34a; color:white; font-weight:bold; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-              🇯🇵 日本一周
-          </button>
-          <button onclick="switchMapMode('world')" id="btn-map-world" disabled style="padding:6px 16px; border-radius:20px; border:none; background:#ccc; color:#666; font-weight:bold; cursor:not-allowed; box-shadow: none;">
-              🔒 世界一周 (日本クリアで解放)
-          </button>
+      <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border: 1px solid #90caf9; margin-bottom: 20px; text-align: center;">
+        <h3 id="vq-current-title" style="margin: 0 0 10px 0; color: #0d47a1;"></h3>
+        <p style="font-size: 14px; margin-bottom: 10px;">まずは動画を視聴してください（別タブで開きます）</p>
+        <a id="vq-video-link" href="#" target="_blank" style="
+          display: inline-block; 
+          background: #d32f2f; color: white; text-decoration: none; 
+          padding: 10px 25px; border-radius: 25px; font-weight: bold; 
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+          ▶ YouTubeで動画を視聴する
+        </a>
       </div>
+
+      <div id="vq-questions-container"></div>
+
+      <div style="text-align: center; margin-top: 20px;">
+        <button onclick="submitVideoQuiz()" style="
+          background: #ff9800; color: white; border: none; 
+          padding: 12px 40px; border-radius: 30px; font-size: 16px; font-weight: bold; 
+          cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+          採点する / Check Answers
+        </button>
+      </div>
+    </div>
+
+    <div id="vq-result-screen" style="display: none; text-align: center;">
+      <h3 style="color: #1a237e;">セッション完了 / Session Completed</h3>
       
-      <div style="font-weight:bold; color:#33691e; margin-bottom:5px; text-align: center;">
-          現在地: <span id="current-location-name" style="font-size:18px; color:#d84315;">読み込み中...</span>
-      </div>
-      <div style="font-size:12px; color:#555; margin-bottom:10px; text-align: center;">
-          <span id="map-progress-text">-- / -- 制覇</span>
+      <div id="vq-result-content" style="
+        border: 2px solid #ff9800; padding: 20px; margin: 20px auto; 
+        max-width: 600px; background: #fff; position: relative;">
+        
+        <h4 style="margin: 0; color: #555;">理解度チェック結果</h4>
+        <h2 id="vq-score-display" style="font-size: 40px; color: #e65100; margin: 10px 0;"></h2>
+        <p id="vq-session-name" style="font-weight: bold; margin-bottom: 5px;"></p>
+        <p style="font-size: 12px; color: #999;">受験日: <span id="vq-date"></span></p>
+        
+        <hr style="border: 0; border-top: 1px dashed #ccc; margin: 15px 0;">
+        <div id="vq-feedback-list" style="text-align: left; font-size: 13px;"></div>
       </div>
 
-      <div id="map-visual-container" style="width:100%; min-height:300px; margin:0 auto; background-color:#b3e5fc; border-radius:8px; border:2px solid #81d4fa; overflow:hidden;"></div>
-  </div>
-</div>
-
-    <div style="margin-bottom: 15px;">
-      <label for="daily-count" style="font-weight:bold; color:#333;"><span id="lbl-daily-count">種目数:</span></label>
-      <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 4px;">
-      <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
-        background: #ff6f00; color: white; border: none; 
-        padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-left: 10px;
-      ">
-        🎰 チャレンジ生成
+      <button onclick="downloadVideoQuizPDF()" style="
+        background: #1a237e; color: white; border: none; 
+        padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold; 
+        cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+        📄 結果をPDFで提出
+      </button>
+      
+      <button onclick="backToVideoList()" style="
+        background: #ffcc80; color: #e65100; border: none; 
+        padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold; 
+        cursor: pointer; margin-left: 10px;">
+        終了して戻る
       </button>
     </div>
 
-    <div id="daily-menu-list" style="text-align: left; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; display: none;">
-    </div>
-
-    <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
-      background: #ccc; color: white; border: none; 
-      padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
-      cursor: not-allowed; transition: all 0.3s;
-    ">
-      ✅ チャレンジ達成！ (進む)
-    </button>
-    <div id="daily-message" style="margin-top:10px; font-weight:bold; color:#e65100; height:20px;"></div>
-
-    <hr style="border: 0; border-top: 1px dashed #ffe0b2; margin: 25px 0;">
-
-    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;">
-      
-      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">🔥 連続達成</span></div>
-        <div style="font-size: 28px; font-weight: bold; color: #ff6f00;">
-          <span id="streak-count">0</span> <span style="font-size:14px;">Days</span>
-        </div>
-      </div>
-
-      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">🎖️ 獲得バッジ</span></div>
-        <div style="font-size: 28px; font-weight: bold; color: #fbc02d;">
-          <span id="badge-count">0</span> <span style="font-size:14px;">個</span>
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-top: 20px; text-align: right;">
-        <button onclick="resetDailyData()" style="
-            background: #b0bec5; color: white; border: none; 
-            padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
-        ">
-            🗑️ 旅の記録をすべてリセット
-        </button>
-    </div>
-    </div>
+  </div>
 </section>
 
 <section id="english-unified-section" style="
@@ -2386,6 +2655,113 @@ function openSimulation() {
 }
 </script>
 
+<section id="daily-challenge-section" style="
+  margin-top: 30px;
+  padding: 0;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
+    <h2 style="color: #1a237e; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
+       <span id="daily-title">日本一周フィジカル強化の旅</span>
+    </h2>
+    <p style="font-size: 13px; color: #666; margin: 5px 0 0 0;">
+      <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、地図を塗りつぶそう！</span>
+    </p>
+  </div>
+
+  <div style="padding: 20px; text-align: center;">
+    
+    <div style="margin-bottom: 20px;">
+  <div onclick="toggleMapDisplay()" style="
+      background: #f0f4c3; color: #33691e; padding: 10px; border-radius: 8px; border: 2px solid #dce775; 
+      cursor: pointer; text-align: center; font-weight: bold; display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  ">
+    <span>🗺️ マップ・現在地を確認</span>
+    <span id="map-toggle-icon">▼</span>
+  </div>
+
+  <div id="map-collapsible-area" style="display: none; margin-top: 10px; background: #f0f4c3; padding: 15px; border-radius: 10px; border: 2px solid #dce775;">
+      
+      <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
+          <button onclick="switchMapMode('japan')" id="btn-map-japan" style="padding:6px 16px; border-radius:20px; border:none; background:#8bc34a; color:white; font-weight:bold; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+              🇯🇵 日本一周
+          </button>
+          <button onclick="switchMapMode('world')" id="btn-map-world" disabled style="padding:6px 16px; border-radius:20px; border:none; background:#ccc; color:#666; font-weight:bold; cursor:not-allowed; box-shadow: none;">
+              🔒 世界一周 (日本クリアで解放)
+          </button>
+      </div>
+      
+      <div style="font-weight:bold; color:#33691e; margin-bottom:5px; text-align: center;">
+          現在地: <span id="current-location-name" style="font-size:18px; color:#d84315;">読み込み中...</span>
+      </div>
+      <div style="font-size:12px; color:#555; margin-bottom:10px; text-align: center;">
+          <span id="map-progress-text">-- / -- 制覇</span>
+      </div>
+
+      <div id="map-visual-container" style="width:100%; min-height:300px; margin:0 auto; background-color:#b3e5fc; border-radius:8px; border:2px solid #81d4fa; overflow:hidden;"></div>
+  </div>
+</div>
+
+    <div style="margin-bottom: 15px;">
+      <label for="daily-count" style="font-weight:bold; color:#333;"><span id="lbl-daily-count">種目数:</span></label>
+      <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 4px;">
+      <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
+        background: #ff6f00; color: white; border: none; 
+        padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-left: 10px;
+      ">
+        🎰 チャレンジ生成
+      </button>
+    </div>
+
+    <div id="daily-menu-list" style="text-align: left; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; display: none;">
+    </div>
+
+    <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
+      background: #ccc; color: white; border: none; 
+      padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
+      cursor: not-allowed; transition: all 0.3s;
+    ">
+      ✅ チャレンジ達成！ (進む)
+    </button>
+    <div id="daily-message" style="margin-top:10px; font-weight:bold; color:#e65100; height:20px;"></div>
+
+    <hr style="border: 0; border-top: 1px dashed #ffe0b2; margin: 25px 0;">
+
+    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;">
+      
+      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">🔥 連続達成</span></div>
+        <div style="font-size: 28px; font-weight: bold; color: #ff6f00;">
+          <span id="streak-count">0</span> <span style="font-size:14px;">Days</span>
+        </div>
+      </div>
+
+      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
+        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">🎖️ 獲得バッジ</span></div>
+        <div style="font-size: 28px; font-weight: bold; color: #fbc02d;">
+          <span id="badge-count">0</span> <span style="font-size:14px;">個</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 20px; text-align: right;">
+        <button onclick="resetDailyData()" style="
+            background: #b0bec5; color: white; border: none; 
+            padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
+        ">
+            🗑️ 旅の記録をすべてリセット
+        </button>
+    </div>
+    </div>
+</section>
+
+
 <style>
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(-10px); }
@@ -2468,7 +2844,6 @@ function openSimulation() {
     </div>
 </section>
 
-<section id="feedback-container" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
     
  <script>
 function extractNumber() {
@@ -3673,7 +4048,7 @@ if (pdfBtn) {
 var suggestedMenusData = [];
 
 // もしSHEET_URLが定義されていない場合の予備
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzAlpJG2v9LrJf1SKtEnaRpd9gkyz7LM3JRfdY5295FkU_NSm1_UksXxaLp0ZbXIQxgog/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxNUGti2mki0Jw0Rfsu0Y1VowtXuZP57ADs2rrgydCI84yUdrhTifTce_TvsTzARptKBg/exec";
 
 // ✅ 1. Gemini API呼び出し関数
 window.analyzeAndSuggest = async function() {
