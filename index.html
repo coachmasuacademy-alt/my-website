@@ -543,11 +543,12 @@ function renderBeginnerSection() {
                 ${imageUrl ? `<img src="${imageUrl}" alt="${m.メニュー名}の画像" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">` : ''}
             </div>`;
         
+        // ▼▼▼ 修正箇所: 配列に "ゲーム", "Game" を追加 ▼▼▼
         const controlsHtml = `
             <div style="flex: 2; padding-right: 15px; min-width: 250px;"> 
                 <h3 style="margin: 0 0 5px 0;">${m.メニュー名}</h3>
                 ${m["YouTube URL"] ? `<a href="${m["YouTube URL"]}" target="_blank" style="display:inline-block; margin-bottom:8px;">🎥 動画を見る／Watch on YouTube</a><br>` : ""}
-                ${["ノック系", "ラリー系", "ウォームアップ", "フットワーク", "休憩（次のメニュー準備）", "フィジカル","Knock", "Rally", "Warm-up", "Footwork", "Break (Preparing the next plan)", "Physical"].includes(category)
+                ${["ノック系", "ラリー系", "ウォームアップ", "フットワーク", "休憩（次のメニュー準備）", "フィジカル", "ゲーム", "Game", "Knock", "Rally", "Warm-up", "Footwork", "Break (Preparing the next plan)", "Physical"].includes(category)
                     ? `時間(分): <input type="number" min="0.1" step="0.1" value="${m["平均時間（分）"] || ""}" data-time-minutes style="width:60px;">`
                     : ""}
                 <button data-add data-index="${i}" style="margin-left:8px;">追加</button>
@@ -611,7 +612,7 @@ function renderBeginnerSection() {
             renderSelectedList();
         });
     });
-} 
+}
 
 
     function renderSelectedList() {
@@ -1952,17 +1953,16 @@ async function downloadKnowledgePDF() {
     <input type="radio" name="random-category" id="random-strength" value="補強">
     <label for="random-strength" id="label-random-strength">補強</label>
     <button id="random-btn" style="margin-left:10px;">ランダムメニュー抽出</button>
-    <div id="random-result" style="margin-top:10px;">
+    
+    <div id="random-result" style="margin-top:10px;"></div> 
+    
+    <h4 style="margin-bottom:8px; color:#008c9e; margin-top: 15px;"> <span id="lbl-template-header">④テンプレート</span>
+    </h4>
+    <select id="templateSelect" onchange="applyTemplate()">
+      <option value="">テンプレートを選ぶ</option>
+    </select>
 
-<h4 style="margin-bottom:8px; color:#008c9e;">
-  <span id="lbl-template-header">④テンプレート</span>
-</h4>
-<select id="templateSelect" onchange="applyTemplate()">
-  <option value="">テンプレートを選ぶ</option>
-</select>
-
-<iframe id="templateViewer" style="width:100%; height:600px; border:1px solid #ccc; border-radius:8px; display:none;"></iframe>
-</div>
+    <iframe id="templateViewer" style="width:100%; height:600px; border:1px solid #ccc; border-radius:8px; display:none;"></iframe>
 
 </div><br>
 
