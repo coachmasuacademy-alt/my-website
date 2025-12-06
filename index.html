@@ -116,9 +116,14 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
 <script>
 const firebaseConfig = {
@@ -2763,6 +2768,89 @@ function openSimulation() {
     </div>
 </section>
 
+<section id="pose-estimation-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #e1f5fe; padding: 15px 20px; border-bottom: 1px solid #b3e5fc;">
+    <h3 style="margin:0; color:#01579b; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      AIフォーム解析
+    </h3>
+    <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+      カメラや動画から骨格を検出し、全身（肩・肘・腰・膝）の負荷を可視化します。<br>
+      ※処理が重くなる場合があります。録画ボタンで解析結果を保存可能です。
+    </p>
+  </div>
+
+  <div style="padding: 20px;">
+<div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; border: 1px solid #ddd;">
+      <span style="font-weight: bold; font-size: 12px; color: #555;">⚙️ 身体パラメータ設定:</span>
+      <label style="font-size: 13px;">身長(cm): <input type="number" id="bio-height" value="170" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
+      <label style="font-size: 13px;">体重(kg): <input type="number" id="bio-weight" value="65" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
+      <label style="font-size: 13px;">ラケット(g): <input type="number" id="bio-racket" value="85" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
+    </div>
+    <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+      <button onclick="startCamera()" style="background:#0288d1; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        📷 Webカメラで開始
+      </button>
+      
+      <label style="background:#009688; color:white; padding:10px 20px; border-radius:4px; cursor:pointer; display:inline-block;">
+        📁 動画ファイルを解析
+        <input type="file" id="video-upload" accept="video/*" style="display:none;" onchange="handleVideoUpload(this)">
+      </label>
+
+      <button id="btn-record-start" onclick="startRecording()" style="background:#e91e63; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; display:none;">
+        ● 解析結果を録画
+      </button>
+      <button id="btn-record-stop" onclick="stopRecording()" style="background:#880e4f; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; display:none;">
+        ■ 録画停止＆保存
+      </button>
+
+      <button onclick="stopTracking()" style="background:#d32f2f; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        ⏹ 全停止
+      </button>
+    </div>
+
+    <div style="position: relative; width: 100%; max-width: 640px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
+      <video id="input_video" style="display: none;" playsinline></video>
+      <canvas id="output_canvas" width="640" height="480" style="width: 100%; display: block;"></canvas>
+      
+      <div id="pose-data-overlay" style="position: absolute; top: 10px; left: 10px; background: rgba(0, 0, 0, 0.8); color: white; padding: 10px; border-radius: 4px; font-size: 12px; pointer-events: none; min-width: 180px;">
+  <div style="font-weight: bold; margin-bottom: 5px; border-bottom:1px solid #555;">解析データ (Max Load)</div>
+  
+  <div style="display:flex; justify-content:space-between;">
+    <span>💪 肘 (Elbow):</span>
+    <span style="color: #4fc3f7; font-weight: bold;"><span id="val-r-elbow">--</span>° / <span id="max-r-elbow-t" style="color:#ff4081;">0</span>Nm</span>
+  </div>
+
+  <div style="display:flex; justify-content:space-between;">
+    <span>💪 肩 (Shoulder):</span>
+    <span style="color: #ff8a65; font-weight: bold;"><span id="val-r-shoulder">--</span>° / <span id="max-r-shoulder-t" style="color:#ff4081;">0</span>Nm</span>
+  </div>
+
+  <div style="margin-top:4px; border-top:1px solid #555; padding-top:4px;"></div>
+
+  <div style="display:flex; justify-content:space-between;">
+    <span>🦵 膝 (Knee):</span>
+    <span style="color: #66bb6a; font-weight: bold;"><span id="val-r-knee">--</span>° / <span id="max-r-knee-t" style="color:#ff4081;">0</span>Nm</span>
+  </div>
+
+  <div style="display:flex; justify-content:space-between;">
+    <span>🧍 体幹 (Trunk):</span>
+    <span style="color: #fdd835; font-weight: bold;"><span id="val-trunk">--</span>° / <span id="max-trunk-t" style="color:#ff4081;">0</span>Nm</span>
+  </div>
+  
+  <div style="margin-top:5px; text-align:right; font-size:10px; color:#aaa;">
+    ※右側: 最大トルク(Nm)
+  </div>
+</div>
+  </div>
+</section>
 
 <style>
 @keyframes fadeIn {
@@ -6872,12 +6960,19 @@ function saveMapData() {
 function renderMap() {
     if (!isChartLoaded) return;
 
+    const container = document.getElementById('map-visual-container');
+    
+    // ▼▼▼ 【修正】コンテナが見えない（閉じている）時は描画しない（これでエラーが消えます） ▼▼▼
+    if (!container || container.offsetParent === null) {
+        return;
+    }
+    // ▲▲▲ 修正ここまで ▲▲▲
+
     const isJapan = (currentMapMode === "japan");
     const route = isJapan ? JAPAN_ROUTE : WORLD_ROUTE;
     const currentIdx = isJapan ? mapProgress.japan : mapProgress.world;
 
     // データテーブルの作成
-    // 変更点: 3列目に {role: 'tooltip'} を追加して、コードではなく名前を表示させます
     const dataArray = [['Code', 'Status', {role: 'tooltip'}]];
     
     route.forEach((item, index) => {
@@ -6893,25 +6988,22 @@ function renderMap() {
 
     // オプション設定
     const options = {
-        // 色の設定: [未到達, 通過済み, 現在地]
         colorAxis: { values: [0, 1, 2], colors: ['#e0e0e0', '#ffcc80', '#d50000'] },
-        backgroundColor: '#b3e5fc', // 海の色
-        datalessRegionColor: '#f5f5f5', // データがない地域の色
+        backgroundColor: '#b3e5fc',
+        datalessRegionColor: '#f5f5f5',
         defaultColor: '#f5f5f5',
-        legend: 'none', // 凡例非表示
-        // ツールチップ設定: HTML形式にして見やすく、余計なカラーコードを消す
+        legend: 'none',
         tooltip: { isHtml: true, showColorCode: false } 
     };
 
     if (isJapan) {
-        options.region = 'JP'; // 日本地図
-        options.resolution = 'provinces'; // 都道府県レベル
+        options.region = 'JP'; 
+        options.resolution = 'provinces'; 
     } else {
-        options.region = 'world'; // 世界地図
-        options.resolution = 'countries'; // 国レベル
+        options.region = 'world'; 
+        options.resolution = 'countries'; 
     }
 
-    const container = document.getElementById('map-visual-container');
     chart = new google.visualization.GeoChart(container);
     chart.draw(data, options);
 
@@ -6919,15 +7011,17 @@ function renderMap() {
     const currentItem = route[currentIdx];
     const currentName = currentItem ? currentItem.name : "GOAL!";
     
-    document.getElementById("current-location-name").textContent = currentName;
-    document.getElementById("map-progress-text").textContent = 
-        `${Math.min(currentIdx + 1, route.length)} / ${route.length} ${isJapan ? '都道府県' : 'Countries'}`;
+    const nameEl = document.getElementById("current-location-name");
+    if(nameEl) nameEl.textContent = currentName;
 
-    // ロック状態・ボタン色の更新（前回の機能維持）
+    const progEl = document.getElementById("map-progress-text");
+    if(progEl) progEl.textContent = `${Math.min(currentIdx + 1, route.length)} / ${route.length} ${isJapan ? '都道府県' : 'Countries'}`;
+
     if (typeof updateMapUnlockState === "function") {
         updateMapUnlockState();
     }
 }
+
 // --- モード切替 ---
 function switchMapMode(mode) {
     currentMapMode = mode;
@@ -7350,6 +7444,421 @@ function prevStep() {
 // ページ読み込み時に実行
 document.addEventListener("DOMContentLoaded", initSimulation);
 
+</script>
+
+<script>
+// ==========================================
+// 🤖 MediaPipe Pose + 💪 全身トルク可視化 (左右対応/Max表示) + 🎥 録画
+// ==========================================
+
+const videoElement = document.getElementById('input_video');
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement ? canvasElement.getContext('2d') : null;
+let pose;
+let camera;
+let animationId;
+
+// 🎥 録画用変数
+let mediaRecorder;
+let recordedChunks = [];
+
+// 💪 トルク最大値管理用
+let maxTorqueValues = { shoulder: 0, elbow: 0, trunk: 0, knee: 0 };
+
+// 1. Poseの初期化設定
+function initPose() {
+    if (pose) return; 
+
+    pose = new Pose({locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+    }});
+
+    pose.setOptions({
+        modelComplexity: 1, // 精度重視なら2に変更
+        smoothLandmarks: true,
+        enableSegmentation: true,
+        smoothSegmentation: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+
+    pose.onResults(onPoseResults);
+}
+
+// 2. 結果の描画と計算処理 (メインループ)
+function onPoseResults(results) {
+    if (!results.poseLandmarks || !canvasCtx) return;
+
+    // キャンバスサイズ調整
+    canvasElement.width = videoElement.videoWidth || 640;
+    canvasElement.height = videoElement.videoHeight || 480;
+
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    // 元画像の描画
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+    // 骨格の描画
+    if(window.drawConnectors && window.drawLandmarks) {
+        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, 
+            {color: '#00FF00', lineWidth: 4}); 
+        drawLandmarks(canvasCtx, results.poseLandmarks, 
+            {color: '#FF0000', lineWidth: 2, radius: 5}); 
+    }
+    
+    // --- 解析 & トルク計算 ---
+    const lm = results.poseLandmarks;
+    
+    // 左右の視認性をチェック (肩・腰・膝の平均信頼度)
+    // 右側 (12, 24, 26)
+    const rightVis = (lm[12].visibility + lm[24].visibility + lm[26].visibility) / 3;
+    // 左側 (11, 23, 25)
+    const leftVis = (lm[11].visibility + lm[23].visibility + lm[25].visibility) / 3;
+
+    // どちらを使うか判定 (信頼度が0.5以上、かつ見えている方)
+    let side = null; // 'right' or 'left'
+    if (rightVis > leftVis && rightVis > 0.5) {
+        side = 'right';
+    } else if (leftVis > rightVis && leftVis > 0.5) {
+        side = 'left';
+    }
+
+    // 計算実行
+    if (side) {
+        const isRight = (side === 'right');
+        
+        // 座標セット (左右動的に取得)
+        const p_shoulder = isRight ? lm[12] : lm[11];
+        const p_elbow    = isRight ? lm[14] : lm[13];
+        const p_wrist    = isRight ? lm[16] : lm[15];
+        const p_hip      = isRight ? lm[24] : lm[23];
+        const p_knee     = isRight ? lm[26] : lm[25];
+        const p_ankle    = isRight ? lm[28] : lm[27];
+        
+        // 体幹用 (反対側の肩・腰が必要)
+        const p_opp_shoulder = isRight ? lm[11] : lm[12];
+        const p_opp_hip      = isRight ? lm[23] : lm[24];
+
+        // --- 角度計算 ---
+        const elbowAngle = calculateAngle(p_shoulder, p_elbow, p_wrist);
+        const shoulderAngle = calculateAngle(p_hip, p_shoulder, p_elbow);
+        const kneeAngle = calculateAngle(p_hip, p_knee, p_ankle);
+        
+        // 体幹前傾角度
+        const midShoulder = { x: (p_shoulder.x + p_opp_shoulder.x)/2, y: (p_shoulder.y + p_opp_shoulder.y)/2 };
+        const midHip = { x: (p_hip.x + p_opp_hip.x)/2, y: (p_hip.y + p_opp_hip.y)/2 };
+        const verticalPoint = { x: midHip.x, y: midHip.y - 0.5 };
+        const trunkAngle = calculateAngle(verticalPoint, midHip, midShoulder);
+
+        // --- トルク計算 ---
+        const torqueData = calculateFullBodyTorque(shoulderAngle, elbowAngle, kneeAngle, trunkAngle);
+
+        // --- 最大値の更新 ---
+        if (torqueData.shoulder > maxTorqueValues.shoulder) maxTorqueValues.shoulder = torqueData.shoulder;
+        if (torqueData.elbow > maxTorqueValues.elbow)       maxTorqueValues.elbow = torqueData.elbow;
+        if (torqueData.trunk > maxTorqueValues.trunk)       maxTorqueValues.trunk = torqueData.trunk;
+        if (torqueData.knee > maxTorqueValues.knee)         maxTorqueValues.knee = torqueData.knee;
+
+        // --- 可視化描画 (バブル) ---
+        drawTorqueVisual(p_elbow, torqueData.elbow, "肘", elbowAngle);
+        drawTorqueVisual(p_shoulder, torqueData.shoulder, "肩", shoulderAngle);
+        drawTorqueVisual(midHip, torqueData.trunk, "体幹", trunkAngle);
+        drawTorqueVisual(p_knee, torqueData.knee, "膝", kneeAngle);
+
+        // --- HTML側の数値も更新 (リアルタイム値) ---
+        setText("val-r-elbow", Math.round(elbowAngle));
+        setText("max-r-elbow-t", maxTorqueValues.elbow.toFixed(1)); // 最大値を表示
+
+        setText("val-r-shoulder", Math.round(shoulderAngle));
+        setText("max-r-shoulder-t", maxTorqueValues.shoulder.toFixed(1));
+
+        setText("val-r-knee", Math.round(kneeAngle));
+        setText("max-r-knee-t", maxTorqueValues.knee.toFixed(1));
+
+        setText("val-trunk", Math.round(trunkAngle));
+        setText("max-trunk-t", maxTorqueValues.trunk.toFixed(1));
+    }
+
+    // ★★★ 録画用情報パネルの描画 (Canvasに直接書く) ★★★
+    drawInfoPanel(side);
+
+    canvasCtx.restore();
+}
+
+// 録画用にCanvas上に情報を描画する関数
+function drawInfoPanel(side) {
+    if(!canvasCtx) return;
+
+    const w = 220;
+    const h = 140;
+    const x = 10;
+    const y = 10;
+
+    // 背景ボックス
+    canvasCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+    canvasCtx.fillRect(x, y, w, h);
+    
+    // 枠線
+    canvasCtx.strokeStyle = "#00acc1";
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeRect(x, y, w, h);
+
+    // テキスト設定
+    canvasCtx.textAlign = "left";
+    canvasCtx.textBaseline = "top";
+    canvasCtx.fillStyle = "#fff";
+    canvasCtx.font = "bold 14px 'Noto Sans JP', sans-serif";
+
+    // タイトル
+    canvasCtx.fillText("📊 Max Torque Analysis", x + 10, y + 10);
+    canvasCtx.font = "12px sans-serif";
+    
+    // 検出サイド表示
+    let sideText = "Detecting...";
+    if (side === 'right') sideText = "▶ Right Side (右半身)";
+    if (side === 'left')  sideText = "◀ Left Side (左半身)";
+    canvasCtx.fillStyle = side ? "#4caf50" : "#ff9800";
+    canvasCtx.fillText(sideText, x + 10, y + 30);
+
+    // 各値の描画 (Max値を表示)
+    canvasCtx.fillStyle = "#fff";
+    const startY = y + 50;
+    const stepY = 20;
+
+    canvasCtx.fillStyle = "#4fc3f7"; // 肘色
+    canvasCtx.fillText(`💪 Elbow Max: ${maxTorqueValues.elbow.toFixed(1)} Nm`, x + 10, startY);
+    
+    canvasCtx.fillStyle = "#ff8a65"; // 肩色
+    canvasCtx.fillText(`💪 Shoulder Max: ${maxTorqueValues.shoulder.toFixed(1)} Nm`, x + 10, startY + stepY);
+    
+    canvasCtx.fillStyle = "#fdd835"; // 体幹色
+    canvasCtx.fillText(`🧍 Trunk Max: ${maxTorqueValues.trunk.toFixed(1)} Nm`, x + 10, startY + stepY * 2);
+    
+    canvasCtx.fillStyle = "#66bb6a"; // 膝色
+    canvasCtx.fillText(`🦵 Knee Max: ${maxTorqueValues.knee.toFixed(1)} Nm`, x + 10, startY + stepY * 3);
+}
+
+// ヘルパー: テキストセット
+function setText(id, val) {
+    const el = document.getElementById(id);
+    if(el) el.textContent = val;
+}
+
+// --- 全身トルク計算ロジック (推定) ---
+function calculateFullBodyTorque(angShoulder, angElbow, angKnee, angTrunk) {
+    // HTML要素がない場合の安全策
+    const elH = document.getElementById("bio-height");
+    const elW = document.getElementById("bio-weight");
+    const elR = document.getElementById("bio-racket");
+
+    const H = elH ? (parseFloat(elH.value) || 170) : 170; 
+    const W = elW ? (parseFloat(elW.value) || 65) : 65;  
+    const R_mass = elR ? ((parseFloat(elR.value) || 85) / 1000) : 0.085;
+
+    const g = 9.81;
+    const H_m = H / 100;
+    const L_upper = 0.186 * H_m; 
+    const L_fore  = 0.146 * H_m;
+    const L_trunk = 0.3 * H_m; 
+
+    const M_arm = 0.05 * W; 
+    const M_upper_body = 0.6 * W; 
+    const M_body_above_knee = 0.85 * W; 
+
+    const radT = angTrunk * (Math.PI / 180);
+    const kneeFlexFactor = Math.abs(Math.sin((180 - angKnee) * (Math.PI / 180)));
+
+    const factorS = Math.abs(Math.sin(angShoulder * Math.PI / 180)); 
+    const t_elbow = (2.0 + R_mass) * g * L_fore * Math.sin(angElbow * Math.PI / 180); 
+    const t_shoulder = (M_arm + R_mass) * g * L_upper * factorS + t_elbow;
+
+    const t_trunk = M_upper_body * g * (L_trunk * 0.5) * Math.sin(radT);
+    const momentArmKnee = (H_m * 0.25) * kneeFlexFactor; 
+    const t_knee = M_body_above_knee * g * momentArmKnee;
+
+    return { 
+        shoulder: Math.abs(t_shoulder), 
+        elbow: Math.abs(t_elbow), 
+        trunk: Math.abs(t_trunk),
+        knee: Math.abs(t_knee)
+    };
+}
+
+// --- 可視化描画ヘルパー ---
+function drawTorqueVisual(point, torque, label, angle) {
+    if(!point || !canvasCtx) return;
+    const x = point.x * canvasElement.width;
+    const y = point.y * canvasElement.height;
+    
+    // バブル描画
+    const scaleFactor = 1.5; 
+    let radius = torque * scaleFactor;
+    if (radius < 10) radius = 10; 
+    if (radius > 150) radius = 150;
+
+    const gradient = canvasCtx.createRadialGradient(x, y, radius * 0.1, x, y, radius);
+    gradient.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+    gradient.addColorStop(0.5, 'rgba(220, 220, 220, 0.5)');
+    gradient.addColorStop(1, 'rgba(150, 150, 150, 0.1)');
+
+    canvasCtx.beginPath();
+    canvasCtx.arc(x, y, radius, 0, 2 * Math.PI);
+    canvasCtx.fillStyle = gradient;
+    canvasCtx.fill();
+
+    // 数値描画
+    canvasCtx.fillStyle = "rgba(0,0,0,0.6)";
+    canvasCtx.fillRect(x - 40, y - 10, 80, 35);
+    
+    canvasCtx.textAlign = "center";
+    canvasCtx.textBaseline = "middle";
+
+    canvasCtx.fillStyle = "#ffcc80";
+    canvasCtx.font = "10px sans-serif";
+    canvasCtx.fillText(`${label}: ${Math.round(angle)}°`, x, y + 5);
+
+    canvasCtx.fillStyle = "#fff";
+    canvasCtx.font = "bold 14px sans-serif";
+    canvasCtx.fillText(`${torque.toFixed(0)} Nm`, x, y + 20);
+}
+
+// 3. 角度計算
+function calculateAngle(a, b, c) {
+    if(!a || !b || !c) return 0;
+    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs(radians * 180.0 / Math.PI);
+    if (angle > 180.0) angle = 360 - angle;
+    return angle;
+}
+
+// 4. Webカメラ開始（リセット含む）
+async function startCamera() {
+    initPose();
+    if(camera) await camera.stop();
+    if(videoElement.src) { videoElement.pause(); videoElement.src = ""; }
+
+    // 開始時に最大値をリセット
+    maxTorqueValues = { shoulder: 0, elbow: 0, trunk: 0, knee: 0 };
+
+    camera = new Camera(videoElement, {
+        onFrame: async () => { await pose.send({image: videoElement}); },
+        width: 640, height: 480
+    });
+    camera.start();
+    const btn = document.getElementById("btn-record-start");
+    if(btn) btn.style.display = "inline-block";
+}
+
+// 5. 動画アップロード処理（リセット含む）
+function handleVideoUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    initPose();
+    if(camera) camera.stop();
+
+    // ファイル変更時も最大値をリセット
+    maxTorqueValues = { shoulder: 0, elbow: 0, trunk: 0, knee: 0 };
+
+    const url = URL.createObjectURL(file);
+    videoElement.src = url;
+    videoElement.style.display = "none";
+    videoElement.onloadeddata = () => {
+        videoElement.play();
+        processVideoFrame();
+    };
+    const btn = document.getElementById("btn-record-start");
+    if(btn) btn.style.display = "inline-block";
+}
+
+function processVideoFrame() {
+    if (videoElement.paused || videoElement.ended) return;
+    pose.send({image: videoElement}).then(() => {
+        animationId = requestAnimationFrame(processVideoFrame);
+    });
+}
+
+// 6. 停止処理
+function stopTracking() {
+    if (camera) camera.stop();
+    if (videoElement) { videoElement.pause(); videoElement.src = ""; }
+    if (animationId) cancelAnimationFrame(animationId);
+    stopRecording(); 
+    
+    if(canvasCtx) canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
+    const btnStart = document.getElementById("btn-record-start");
+    const btnStop = document.getElementById("btn-record-stop");
+    if(btnStart) btnStart.style.display = "none";
+    if(btnStop) btnStop.style.display = "none";
+}
+
+// ==========================================
+// 🎥 録画機能 (MediaRecorder)
+// ==========================================
+function startRecording() {
+    if(!canvasElement) return;
+    // Canvasのストリームを取得 (30fps)
+    const stream = canvasElement.captureStream(30); 
+    recordedChunks = [];
+    
+    // 対応コーデックの確認
+    const mimeTypes = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+    let selectedMime = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "";
+
+    if (!selectedMime) { alert("このブラウザは録画に対応していません。"); return; }
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: selectedMime });
+    mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
+    mediaRecorder.onstop = saveVideo;
+    mediaRecorder.start();
+    
+    const btnStart = document.getElementById("btn-record-start");
+    const btnStop = document.getElementById("btn-record-stop");
+    if(btnStart) btnStart.style.display = "none";
+    if(btnStop) btnStop.style.display = "inline-block";
+    
+    // 録画中はCanvas上に赤丸を表示（Canvasに直接描画はonPoseResultsで行うのがベストだが、ここではインジケータDOMも併用）
+    const overlay = document.getElementById("pose-data-overlay");
+    if(overlay && overlay.parentElement) {
+        const recIndicator = document.createElement("div");
+        recIndicator.id = "rec-indicator";
+        recIndicator.style.cssText = "position:absolute; top:10px; right:10px; color:red; font-weight:bold; background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:4px; animation: blink 1s infinite; z-index:100;";
+        recIndicator.textContent = "● REC";
+        overlay.parentElement.appendChild(recIndicator);
+        
+        if(!document.getElementById('blink-style')) {
+            const style = document.createElement('style');
+            style.id = 'blink-style';
+            style.innerHTML = `@keyframes blink { 50% { opacity: 0; } }`;
+            document.head.appendChild(style);
+        }
+    }
+}
+
+function stopRecording() {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+        const btnStart = document.getElementById("btn-record-start");
+        const btnStop = document.getElementById("btn-record-stop");
+        if(btnStart) btnStart.style.display = "inline-block";
+        if(btnStop) btnStop.style.display = "none";
+        const ind = document.getElementById("rec-indicator");
+        if(ind) ind.remove();
+    }
+}
+
+function saveVideo() {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Analysis_${new Date().toISOString().slice(0,19).replace(/[-T:]/g,"")}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); window.URL.revokeObjectURL(url); }, 100);
+    alert("録画した解析動画をダウンロードしました！\n（最大トルク値も映像に含まれています）");
+}
 </script>
 </body>
 </html>
