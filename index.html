@@ -7480,8 +7480,8 @@ function initPose() {
     pose.setOptions({
         modelComplexity: 1, // 精度重視なら2に変更
         smoothLandmarks: true,
-        enableSegmentation: true,
-        smoothSegmentation: true,
+        enableSegmentation: false,
+        smoothSegmentation: false,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
     });
@@ -7755,9 +7755,12 @@ async function startCamera() {
     // カメラの設定（外側 or 内側）
     const constraints = {
         video: {
-            facingMode: currentFacingMode, // ここで切り替えます
-            width: 640, 
-            height: 480
+            facingMode: currentFacingMode,
+            // ★重要: 「ideal（理想値）」を使って低解像度を強力に指定
+            width: { ideal: 640 }, 
+            height: { ideal: 480 },
+            // ★重要: フレームレートも30fpsに制限して負荷を下げる
+            frameRate: { ideal: 30, max: 30 }
         },
         audio: false
     };
