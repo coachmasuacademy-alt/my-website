@@ -2796,8 +2796,12 @@ function openSimulation() {
     </div>
     <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
       <button onclick="startCamera()" style="background:#0288d1; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
-        📷 Webカメラで開始
-      </button>
+  📷 カメラ起動 (外側/内側)
+</button>
+
+<button onclick="toggleCamera()" style="background:#00bcd4; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; margin-left:10px;">
+  🔄 カメラ切替
+</button>
       
       <label style="background:#009688; color:white; padding:10px 20px; border-radius:4px; cursor:pointer; display:inline-block;">
         📁 動画ファイルを解析
@@ -7732,57 +7736,126 @@ function calculateAngle(a, b, c) {
     return angle;
 }
 
-// 4. Webカメラ開始（リセット含む）
+// ==========================================
+// 🎥 カメラ制御用変数を追加
+// ==========================================
+let currentFacingMode = 'environment'; // 初期値を 'environment' (外側) に設定
+let isCameraRunning = false; // カメラが動いているか
+
+// 4. Webカメラ開始（リセット含む・外側/内側対応版）
 async function startCamera() {
     initPose();
-    if(camera) await camera.stop();
-    if(videoElement.src) { videoElement.pause(); videoElement.src = ""; }
-
-    // 開始時に最大値をリセット
+    
+    // 既存のループやカメラがあれば停止
+    stopTracking(); 
+    
+    // トルク最大値をリセット
     maxTorqueValues = { shoulder: 0, elbow: 0, trunk: 0, knee: 0 };
 
-    camera = new Camera(videoElement, {
-        onFrame: async () => { await pose.send({image: videoElement}); },
-        width: 640, height: 480
-    });
-    camera.start();
-    const btn = document.getElementById("btn-record-start");
-    if(btn) btn.style.display = "inline-block";
+    // カメラの設定（外側 or 内側）
+    const constraints = {
+        video: {
+            facingMode: currentFacingMode, // ここで切り替えます
+            width: 640, 
+            height: 480
+        },
+        audio: false
+    };
+
+    try {
+        // カメラの映像を取得
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        videoElement.srcObject = stream;
+        videoElement.style.display = "none"; // 映像そのものは非表示（Canvasに描画するため）
+        
+        // メタデータ読み込み後に再生＆解析ループ開始
+        videoElement.onloadedmetadata = () => {
+            videoElement.play();
+            isCameraRunning = true;
+            processCameraFrame(); // 解析ループを開始
+        };
+
+        // ボタンの表示制御
+        const btnStart = document.getElementById("btn-record-start");
+        if(btnStart) btnStart.style.display = "inline-block";
+
+    } catch (err) {
+        console.error("Camera Error:", err);
+        alert("カメラの起動に失敗しました。\n権限が許可されているか確認してください。\n" + err.name);
+    }
 }
 
-// 5. 動画アップロード処理（リセット含む）
+// ★追加: カメラ切り替え関数
+function toggleCamera() {
+    // 現在が外側なら内側へ、内側なら外側へ
+    currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+    
+    // カメラが起動中なら、一度停止して再起動（設定を反映させるため）
+    if (isCameraRunning) {
+        startCamera();
+    } else {
+        alert("カメラ起動時に向きが変更されます: " + (currentFacingMode === 'environment' ? '外側' : '内側'));
+    }
+}
+
+// ★追加: カメラ映像の解析ループ関数
+function processCameraFrame() {
+    if (!isCameraRunning) return;
+
+    // AI解析を実行
+    pose.send({image: videoElement}).then(() => {
+        // 次のフレームをリクエスト
+        if (isCameraRunning) {
+            animationId = requestAnimationFrame(processCameraFrame);
+        }
+    });
+}
+
+// 5. 動画アップロード処理（既存のまま、ただし停止処理を追加）
 function handleVideoUpload(input) {
     const file = input.files[0];
     if (!file) return;
+    
     initPose();
-    if(camera) camera.stop();
+    stopTracking(); // カメラが動いていたら止める
 
-    // ファイル変更時も最大値をリセット
+    // リセット
     maxTorqueValues = { shoulder: 0, elbow: 0, trunk: 0, knee: 0 };
 
     const url = URL.createObjectURL(file);
+    videoElement.srcObject = null; // ストリームを解除
     videoElement.src = url;
     videoElement.style.display = "none";
+    
     videoElement.onloadeddata = () => {
         videoElement.play();
-        processVideoFrame();
+        processVideoFrame(); // 動画ファイル用のループ関数
     };
+    
     const btn = document.getElementById("btn-record-start");
     if(btn) btn.style.display = "inline-block";
 }
 
-function processVideoFrame() {
-    if (videoElement.paused || videoElement.ended) return;
-    pose.send({image: videoElement}).then(() => {
-        animationId = requestAnimationFrame(processVideoFrame);
-    });
-}
-
-// 6. 停止処理
+// 6. 停止処理（修正版）
 function stopTracking() {
-    if (camera) camera.stop();
-    if (videoElement) { videoElement.pause(); videoElement.src = ""; }
+    isCameraRunning = false; // フラグを下ろす
+
+    // アニメーションループ停止
     if (animationId) cancelAnimationFrame(animationId);
+
+    // カメラストリームの停止
+    if (videoElement.srcObject) {
+        const tracks = videoElement.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+        videoElement.srcObject = null;
+    }
+
+    // 動画ファイルの停止
+    if (videoElement.src) {
+        videoElement.pause();
+        videoElement.src = "";
+    }
+
     stopRecording(); 
     
     if(canvasCtx) canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -7792,7 +7865,6 @@ function stopTracking() {
     if(btnStart) btnStart.style.display = "none";
     if(btnStop) btnStop.style.display = "none";
 }
-
 // ==========================================
 // 🎥 録画機能 (MediaRecorder)
 // ==========================================
