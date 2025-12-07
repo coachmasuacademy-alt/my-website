@@ -2794,6 +2794,26 @@ function openSimulation() {
       <label style="font-size: 13px;">体重(kg): <input type="number" id="bio-weight" value="65" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
       <label style="font-size: 13px;">ラケット(g): <input type="number" id="bio-racket" value="85" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
     </div>
+
+<div style="margin-bottom: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; display: flex; gap: 15px; align-items: center; border: 1px solid #90caf9;">
+  <span style="font-weight: bold; font-size: 13px; color: #0277bd;">👁️ 表示モード:</span>
+  <label style="cursor: pointer; font-size: 14px;">
+    <input type="radio" name="vis-mode" value="polygon" checked onchange="switchVisualMode('polygon')">
+    💠 ポリゴン
+  </label>
+  <label style="cursor: pointer; font-size: 14px;">
+    <input type="radio" name="vis-mode" value="skeleton" onchange="switchVisualMode('skeleton')">
+    🦴 スケルトン
+  </label>
+  
+  <span style="margin-left: 15px; border-left: 1px solid #ccc; padding-left: 15px;">
+      <label style="cursor: pointer; font-size: 14px; font-weight: bold; color: #333;">
+        <input type="checkbox" id="bg-toggle" checked onchange="toggleBackground()">
+        🖼️ 背景を表示
+      </label>
+  </span>
+</div>
+
     <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
       <button onclick="startCamera()" style="background:#0288d1; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
   📷 カメラ起動 (外側/内側)
@@ -7499,14 +7519,14 @@ document.addEventListener("DOMContentLoaded", initSimulation);
 
 <script>
 // ==========================================
-// 🤖 MediaPipe Pose + 💪 全身トルク可視化 (左右対応/Max表示) + 🎥 録画
+// 🤖 MediaPipe Pose + 💪 全身トルク可視化 (ポリゴン/スケルトン切替版)
 // ==========================================
 
 const videoElement = document.getElementById('input_video');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement ? canvasElement.getContext('2d') : null;
 
-// 📈 グラフ設定 (7項目)
+// 📈 グラフ設定
 const MAX_GRAPH_POINTS = 300;
 const graphConfigs = {
     r_elbow:    { id: 'graph_r_elbow',    color: '#4fc3f7', max: 60 },
@@ -7530,6 +7550,8 @@ let maxTorqueValues = { r_elbow: 0, r_shoulder: 0, r_knee: 0, l_elbow: 0, l_shou
 let pose;
 let camera;
 let animationId;
+let isCameraRunning = false;
+let currentFacingMode = 'user';
 
 // 🎥 録画用
 let mediaRecorder;
@@ -7537,6 +7559,20 @@ let recordedChunks = [];
 let selectedMimeType = "";
 let recordedCSVData = [];
 let recordingStartTime = 0;
+
+// 🎨 表示モード管理
+let currentVisualMode = 'polygon'; // 'polygon' or 'skeleton'
+let isBackgroundVisible = true;
+
+window.switchVisualMode = function(mode) {
+    currentVisualMode = mode;
+    console.log("Mode switched to:", mode); // 確認用ログ
+}
+
+window.toggleBackground = function() {
+    const cb = document.getElementById('bg-toggle');
+    if(cb) isBackgroundVisible = cb.checked;
+}
 
 // 1. Pose初期化
 function initPose() {
@@ -7559,19 +7595,40 @@ function initPose() {
 function onPoseResults(results) {
     if (!results.poseLandmarks || !canvasCtx) return;
 
+    // キャンバスサイズ調整
     canvasElement.width = videoElement.videoWidth || 640;
     canvasElement.height = videoElement.videoHeight || 480;
 
     canvasCtx.save();
+    
+    // ------------------------------------------------
+    // 1. 背景の描画処理
+    // ------------------------------------------------
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    
+    if (isBackgroundVisible) {
+        // 背景ON: カメラ映像を描画
+        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+        
+        // ポリゴンモードの時だけ、発光を目立たせるために少し暗くする
+        if (currentVisualMode === 'polygon') {
+            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+        }
+    } else {
+        // 背景OFF: 真っ黒にする
+        canvasCtx.fillStyle = '#000000';
+        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    }
 
     const lm = results.poseLandmarks;
     
-    // --- 右側の計算 ---
+    // ------------------------------------------------
+    // 2. 負荷(トルク)の計算処理
+    // ------------------------------------------------
+    // 右側
     const visR = (lm[12].visibility + lm[14].visibility + lm[24].visibility + lm[26].visibility) / 4;
     let torqueR = { shoulder: 0, elbow: 0, knee: 0 };
-    
     if (visR > 0.5) {
         const angElbowR    = calculateAngle(lm[12], lm[14], lm[16]);
         const angShoulderR = calculateAngle(lm[24], lm[12], lm[14]);
@@ -7584,16 +7641,11 @@ function onPoseResults(results) {
 
         torqueR = calculateFullBodyTorque(angShoulderR, angElbowR, angKneeR, angTrunk);
         updateMaxAndDrawVisual('r', lm, torqueR, {e:angElbowR, s:angShoulderR, k:angKneeR});
-        
-        // ★★★ 筋活動（ヒートマップ）の描画：右 ★★★
-        drawMuscleActivity(lm[12], lm[14], torqueR.elbow, 60);    // 上腕 (肘負荷)
-        drawMuscleActivity(lm[24], lm[26], torqueR.knee, 250);    // 太もも (膝負荷)
     }
 
-    // --- 左側の計算 ---
+    // 左側
     const visL = (lm[11].visibility + lm[13].visibility + lm[23].visibility + lm[25].visibility) / 4;
     let torqueL = { shoulder: 0, elbow: 0, knee: 0 };
-
     if (visL > 0.5) {
         const angElbowL    = calculateAngle(lm[11], lm[13], lm[15]);
         const angShoulderL = calculateAngle(lm[23], lm[11], lm[13]);
@@ -7601,42 +7653,93 @@ function onPoseResults(results) {
         
         torqueL = calculateFullBodyTorque(angShoulderL, angElbowL, angKneeL, 0); 
         updateMaxAndDrawVisual('l', lm, torqueL, {e:angElbowL, s:angShoulderL, k:angKneeL});
-
-        // ★★★ 筋活動（ヒートマップ）の描画：左 ★★★
-        drawMuscleActivity(lm[11], lm[13], torqueL.elbow, 60);    // 上腕
-        drawMuscleActivity(lm[23], lm[25], torqueL.knee, 250);    // 太もも
     }
 
-    // --- 体幹 (共通) ---
+    // 体幹負荷
     let valTrunk = 0;
     if (visR > 0.5 || visL > 0.5) {
         const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
         const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
         const verticalPt  = { x: midHip.x, y: midHip.y - 0.5 };
         const angTrunk    = calculateAngle(verticalPt, midHip, midShoulder);
-        
         const tData = calculateFullBodyTorque(0, 0, 0, angTrunk);
         valTrunk = tData.trunk;
-        
         if (valTrunk > maxTorqueValues.trunk) maxTorqueValues.trunk = valTrunk;
         
-        // 体幹バブル
-        drawTorqueVisual(midHip, valTrunk, "体幹", angTrunk);
-        
-        // ★★★ 筋活動（ヒートマップ）の描画：体幹 ★★★
-        // 肩の中点から腰の中点まで太い線を描画
-        drawMuscleActivity(midShoulder, midHip, valTrunk, 150, 40); 
-
         setText("val-trunk", Math.round(angTrunk));
         setText("max-trunk-t", maxTorqueValues.trunk.toFixed(1));
     }
 
-    // 骨格接続線（最後に描画して筋肉の上に重ねる）
-    if(window.drawConnectors) {
-        drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS, {color: 'rgba(255,255,255,0.6)', lineWidth: 2}); 
+    // ------------------------------------------------
+    // 3. 描画モードの分岐 (ここが重要！)
+    // ------------------------------------------------
+    
+    if (currentVisualMode === 'polygon') {
+        // ===================================
+        // 💠 ポリゴンモード (リッチ表現)
+        // ===================================
+        
+        // 胴体を面で塗る
+        drawPolygonBody(lm);
+
+        // 筋肉 (第5引数を true にする = 太く光る)
+        // 右側
+        drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
+        drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
+        drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
+        drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
+        // 左側
+        drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
+        drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
+        drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
+        drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
+        
+        // 体幹
+        if(visR > 0.5 || visL > 0.5) {
+             const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
+             const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
+             drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, true);
+        }
+        
+        // 関節 (第2引数を true = リッチなリング)
+        drawJoints(lm, true);
+
+    } else {
+        // ===================================
+        // 🦴 スケルトンモード (シンプル表現)
+        // ===================================
+        
+        // 筋肉 (第5引数を false にする = 細い線・発光なし)
+        // 右側
+        drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, false);
+        drawDynamicMuscle(lm[14], lm[16], 0, 100, false);
+        drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, false);
+        drawDynamicMuscle(lm[26], lm[28], 0, 100, false);
+        // 左側
+        drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, false);
+        drawDynamicMuscle(lm[13], lm[15], 0, 100, false);
+        drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, false);
+        drawDynamicMuscle(lm[25], lm[27], 0, 100, false);
+        
+        // 体幹や胴体は「面」で塗らず、シンプルな線でつなぐ
+        drawSimpleConnector(lm[11], lm[12]); // 肩の線
+        drawSimpleConnector(lm[23], lm[24]); // 腰の線
+        drawSimpleConnector(lm[11], lm[23]); // 左胴体
+        drawSimpleConnector(lm[12], lm[24]); // 右胴体
+
+        if(visR > 0.5 || visL > 0.5) {
+             const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
+             const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
+             drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, false);
+        }
+
+        // 関節 (第2引数を false = シンプルな点)
+        drawJoints(lm, false);
     }
 
-    // --- グラフ & CSV記録 ---
+    // ------------------------------------------------
+    // 4. データ記録とグラフ更新
+    // ------------------------------------------------
     updateAllGraphData(torqueR, torqueL, valTrunk);
     drawAllGraphs();
     
@@ -7653,31 +7756,51 @@ function onPoseResults(results) {
     canvasCtx.restore();
 }
 
-// ★★★ 新規追加：筋活動（ヒートマップ）描画関数 ★★★
-function drawMuscleActivity(startPt, endPt, torque, maxVal, width = 20) {
+// --- 🔷 ポリゴン（面）描画 ---
+function drawPolygonBody(lm) {
+    if (!canvasCtx) return;
+    const w = canvasElement.width;
+    const h = canvasElement.height;
+
+    // 胴体
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(lm[11].x * w, lm[11].y * h);
+    canvasCtx.lineTo(lm[12].x * w, lm[12].y * h);
+    canvasCtx.lineTo(lm[24].x * w, lm[24].y * h);
+    canvasCtx.lineTo(lm[23].x * w, lm[23].y * h);
+    canvasCtx.closePath();
+
+    canvasCtx.fillStyle = 'rgba(0, 191, 255, 0.15)';
+    canvasCtx.fill();
+    canvasCtx.strokeStyle = 'rgba(0, 191, 255, 0.8)';
+    canvasCtx.lineWidth = 2;
+    canvasCtx.stroke();
+
+    // 顔
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(lm[0].x * w, lm[0].y * h);
+    canvasCtx.lineTo(lm[7].x * w, lm[7].y * h);
+    canvasCtx.lineTo(lm[8].x * w, lm[8].y * h);
+    canvasCtx.closePath();
+    canvasCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+    canvasCtx.fill();
+}
+
+// --- 💪 筋肉描画 (モード対応) ---
+function drawDynamicMuscle(startPt, endPt, torque, maxVal, isPolygon) {
     if (!startPt || !endPt || !canvasCtx) return;
 
-    // 0〜1の強度 (maxValを超えたら1)
     let intensity = torque / maxVal;
     if (intensity > 1) intensity = 1;
     if (intensity < 0) intensity = 0;
 
-    // 色の計算: 緑(低負荷) -> 黄 -> 赤(高負荷)
-    // 0.0: rgb(0, 255, 0)
-    // 0.5: rgb(255, 255, 0)
-    // 1.0: rgb(255, 0, 0)
     let r, g, b;
     if (intensity < 0.5) {
-        r = Math.round(255 * (intensity * 2));
-        g = 255;
-        b = 0;
+        r = 0; g = 255; b = Math.round(255 * (1 - intensity * 2));
     } else {
-        r = 255;
-        g = Math.round(255 * (1 - (intensity - 0.5) * 2));
-        b = 0;
+        r = Math.round(255 * (intensity - 0.5) * 2); g = Math.round(255 * (1 - (intensity - 0.5) * 2)); b = 0;
     }
 
-    // 描画
     const startX = startPt.x * canvasElement.width;
     const startY = startPt.y * canvasElement.height;
     const endX = endPt.x * canvasElement.width;
@@ -7686,24 +7809,76 @@ function drawMuscleActivity(startPt, endPt, torque, maxVal, width = 20) {
     canvasCtx.beginPath();
     canvasCtx.moveTo(startX, startY);
     canvasCtx.lineTo(endX, endY);
-    
-    // 光るような演出 (透明度と太さを調整)
     canvasCtx.lineCap = "round";
-    canvasCtx.lineWidth = width * (0.5 + intensity * 0.5); // 負荷が高いと太くなる
-    canvasCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.4 + intensity * 0.4})`; // 負荷が高いと濃くなる
-    
-    // ぼかし効果で発光感を出す
-    canvasCtx.shadowBlur = 15;
-    canvasCtx.shadowColor = `rgb(${r}, ${g}, ${b})`;
-    
-    canvasCtx.stroke();
-    
-    // ぼかしリセット
-    canvasCtx.shadowBlur = 0;
+
+    if (isPolygon) {
+        // 💠 ポリゴンモード: 太くて光る
+        canvasCtx.lineWidth = 6 + (intensity * 14); 
+        canvasCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
+        canvasCtx.shadowBlur = 10 + (intensity * 20);
+        canvasCtx.shadowColor = `rgb(${r}, ${g}, ${b})`;
+        canvasCtx.stroke();
+        canvasCtx.shadowBlur = 0; 
+
+        // 白い芯
+        canvasCtx.beginPath();
+        canvasCtx.moveTo(startX, startY);
+        canvasCtx.lineTo(endX, endY);
+        canvasCtx.lineWidth = 2;
+        canvasCtx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+        canvasCtx.stroke();
+    } else {
+        // 🦴 スケルトンモード: 細くてシンプル
+        canvasCtx.lineWidth = 4; 
+        canvasCtx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+        canvasCtx.shadowBlur = 0;
+        canvasCtx.stroke();
+    }
 }
 
+// --- ⚪ ジョイント描画 (モード対応) ---
+function drawJoints(lm, isPolygon) {
+    if (!canvasCtx) return;
+    const w = canvasElement.width;
+    const h = canvasElement.height;
+    const joints = [11, 12, 13, 14, 23, 24, 25, 26];
 
-// --- 既存のヘルパー関数群 (そのまま) ---
+    joints.forEach(idx => {
+        const p = lm[idx];
+        const cx = p.x * w;
+        const cy = p.y * h;
+
+        canvasCtx.fillStyle = "#ffffff";
+        if (isPolygon) {
+            canvasCtx.beginPath(); canvasCtx.arc(cx, cy, 5, 0, Math.PI * 2); canvasCtx.fill();
+            canvasCtx.beginPath(); canvasCtx.arc(cx, cy, 8, 0, Math.PI * 2);
+            canvasCtx.strokeStyle = "rgba(0, 191, 255, 0.8)";
+            canvasCtx.lineWidth = 2;
+            canvasCtx.stroke();
+        } else {
+            canvasCtx.beginPath(); canvasCtx.arc(cx, cy, 6, 0, Math.PI * 2); canvasCtx.fill();
+            canvasCtx.strokeStyle = "#333";
+            canvasCtx.lineWidth = 1;
+            canvasCtx.stroke();
+        }
+    });
+}
+
+// --- 🦴 シンプル接続線 ---
+function drawSimpleConnector(p1, p2) {
+    if (!p1 || !p2 || !canvasCtx) return;
+    const w = canvasElement.width;
+    const h = canvasElement.height;
+    canvasCtx.beginPath();
+    canvasCtx.moveTo(p1.x * w, p1.y * h);
+    canvasCtx.lineTo(p2.x * w, p2.y * h);
+    canvasCtx.lineWidth = 2;
+    canvasCtx.strokeStyle = "white";
+    canvasCtx.stroke();
+}
+
+// --- 以下、既存の計算・制御ロジック ---
+
 function updateMaxAndDrawVisual(side, lm, tData, angles) {
     const p_shoulder = (side==='r') ? lm[12] : lm[11];
     const p_elbow    = (side==='r') ? lm[14] : lm[13];
@@ -7717,10 +7892,11 @@ function updateMaxAndDrawVisual(side, lm, tData, angles) {
     if (tData.elbow > maxTorqueValues[keyE])    maxTorqueValues[keyE] = tData.elbow;
     if (tData.knee > maxTorqueValues[keyK])     maxTorqueValues[keyK] = tData.knee;
 
-    // 関節の丸（バブル）はシンプルに残す
+    // ▼▼▼ 修正: if条件を削除し、全モードでバブルを表示する ▼▼▼
     drawTorqueVisual(p_shoulder, tData.shoulder, "", angles.s);
     drawTorqueVisual(p_elbow, tData.elbow, "", angles.e);
     drawTorqueVisual(p_knee, tData.knee, "", angles.k);
+    // ▲▲▲ 修正ここまで ▲▲▲
     
     if (side === 'r') {
         setText("val-r-elbow", Math.round(angles.e));
@@ -7878,10 +8054,8 @@ async function startCamera() {
     stopTracking(); 
     resetGraphData(); 
     
-    // CSV初期化
     recordedCSVData = [];
     recordingStartTime = Date.now();
-    
     maxTorqueValues = { r_elbow: 0, r_shoulder: 0, r_knee: 0, l_elbow: 0, l_shoulder: 0, l_knee: 0, trunk: 0 };
 
     const constraints = {
@@ -7929,23 +8103,29 @@ function handleVideoUpload(input) {
     stopTracking(); 
     resetGraphData(); 
     
-    // CSV初期化
     recordedCSVData = [];
     recordingStartTime = Date.now();
-    
     maxTorqueValues = { r_elbow: 0, r_shoulder: 0, r_knee: 0, l_elbow: 0, l_shoulder: 0, l_knee: 0, trunk: 0 };
 
     const url = URL.createObjectURL(file);
     videoElement.srcObject = null; 
     videoElement.src = url;
-    videoElement.style.display = "none";
+   
+    videoElement.style.display = "block";
+    videoElement.style.position = "absolute";
+    videoElement.style.width = "1px";
+    videoElement.style.height = "1px";
+    videoElement.style.opacity = "0";
+    videoElement.style.zIndex = "-1";
+   
+
     videoElement.muted = true;
     videoElement.playsInline = true;
     videoElement.setAttribute('playsinline', ''); 
     videoElement.onloadeddata = () => {
         videoElement.play().then(() => {
             processVideoFrame(); 
-        }).catch(e => { alert("再生エラー"); });
+        }).catch(e => { alert("再生エラー: " + e.message); });
     };
     const btn = document.getElementById("btn-record-start");
     if(btn) btn.style.display = "inline-block";
@@ -7980,13 +8160,12 @@ function stopTracking() {
     if(btnStop) btnStop.style.display = "none";
 }
 
-// 🎥 録画機能 (MP4優先 + CSVダウンロード)
+// 🎥 録画機能
 function startRecording() {
     if(!canvasElement) return;
     const stream = canvasElement.captureStream(30); 
     recordedChunks = [];
     
-    // CSV再初期化 (録画ボタンを押したタイミングでリセット)
     recordedCSVData = [];
     recordingStartTime = Date.now();
 
@@ -8060,7 +8239,6 @@ function saveVideo() {
         window.URL.revokeObjectURL(url);
     }, 100);
 
-    // ★ CSV保存処理
     if (recordedCSVData.length > 0) {
         downloadCSV(timestampStr);
     }
