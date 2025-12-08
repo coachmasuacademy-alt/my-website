@@ -7425,7 +7425,7 @@ const scenarioData = [
     options: [
       "A1が右(偶数コート)から、B2(左/正面)へ",
       "A1が右(偶数コート)から、B1(右/対角)へ", // 正解
-      "A2が左(奇数コート)から、B2(下/対角)へ"
+      "A1が右(偶数コート)から、B1、B2どちらにも打って良い"
     ],
     correctIdx: 1,
     explain: "正解！🙆‍♂️\n0点は偶数なので、A1は右(偶数コート/画面下)から打ちます。\nレシーバーは対角線のエリア(画面上)にいるB1です。"
@@ -8001,12 +8001,11 @@ function updateMaxAndDrawVisual(side, lm, tData, angles) {
     if (tData.elbow > maxTorqueValues[keyE])    maxTorqueValues[keyE] = tData.elbow;
     if (tData.knee > maxTorqueValues[keyK])     maxTorqueValues[keyK] = tData.knee;
 
-    // ▼▼▼ 修正: if条件を削除し、全モードでバブルを表示する ▼▼▼
-    drawTorqueVisual(p_shoulder, tData.shoulder, "", angles.s);
-    drawTorqueVisual(p_elbow, tData.elbow, "", angles.e);
-    drawTorqueVisual(p_knee, tData.knee, "", angles.k);
-    // ▲▲▲ 修正ここまで ▲▲▲
-    
+     // Elbow=60, Shoulder=100, Knee=250 を基準(100%)とします
+    drawTorqueVisual(p_shoulder, tData.shoulder, "", angles.s, 100);
+    drawTorqueVisual(p_elbow, tData.elbow, "", angles.e, 60);
+    drawTorqueVisual(p_knee, tData.knee, "", angles.k, 250); 
+        
     if (side === 'r') {
         setText("val-r-elbow", Math.round(angles.e));
         setText("max-r-elbow-t", maxTorqueValues.r_elbow.toFixed(1));
@@ -8129,15 +8128,26 @@ function calculateFullBodyTorque(angShoulder, angElbow, angKnee, angTrunk) {
     return { shoulder: Math.abs(t_shoulder), elbow: Math.abs(t_elbow), trunk: Math.abs(t_trunk), knee: Math.abs(t_knee) };
 }
 
-function drawTorqueVisual(point, torque, label, angle) {
+function drawTorqueVisual(point, torque, label, angle, maxVal) {
     if(!point || !canvasCtx) return;
     const x = point.x * canvasElement.width;
     const y = point.y * canvasElement.height;
     
-    const scaleFactor = 1.5; 
-    let radius = torque * scaleFactor;
+    // ▼▼▼ 修正箇所: バブルサイズの計算ロジックを変更 ▼▼▼
+    
+    // 基準値（指定がなければ100）
+    const limit = maxVal || 100;
+    // 画面上のバブルの最大半径(px)
+    const maxRadiusPixel = 120; 
+
+    // 「現在のトルク / 基準値」の割合で大きさを決める
+    let radius = (torque / limit) * maxRadiusPixel;
+
+    // 最小サイズと最大サイズの制限
     if (radius < 5) radius = 5; 
-    if (radius > 150) radius = 150;
+    if (radius > maxRadiusPixel) radius = maxRadiusPixel;
+    
+    // ▲▲▲ 修正ここまで ▲▲▲
 
     const gradient = canvasCtx.createRadialGradient(x, y, radius * 0.1, x, y, radius);
     gradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
