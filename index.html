@@ -2987,7 +2987,7 @@ function openSimulation() {
         </div>
         <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="font-size:12px; margin-bottom:5px; width:100%;">
         <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
-          <video id="video-a" playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-a')"></video>
+          <video id="video-a" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-a')"></video>
         </div>
         <input type="range" id="seek-video-a" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-a', this.value)">
       </div>
@@ -2999,7 +2999,7 @@ function openSimulation() {
         </div>
         <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-b')" style="font-size:12px; margin-bottom:5px; width:100%;">
         <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
-          <video id="video-b" playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-b')"></video>
+          <video id="video-b" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-b')"></video>
         </div>
         <input type="range" id="seek-video-b" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-b', this.value)">
       </div>
@@ -7396,7 +7396,7 @@ const posMap = {
 const scenarioData = [
   // --- Q1: 0-0 ---
   {
-    text: "試合開始！スコア 0-0。\nAチームがサーブ権を持っています。\nA1(Even)はどこから、誰に向かって打ちますか？",
+    text: "試合開始！スコア 0-0。\nAチームがサーブ権を持っています。\nA1はどこから、誰に向かって打ちますか？",
     score: {a:0, b:0},
     // A1(下/Even), A2(上/Odd) vs B1(上/Even), B2(下/Odd)
     pos: {A1:"l-even", A2:"l-odd", B1:"r-even", B2:"r-odd"}, 
@@ -8378,13 +8378,29 @@ function compLoadVideo(input, videoId) {
 }
 
 // 同時再生
-function compPlayBoth() {
+async function compPlayBoth() {
     const vA = document.getElementById('video-a');
     const vB = document.getElementById('video-b');
-    // 速度を適用してから再生
+    
+    // 速度適用
     compChangeSpeed();
-    if (vA.src) vA.play();
-    if (vB.src) vB.play();
+
+    // 【重要】スマホでの同時再生にはミュートが必須条件になることが多いです
+    // 音声を聞きたい場合は、再生後に手動でボリュームを上げてもらう必要があります
+    if (vA) vA.muted = true;
+    if (vB) vB.muted = true;
+
+    try {
+        // Promise処理を使って、非同期で再生を試みる
+        const playPromiseA = vA.src ? vA.play() : Promise.resolve();
+        const playPromiseB = vB.src ? vB.play() : Promise.resolve();
+
+        await Promise.all([playPromiseA, playPromiseB]);
+    } catch (err) {
+        console.error("再生エラー:", err);
+        // スマホによっては「ユーザーのタップ」と「再生」が1対1でないといけない場合があり、
+        // その場合はアラートを出すなどの対応が必要ですが、mutedなら大抵動きます。
+    }
 }
 
 // 同時一時停止
