@@ -151,7 +151,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbxNUGti2mki0Jw0Rfsu0Y1VowtXuZP57ADs2rrgydCI84yUdrhTifTce_TvsTzARptKBg/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbw5dsDBYvacMIqgCUjOF3unkyaNIyqRrQrHJh-1wK5OLuS4N8pWXDNlqnBOFoxD1psFPQ/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -4296,7 +4296,7 @@ var suggestedMenusData = [];
 // もしSHEET_URLが定義されていない場合の予備
 const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxNUGti2mki0Jw0Rfsu0Y1VowtXuZP57ADs2rrgydCI84yUdrhTifTce_TvsTzARptKBg/exec";
 
-// ✅ 1. Gemini API呼び出し関数
+// ✅ 1. Gemini API呼び出し関数 (エラーハンドリング強化版)
 window.analyzeAndSuggest = async function() {
   console.log("🚀 AIボタンがクリックされました");  
   
@@ -4334,11 +4334,32 @@ window.analyzeAndSuggest = async function() {
         return;
     }
 
-    // エラーチェック
+    // ▼▼▼ エラーチェック & メッセージ分岐 (ここを修正しました) ▼▼▼
     if (data.error) {
-         output.innerHTML = `⚠️ エラー: ${data.advice || data.error}`;
+         console.error("API Error Response:", data.error);
+         
+         // エラー文言に「429」や「quota」が含まれているかチェック
+         if (data.error.includes("429") || data.error.includes("RESOURCE_EXHAUSTED") || data.error.includes("quota")) {
+             output.innerHTML = `
+                <div style="background:#fff3cd; color:#856404; padding:15px; border-radius:6px; border:1px solid #ffeeba; text-align:left; margin-top:10px;">
+                    <h4 style="margin:0 0 10px 0; color:#856404;">⚠️ AIの利用制限に達しました</h4>
+                    <p style="font-size:13px; line-height:1.6; margin:0;">
+                        アクセスが集中しているか、1日の無料利用枠（Quota）を超過した可能性があります。<br>
+                        以下の手順をお試しください。
+                    </p>
+                    <ul style="font-size:13px; margin:10px 0 0 0; padding-left:20px;">
+                        <li style="margin-bottom:5px;"><b>1分ほど時間を空けてから</b>、もう一度ボタンを押してみてください。</li>
+                        <li>それでも改善しない場合は、本日の利用上限に達しています。<b>明日またご利用ください。</b></li>
+                    </ul>
+                </div>
+             `;
+         } else {
+             // その他のエラー (404など)
+             output.innerHTML = `⚠️ エラーが発生しました: ${data.advice || data.error}`;
+         }
          return;
     }
+    // ▲▲▲ 修正ここまで ▲▲▲
 
     // データの整形（新しいGASの形式に対応）
     let parsedMenus = [];
@@ -4348,10 +4369,10 @@ window.analyzeAndSuggest = async function() {
     if (data.suggested_menus && Array.isArray(data.suggested_menus)) {
         adviceText = data.advice || "";
         parsedMenus = data.suggested_menus.map(m => ({
-            category: m.step || "AI提案", // GAS側の step (フットワーク等) をカテゴリにする
+            category: m.category || m.step || "AI提案", 
             name: m.name,
-            note: m.reason || "",       // GAS側の reason (理由) を補足にする
-            url: m.video_url || ""      // 動画URL
+            note: m.note || m.reason || "",       
+            url: m.url || m.video_url || ""      
         }));
     } 
     // 古いパターン（念のため残す）
