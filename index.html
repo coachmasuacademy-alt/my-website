@@ -14,7 +14,6 @@
     body { font-family: "Noto Sans JP", sans-serif; margin: 20px; background: #f4f4f4; }
     h2, h3 { color: #333; }
     
-    /* 修正: 文字色と背景色を明示的に指定 */
     select, input, button, textarea { 
       margin: 5px; 
       padding: 6px 10px; 
@@ -2797,14 +2796,9 @@ function openSimulation() {
 
 <div style="margin-bottom: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; display: flex; gap: 15px; align-items: center; border: 1px solid #90caf9;">
   <span style="font-weight: bold; font-size: 13px; color: #0277bd;">👁️ 表示モード:</span>
-  <label style="cursor: pointer; font-size: 14px;">
-    <input type="radio" name="vis-mode" value="polygon" checked onchange="switchVisualMode('polygon')">
-    💠 ポリゴン
-  </label>
-  <label style="cursor: pointer; font-size: 14px;">
-    <input type="radio" name="vis-mode" value="skeleton" onchange="switchVisualMode('skeleton')">
-    🦴 スケルトン
-  </label>
+  <span style="font-size: 14px; font-weight:bold; color:#0277bd;">
+     💠 ポリゴン表示 (固定)
+  </span>
   
   <span style="margin-left: 15px; border-left: 1px solid #ccc; padding-left: 15px;">
       <label style="cursor: pointer; font-size: 14px; font-weight: bold; color: #333;">
@@ -2877,6 +2871,89 @@ function openSimulation() {
     <canvas id="graph_trunk" width="600" height="50" style="width:100%; height:50px; background:#000; display:block; border-bottom:1px solid #333;"></canvas>
   </div>
 </div>
+</section>
+
+<section id="video-comparison-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #e1f5fe; padding: 15px 20px; border-bottom: 1px solid #b3e5fc;">
+    <h3 style="margin:0; color:#01579b; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      フォーム比較プレーヤー (2画面)
+    </h3>
+    <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+      動画を並べて再生し、フォームの違いを確認しましょう。<br>
+      ※スロー再生や左右反転（ミラー）も可能です。
+    </p>
+  </div>
+
+  <div style="padding: 20px;">
+    <div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; border: 1px solid #ddd; text-align: center;">
+      
+      <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
+        <button onclick="compPlayBoth()" style="background:#0288d1; color:white; padding:8px 24px; border-radius:30px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2); border:none; cursor:pointer;">
+          ▶ 同時再生
+        </button>
+        <button onclick="compPauseBoth()" style="background:#d32f2f; color:white; padding:8px 24px; border-radius:30px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2); border:none; cursor:pointer;">
+          ⏸ 一時停止
+        </button>
+        <button onclick="compResetBoth()" style="background:#757575; color:white; padding:8px 16px; border-radius:30px; font-size:12px; border:none; cursor:pointer;">
+          ⏮ 最初に戻す
+        </button>
+      </div>
+
+      <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; font-size: 13px;">
+        <label style="color:#333;">
+          🐢 スピード: 
+          <select id="comp-speed" onchange="compChangeSpeed()" style="padding:4px; border-radius:4px; border:1px solid #ccc;">
+            <option value="0.1">0.1x (超スロー)</option>
+            <option value="0.25">0.25x (スロー)</option>
+            <option value="0.5">0.5x (半速)</option>
+            <option value="1.0" selected>1.0x (標準)</option>
+            <option value="1.5">1.5x</option>
+          </select>
+        </label>
+        <span style="color:#999;">|</span>
+        <label style="color:#333;">
+          🔄 同期シーク: 
+          <input type="range" id="comp-master-seek" value="0" min="0" max="100" step="0.1" style="vertical-align:middle; width:100px;" oninput="compMasterSeek(this.value)">
+        </label>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+      
+      <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
+        <div style="font-weight:bold; color:#0277bd; margin-bottom:5px; display:flex; justify-content:space-between;">
+          <span>📺 動画 A</span>
+          <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-a')"> 左右反転</label>
+        </div>
+        <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="font-size:12px; margin-bottom:5px; width:100%;">
+        <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
+          <video id="video-a" playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-a')"></video>
+        </div>
+        <input type="range" id="seek-video-a" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-a', this.value)">
+      </div>
+
+      <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
+        <div style="font-weight:bold; color:#c2185b; margin-bottom:5px; display:flex; justify-content:space-between;">
+          <span>📸 動画 B </span>
+          <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-b')"> 左右反転</label>
+        </div>
+        <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-b')" style="font-size:12px; margin-bottom:5px; width:100%;">
+        <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
+          <video id="video-b" playsinline style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-b')"></video>
+        </div>
+        <input type="range" id="seek-video-b" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-b', this.value)">
+      </div>
+
+    </div>
+  </div>
 </section>
 
 <style>
@@ -7561,13 +7638,8 @@ let recordedCSVData = [];
 let recordingStartTime = 0;
 
 // 🎨 表示モード管理
-let currentVisualMode = 'polygon'; // 'polygon' or 'skeleton'
 let isBackgroundVisible = true;
 
-window.switchVisualMode = function(mode) {
-    currentVisualMode = mode;
-    console.log("Mode switched to:", mode); // 確認用ログ
-}
 
 window.toggleBackground = function() {
     const cb = document.getElementById('bg-toggle');
@@ -7610,11 +7682,9 @@ function onPoseResults(results) {
         // 背景ON: カメラ映像を描画
         canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
         
-        // ポリゴンモードの時だけ、発光を目立たせるために少し暗くする
-        if (currentVisualMode === 'polygon') {
-            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-        }
+        // ポリゴンモードなので、発光を目立たせるために少し暗くする
+        canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     } else {
         // 背景OFF: 真っ黒にする
         canvasCtx.fillStyle = '#000000';
@@ -7671,71 +7741,37 @@ function onPoseResults(results) {
     }
 
     // ------------------------------------------------
-    // 3. 描画モードの分岐 (ここが重要！)
+    // 3. 描画モード (ポリゴンのみに固定)
     // ------------------------------------------------
     
-    if (currentVisualMode === 'polygon') {
-        // ===================================
-        // 💠 ポリゴンモード (リッチ表現)
-        // ===================================
-        
-        // 胴体を面で塗る
-        drawPolygonBody(lm);
+    // ===================================
+    // 💠 ポリゴンモード描画
+    // ===================================
+    
+    // 胴体を面で塗る
+    drawPolygonBody(lm);
 
-        // 筋肉 (第5引数を true にする = 太く光る)
-        // 右側
-        drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
-        drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
-        drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
-        drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
-        // 左側
-        drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
-        drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
-        drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
-        drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
-        
-        // 体幹
-        if(visR > 0.5 || visL > 0.5) {
-             const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
-             const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
-             drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, true);
-        }
-        
-        // 関節 (第2引数を true = リッチなリング)
-        drawJoints(lm, true);
-
-    } else {
-        // ===================================
-        // 🦴 スケルトンモード (シンプル表現)
-        // ===================================
-        
-        // 筋肉 (第5引数を false にする = 細い線・発光なし)
-        // 右側
-        drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, false);
-        drawDynamicMuscle(lm[14], lm[16], 0, 100, false);
-        drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, false);
-        drawDynamicMuscle(lm[26], lm[28], 0, 100, false);
-        // 左側
-        drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, false);
-        drawDynamicMuscle(lm[13], lm[15], 0, 100, false);
-        drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, false);
-        drawDynamicMuscle(lm[25], lm[27], 0, 100, false);
-        
-        // 体幹や胴体は「面」で塗らず、シンプルな線でつなぐ
-        drawSimpleConnector(lm[11], lm[12]); // 肩の線
-        drawSimpleConnector(lm[23], lm[24]); // 腰の線
-        drawSimpleConnector(lm[11], lm[23]); // 左胴体
-        drawSimpleConnector(lm[12], lm[24]); // 右胴体
-
-        if(visR > 0.5 || visL > 0.5) {
-             const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
-             const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
-             drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, false);
-        }
-
-        // 関節 (第2引数を false = シンプルな点)
-        drawJoints(lm, false);
+    // 筋肉 (第5引数を true にする = 太く光る)
+    // 右側
+    drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
+    drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
+    drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
+    drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
+    // 左側
+    drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
+    drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
+    drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
+    drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
+    
+    // 体幹
+    if(visR > 0.5 || visL > 0.5) {
+            const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
+            const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
+            drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, true);
     }
+    
+    // 関節 (第2引数を true = リッチなリング)
+    drawJoints(lm, true);
 
     // ------------------------------------------------
     // 4. データ記録とグラフ更新
@@ -8270,6 +8306,99 @@ function downloadCSV(timestampStr) {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
     }, 100);
+}
+
+// ==========================================
+// 🏸 動画比較機能 (Video Comparison)
+// ==========================================
+
+// 動画ファイルを読み込む
+function compLoadVideo(input, videoId) {
+    const file = input.files[0];
+    if (!file) return;
+    const video = document.getElementById(videoId);
+    const url = URL.createObjectURL(file);
+    video.src = url;
+    video.load();
+    // シークバーのリセット
+    const seek = document.getElementById('seek-' + videoId);
+    if(seek) seek.value = 0;
+}
+
+// 同時再生
+function compPlayBoth() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    // 速度を適用してから再生
+    compChangeSpeed();
+    if (vA.src) vA.play();
+    if (vB.src) vB.play();
+}
+
+// 同時一時停止
+function compPauseBoth() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    if (vA.src) vA.pause();
+    if (vB.src) vB.pause();
+}
+
+// 最初に戻す
+function compResetBoth() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    if (vA.src) { vA.pause(); vA.currentTime = 0; }
+    if (vB.src) { vB.pause(); vB.currentTime = 0; }
+}
+
+// 再生速度変更
+function compChangeSpeed() {
+    const speed = parseFloat(document.getElementById('comp-speed').value);
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    if (vA) vA.playbackRate = speed;
+    if (vB) vB.playbackRate = speed;
+}
+
+// 左右反転 (ミラー) 切り替え
+function compToggleMirror(videoId) {
+    const video = document.getElementById(videoId);
+    // 現在のtransformを取得してscaleXを反転させる簡易実装
+    if (video.style.transform === 'scaleX(-1)') {
+        video.style.transform = 'scaleX(1)';
+    } else {
+        video.style.transform = 'scaleX(-1)';
+    }
+}
+
+// 個別シークバー操作
+function compIndividualSeek(videoId, value) {
+    const video = document.getElementById(videoId);
+    if (!video.duration) return;
+    const time = video.duration * (value / 100);
+    video.currentTime = time;
+}
+
+// 動画再生中のシークバー自動更新
+function compUpdateSeek(videoId) {
+    const video = document.getElementById(videoId);
+    const seek = document.getElementById('seek-' + videoId);
+    if (video.duration && seek) {
+        const val = (video.currentTime / video.duration) * 100;
+        seek.value = val;
+    }
+}
+
+// マスターシーク（両方の動画を同じ割合の位置へ移動）
+function compMasterSeek(value) {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    
+    // 両方を一時停止してから移動（スムーズにするため）
+    compPauseBoth();
+
+    if (vA.duration) vA.currentTime = vA.duration * (value / 100);
+    if (vB.duration) vB.currentTime = vB.duration * (value / 100);
 }
 </script>
 </body>
