@@ -2862,17 +2862,23 @@ function openSimulation() {
 
     <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
       <button onclick="startCamera()" style="background:#0288d1; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
-  📷 カメラ起動 (外側/内側)
-</button>
+        📷 カメラ起動 (外側/内側)
+      </button>
 
-<button onclick="toggleCamera()" style="background:#00bcd4; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; margin-left:10px;">
-  🔄 カメラ切替
-</button>
+      <button onclick="toggleCamera()" style="background:#00bcd4; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; margin-left:10px;">
+        🔄 カメラ切替
+      </button>
       
       <label style="background:#009688; color:white; padding:10px 20px; border-radius:4px; cursor:pointer; display:inline-block;">
         📁 動画ファイルを解析
         <input type="file" id="video-upload" accept="video/*" style="display:none;" onchange="handleVideoUpload(this)">
       </label>
+
+      <div id="pose-video-controls" style="display:none; gap:5px;">
+        <button onclick="poseVideoPlay()" style="background:#0277bd; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">▶ 再生</button>
+        <button onclick="poseVideoPause()" style="background:#f9a825; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">⏸ 一時停止</button>
+        <button onclick="poseVideoReset()" style="background:#546e7a; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">⏮ 最初へ</button>
+      </div>
 
       <button id="btn-record-start" onclick="startRecording()" style="background:#e91e63; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; display:none;">
         ● 解析結果を録画
@@ -2881,6 +2887,9 @@ function openSimulation() {
         ■ 録画停止＆保存
       </button>
 
+      <button onclick="downloadPoseCSV()" id="btn-pose-csv" disabled style="background:#ccc; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:not-allowed;">
+        📥 CSV保存
+      </button>
       <button onclick="stopTracking()" style="background:#d32f2f; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
         ⏹ 全停止
       </button>
@@ -2923,6 +2932,184 @@ function openSimulation() {
     <canvas id="graph_trunk" width="600" height="50" style="width:100%; height:50px; background:#000; display:block; border-bottom:1px solid #333;"></canvas>
   </div>
 </div>
+</section>
+
+<section id="footwork-analysis-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #e8f5e9; padding: 15px 20px; border-bottom: 1px solid #c8e6c9;">
+    <h3 style="margin:0; color:#2e7d32; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      ゲーム分析（移動速度、移動距離、負荷量）
+    </h3>
+    <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+      移動軌跡、ヒートマップ、速度、距離、負荷量をリアルタイムで解析します。<br>
+    </p>
+  </div>
+
+  <div style="padding: 20px;">
+<div style="margin-bottom: 10px; background: #fff3e0; padding: 10px 15px; border-radius: 6px; border: 1px solid #ffe0b2; display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+      <span style="font-weight:bold; font-size:13px; color:#e65100;">👤 選手設定:</span>
+      <label style="font-size:13px;">身長: <input type="number" id="fw-player-height" value="170" style="width:50px; padding:4px; border:1px solid #ccc; border-radius:4px;"> cm</label>
+      <label style="font-size:13px;">体重: <input type="number" id="fw-player-weight" value="65" style="width:50px; padding:4px; border:1px solid #ccc; border-radius:4px;"> kg</label>
+      <label style="font-size:13px;">ラケット: <input type="number" id="fw-player-racket" value="85" style="width:50px; padding:4px; border:1px solid #ccc; border-radius:4px;"> g</label>
+    </div>
+    <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+<div style="margin-bottom: 15px;">
+      <button onclick="toggleFwInstructions()" style="
+        background: #0288d1; color: white; border: none; padding: 8px 16px; 
+        border-radius: 20px; font-size: 13px; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+        ℹ️ 分析・キャリブレーションの注意点
+      </button>
+
+      <div id="fw-instructions" style="display: none; margin-top: 10px; background: #e1f5fe; padding: 15px; border-radius: 8px; border: 1px solid #b3e5fc; color: #01579b;">
+        <h4 style="margin: 0 0 10px 0; border-bottom: 1px solid #81d4fa; padding-bottom: 5px;">📸 撮影と設定のポイント</h4>
+        
+        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6;">
+          <li><strong>撮影位置:</strong> コート後方から、コート全体が入るように固定撮影してください。</li>
+          <li><strong>分析対象:</strong> 「コート手前」にいる選手を分析します。</li>
+          <li><strong>キャリブレーション (4点指定):</strong><br>
+            以下の順序でクリックしてください。<br>
+            <span style="color: #d32f2f; font-weight: bold;">① ネット支柱（左）の根本</span><br>
+            <span style="color: #d32f2f; font-weight: bold;">② ネット支柱（右）の根本</span><br>
+            <span style="color: #d32f2f; font-weight: bold;">③ バックバウンダリーラインとダブルスサイドラインの交点（右）</span><br>
+            <span style="color: #d32f2f; font-weight: bold;">④ バックバウンダリーラインとダブルスサイドラインの交点（左）</span>
+          </li>
+        </ul>
+
+        <div style="margin-top: 15px; width: 100%; max-width: 250px; height: 180px; background: #2e7d32; border: 2px solid white; position: relative; margin-left: auto; margin-right: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.3);">
+            <div style="position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #ddd; border-bottom: 1px dashed #999;"></div>
+            <div style="position: absolute; top: -15px; width: 100%; text-align: center; color: white; font-size: 10px;">(ネット側)</div>
+            
+            <div style="position: absolute; top: -5px; left: -5px; width: 20px; height: 20px; background: red; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; font-size: 12px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);">1</div>
+            
+            <div style="position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; background: red; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; font-size: 12px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);">2</div>
+            
+            <div style="position: absolute; bottom: -5px; right: -5px; width: 20px; height: 20px; background: red; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; font-size: 12px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);">3</div>
+            
+            <div style="position: absolute; bottom: -5px; left: -5px; width: 20px; height: 20px; background: red; color: white; border-radius: 50%; text-align: center; line-height: 20px; font-weight: bold; font-size: 12px; box-shadow: 1px 1px 3px rgba(0,0,0,0.5);">4</div>
+
+            <svg style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;">
+                <line x1="10" y1="10" x2="240" y2="10" style="stroke:rgba(255,255,0,0.7);stroke-width:2" />
+                <line x1="240" y1="10" x2="240" y2="170" style="stroke:rgba(255,255,0,0.7);stroke-width:2" />
+                <line x1="240" y1="170" x2="10" y2="170" style="stroke:rgba(255,255,0,0.7);stroke-width:2" />
+            </svg>
+
+            <div style="position: absolute; bottom: 10px; width: 100%; text-align: center; color: white; font-size: 10px;">(手前・カメラ側)</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+      <button onclick="fwStartCamera()" style="background:#2e7d32; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        📷 カメラ
+      </button>
+      
+      <label style="background:#00897b; color:white; padding:10px 20px; border-radius:4px; cursor:pointer; display:inline-block;">
+        📁 動画読込
+        <input type="file" accept="video/*" style="display:none;" onchange="fwHandleVideoUpload(this)">
+      </label>
+
+      <div id="fw-video-controls" style="display:none; gap:5px;">
+        <button onclick="fwVideoPlay()" style="background:#0277bd; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">▶ 再生</button>
+        <button onclick="fwVideoPause()" style="background:#f9a825; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">⏸ 一時停止</button>
+        <button onclick="fwVideoReset()" style="background:#546e7a; color:white; border:none; padding:10px 15px; border-radius:4px; cursor:pointer;">⏮ 最初へ</button>
+      </div>
+
+      <button onclick="fwStopAnalysis()" style="background:#d32f2f; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        ⏹ 終了
+      </button>
+
+      <button onclick="fwToggleCSVRecording()" id="btn-fw-rec-data" style="background:#424242; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        🔴 データ記録
+      </button>
+
+      <button onclick="fwDownloadCSV()" id="btn-fw-download-csv" disabled style="background:#ccc; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:not-allowed;">
+        📥 CSV保存
+      </button>
+      <button onclick="fwGeneratePDFReport()" id="btn-fw-report" style="background:#1565c0; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        📄 レポート
+      </button>
+
+      <button onclick="fwToggleCalibration()" id="btn-fw-calib" style="background:#ff9800; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        📏 距離校正
+      </button>
+
+      <button onclick="fwResetData()" style="background:#757575; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        🗑️ リセット
+      </button>
+      
+      <label style="font-size:13px; display:flex; align-items:center; gap:5px; background:#f1f8e9; padding:5px 10px; border-radius:4px;">
+        <input type="checkbox" id="fw-show-heatmap" checked> ヒートマップ
+      </label>
+      <label style="font-size:13px; display:flex; align-items:center; gap:5px; background:#f1f8e9; padding:5px 10px; border-radius:4px;">
+        <input type="checkbox" id="fw-show-trajectory" checked> 軌跡
+      </label>
+    </div>
+
+    <div style="max-width: 640px; margin: 0 auto;">
+
+        <div id="fw-calib-guide" style="display:none; background:#fff3e0; padding:15px; border:1px solid #ffe0b2; margin-bottom:10px; border-radius:6px; font-size:14px;">
+            <strong style="color:#e65100;">【設定手順】</strong><br>
+            1. 実際の距離(m)を入力してください。<br>
+            <div style="margin: 10px 0; display:flex; gap:15px;">
+                <label>横幅(m): <input type="number" id="fw-real-width" value="6.1" style="width:60px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
+                <label>縦幅(m): <input type="number" id="fw-real-height" value="6.7" style="width:60px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
+            </div>
+            <span style="font-size:12px; color:#666;">※ダブルス片面なら 横6.1m × 縦6.7m が目安です。</span><br><br>
+            
+            2. 画面上のコート四隅を<span style="color:red; font-weight:bold;">【左上 → 右上 → 右下 → 左下】</span>の順にクリックしてください。<br>
+            <div id="fw-calib-status" style="margin-top:5px; font-weight:bold; color:#d32f2f;">現在: 0点目 / 4点</div>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+            <div style="background:#fafafa; padding:10px; border-radius:6px; border:1px solid #ddd; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="font-size:12px; color:#666; font-weight:bold;">現在の速度</div>
+                <div style="font-size:28px; font-weight:bold; color:#2e7d32; line-height:1.2;">
+                    <span id="fw-speed">0.0</span> <span style="font-size:14px; color:#555;">m/s</span>
+                </div>
+            </div>
+            <div style="background:#fafafa; padding:10px; border-radius:6px; border:1px solid #ddd; text-align:center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div style="font-size:12px; color:#666; font-weight:bold;">総移動距離</div>
+                <div style="font-size:28px; font-weight:bold; color:#1565c0; line-height:1.2;">
+                    <span id="fw-distance">0.0</span> <span style="font-size:14px; color:#555;">m</span>
+                </div>
+            </div>
+        </div>
+
+       <div id="fw_canvas_container" style="position: relative; width: 100%; height: auto; background: #000; border-radius: 8px; overflow: hidden; cursor: crosshair; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+    
+    <video id="fw_video" style="display: none;" playsinline></video>
+    
+    <canvas id="fw_canvas" width="640" height="480" style="width: 100%; height: auto; display: block;"></canvas>
+    
+    <canvas id="fw_overlay" width="640" height="480" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none;"></canvas>
+</div>
+
+        <div style="margin-top:10px; padding:12px; background:#fff; border-radius:6px; border:1px solid #ddd; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <div style="font-size:12px; font-weight:bold; color:#555; margin-bottom:8px; border-bottom:1px solid #eee; padding-bottom:5px;">
+                📊 リアルタイム負荷 (Joint Torque)
+            </div>
+            <div style="display:flex; justify-content:space-between; text-align:center;">
+                <div style="flex:1; border-right:1px solid #eee;">
+                    <div style="font-size:11px; color:#666;">🦵 右脚 (Right)</div>
+                    <div id="fw-load-knee-r" style="font-weight:bold; font-size:15px; color:#333;">0% (0Nm)</div>
+                </div>
+                <div style="flex:1; border-right:1px solid #eee;">
+                    <div style="font-size:11px; color:#666;">🦵 左脚 (Left)</div>
+                    <div id="fw-load-knee-l" style="font-weight:bold; font-size:15px; color:#333;">0% (0Nm)</div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-size:11px; color:#666;">🧍 体幹 (Trunk)</div>
+                    <div id="fw-load-trunk" style="font-weight:bold; font-size:15px; color:#333;">0% (0Nm)</div>
+                </div>
+            </div>
+        </div>
+    </div>
 </section>
 
 <section id="video-comparison-section" style="
@@ -8226,28 +8413,42 @@ function handleVideoUpload(input) {
     recordingStartTime = Date.now();
     maxTorqueValues = { r_elbow: 0, r_shoulder: 0, r_knee: 0, l_elbow: 0, l_shoulder: 0, l_knee: 0, trunk: 0 };
 
+    // ★追加: 操作ボタンを表示
+    const ctrls = document.getElementById("pose-video-controls");
+    if(ctrls) ctrls.style.display = "flex";
+
     const url = URL.createObjectURL(file);
     videoElement.srcObject = null; 
     videoElement.src = url;
-   
+    
     videoElement.style.display = "block";
     videoElement.style.position = "absolute";
     videoElement.style.width = "1px";
     videoElement.style.height = "1px";
     videoElement.style.opacity = "0";
     videoElement.style.zIndex = "-1";
-   
 
     videoElement.muted = true;
     videoElement.playsInline = true;
     videoElement.setAttribute('playsinline', ''); 
+    
     videoElement.onloadeddata = () => {
-        videoElement.play().then(() => {
-            processVideoFrame(); 
-        }).catch(e => { alert("再生エラー: " + e.message); });
+        // ★修正: 自動再生せずに一時停止状態で待機
+        videoElement.pause();
+        videoElement.currentTime = 0;
+        isCameraRunning = false;
+        
+        // 最初の1フレームだけ解析して表示（任意）
+        setTimeout(() => {
+             if(pose) pose.send({image: videoElement});
+        }, 500);
     };
+
     const btn = document.getElementById("btn-record-start");
     if(btn) btn.style.display = "inline-block";
+    
+    // 同じファイルを再選択できるようにリセット
+    input.value = '';
 }
 
 function processVideoFrame() {
@@ -8269,14 +8470,20 @@ function stopTracking() {
     }
     if (videoElement.src) {
         videoElement.pause();
-        videoElement.src = "";
+        videoElement.removeAttribute('src'); // src属性を削除
+        videoElement.load();
     }
     stopRecording(); 
     if(canvasCtx) canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    
     const btnStart = document.getElementById("btn-record-start");
     const btnStop = document.getElementById("btn-record-stop");
     if(btnStart) btnStart.style.display = "none";
     if(btnStop) btnStop.style.display = "none";
+
+    // ★追加: 動画操作ボタンを隠す
+    const ctrls = document.getElementById("pose-video-controls");
+    if(ctrls) ctrls.style.display = "none";
 }
 
 // 🎥 録画機能
@@ -8287,6 +8494,14 @@ function startRecording() {
     
     recordedCSVData = [];
     recordingStartTime = Date.now();
+
+    // ★追加: CSVボタンをリセット
+    const btnCsv = document.getElementById("btn-pose-csv");
+    if (btnCsv) {
+        btnCsv.disabled = true;
+        btnCsv.style.background = "#ccc";
+        btnCsv.style.cursor = "not-allowed";
+    }
 
     const mimeTypes = ["video/mp4", "video/webkit", "video/webm;codecs=vp9", "video/webm"];
     selectedMimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type));
@@ -8358,15 +8573,47 @@ function saveVideo() {
         window.URL.revokeObjectURL(url);
     }, 100);
 
+    // ★修正: 自動ダウンロードを廃止し、ボタンを有効化
+    const btnCsv = document.getElementById("btn-pose-csv");
     if (recordedCSVData.length > 0) {
-        downloadCSV(timestampStr);
+        if (btnCsv) {
+            btnCsv.disabled = false;
+            btnCsv.style.background = "#00897b"; // 緑系のアクティブ色
+            btnCsv.style.cursor = "pointer";
+        }
+        alert("動画を保存しました。\nCSVデータが必要な場合は「📥 CSV保存」ボタンを押してください。");
+    } else {
+        alert("動画を保存しました。（CSVデータなし）");
+    }
+}
+
+function downloadPoseCSV() {
+    if (!recordedCSVData || recordedCSVData.length === 0) {
+        alert("保存するデータがありません。");
+        return;
     }
 
-    if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
-        alert("ダウンロード開始(ファイルアプリを確認してください)");
-    } else {
-        alert("動画とCSVデータを保存しました。");
-    }
+    const timestampStr = new Date().toISOString().slice(0,19).replace(/[-T:]/g,"");
+    
+    let csvContent = "Time(sec),R_Elbow(Nm),R_Shoulder(Nm),R_Knee(Nm),L_Elbow(Nm),L_Shoulder(Nm),L_Knee(Nm),Trunk(Nm)\n";
+    recordedCSVData.forEach(row => {
+        csvContent += `${row.time},${row.r_elbow},${row.r_shoulder},${row.r_knee},${row.l_elbow},${row.l_shoulder},${row.l_knee},${row.trunk}\n`;
+    });
+
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Torque_Data_${timestampStr}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 100);
 }
 
 function downloadCSV(timestampStr) {
@@ -8392,6 +8639,861 @@ function downloadCSV(timestampStr) {
 }
 
 // ==========================================
+// 🦶 フットワーク分析機能 (完全統合版 v7 - 選手パラメータ対応)
+// ==========================================
+
+// --- グローバル変数 ---
+var fwVideo = document.getElementById('fw_video');
+var fwCanvas = document.getElementById('fw_canvas');
+var fwOverlay = document.getElementById('fw_overlay');
+var fwCtx = fwCanvas ? fwCanvas.getContext('2d') : null;
+var fwOvCtx = fwOverlay ? fwOverlay.getContext('2d') : null;
+
+var fwPose = null;
+var fwIsRunning = false;
+var fwAnimId;
+
+// データ保存用
+var fwPath = []; 
+var fwHeatmap = []; 
+var HEATMAP_GRID_SIZE = 20; 
+
+// 速度計算用
+var fwLastRealPos = null; 
+var fwLastTime = 0;
+var fwTotalDistance = 0;
+
+// キャリブレーション用
+var fwIsCalibrating = false;
+var fwCalibPoints = []; 
+var fwHomographyMatrix = null; 
+
+// データ記録用
+var fwIsRecordingCSV = false;
+var fwRecordedData = []; 
+var fwRecStartTime = 0;
+
+// 初期化関数
+function initFwPose() {
+    if (fwPose) return;
+    fwPose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+    fwPose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+    fwPose.onResults(onFwResults);
+
+    // ヒートマップ初期化
+    for(let i=0; i<HEATMAP_GRID_SIZE; i++) {
+        fwHeatmap[i] = new Array(HEATMAP_GRID_SIZE).fill(0);
+    }
+}
+
+// ==========================
+// 📷 カメラ・動画 操作
+// ==========================
+
+// カメラ起動
+async function fwStartCamera() {
+    fwStopAnalysis(); // リセット
+    initFwPose();
+    if(typeof stopTracking === 'function') stopTracking(); 
+
+    if (fwVideo.src) {
+        URL.revokeObjectURL(fwVideo.src);
+        fwVideo.removeAttribute('src');
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480, frameRate: 30 },
+            audio: false
+        });
+        fwVideo.srcObject = stream;
+        fwVideo.onloadedmetadata = () => {
+            fwVideo.play();
+            fwIsRunning = true;
+            fwProcessFrame();
+        };
+        setupFwCanvasListener();
+    } catch(e) {
+        console.error(e);
+        alert("カメラの起動に失敗しました");
+    }
+}
+
+// 動画ファイル読み込み
+function fwHandleVideoUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    fwStopAnalysis(); 
+    initFwPose();
+    
+    const ctrls = document.getElementById("fw-video-controls");
+    if(ctrls) ctrls.style.display = "flex";
+
+    const url = URL.createObjectURL(file);
+    fwVideo.src = url;
+    fwVideo.muted = true;
+    fwVideo.playsInline = true;
+
+    fwVideo.onloadedmetadata = () => {
+        fwVideo.pause();
+        fwVideo.currentTime = 0;
+        fwIsRunning = false;
+        setTimeout(() => { if(fwPose) fwPose.send({image: fwVideo}); }, 500);
+    };
+
+    setupFwCanvasListener();
+    input.value = '';
+}
+
+function poseVideoPlay() {
+    if (!videoElement.src) return alert("動画が読み込まれていません");
+    videoElement.play();
+    isCameraRunning = true;
+    processVideoFrame();
+}
+
+function poseVideoPause() {
+    if (!videoElement.src) return;
+    videoElement.pause();
+    isCameraRunning = false;
+    if (animationId) cancelAnimationFrame(animationId);
+}
+
+function poseVideoReset() {
+    if (!videoElement.src) return;
+    videoElement.pause();
+    isCameraRunning = false;
+    if (animationId) cancelAnimationFrame(animationId);
+    
+    videoElement.currentTime = 0;
+    
+    // 最初の画を描画
+    setTimeout(() => {
+         if(pose) pose.send({image: videoElement});
+    }, 200);
+}
+
+function setupFwCanvasListener() {
+    // 親要素ではなく、一番上のオーバーレイキャンバスにイベントを設定
+    if(fwOverlay) {
+        // オーバーレイがクリックを受け取れるようにする
+        fwOverlay.style.pointerEvents = "auto"; 
+        
+        fwOverlay.removeEventListener('mousedown', handleFwCanvasClick); 
+        fwOverlay.addEventListener('mousedown', handleFwCanvasClick);
+    } 
+    // フォールバック: オーバーレイがない場合は親要素に
+    else if (fwCanvas && fwCanvas.parentElement) {
+        fwCanvas.parentElement.removeEventListener('mousedown', handleFwCanvasClick); 
+        fwCanvas.parentElement.addEventListener('mousedown', handleFwCanvasClick);
+    }
+}
+
+// 解析ループ
+function fwProcessFrame() {
+    if (!fwIsRunning) return;
+    fwPose.send({image: fwVideo}).then(() => {
+        if (fwIsRunning) fwAnimId = requestAnimationFrame(fwProcessFrame);
+    });
+}
+
+// ⏹ 停止処理
+function fwStopAnalysis() {
+    fwIsRunning = false;
+    if (fwAnimId) { cancelAnimationFrame(fwAnimId); fwAnimId = null; }
+    if (fwVideo.srcObject) {
+        fwVideo.srcObject.getTracks().forEach(track => track.stop());
+        fwVideo.srcObject = null;
+    }
+    if (fwVideo.src) {
+        fwVideo.pause();
+        fwVideo.removeAttribute('src'); 
+        fwVideo.load();
+    }
+    if (fwCtx) {
+        fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+        fwCtx.fillStyle = "#000";
+        fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+    }
+    const ctrls = document.getElementById("fw-video-controls");
+    if(ctrls) ctrls.style.display = "none";
+}
+
+// 動画操作ボタン
+function fwVideoPlay() {
+    if (!fwVideo.src) return alert("動画が読み込まれていません");
+    fwVideo.play();
+    fwIsRunning = true;
+    fwProcessFrame();
+}
+function fwVideoPause() {
+    if (!fwVideo.src) return;
+    fwVideo.pause();
+    fwIsRunning = false;
+    if (fwAnimId) cancelAnimationFrame(fwAnimId);
+}
+function fwVideoReset() {
+    if (!fwVideo.src) return;
+    fwVideo.pause();
+    fwIsRunning = false;
+    if (fwAnimId) cancelAnimationFrame(fwAnimId);
+    fwVideo.currentTime = 0;
+    setTimeout(() => { if(fwPose) fwPose.send({image: fwVideo}); }, 200);
+}
+
+// ==========================
+// 🧠 メイン解析ロジック
+// ==========================
+function onFwResults(results) {
+    if (!fwCtx) return;
+    
+    // キャンバスサイズを映像に合わせる（これが重要）
+    if (fwCanvas.width !== fwVideo.videoWidth || fwCanvas.height !== fwVideo.videoHeight) {
+        fwCanvas.width = fwVideo.videoWidth || 640;
+        fwCanvas.height = fwVideo.videoHeight || 480;
+        fwOverlay.width = fwCanvas.width;
+        fwOverlay.height = fwCanvas.height;
+    }
+
+    // 背景描画
+    fwCtx.drawImage(results.image, 0, 0, fwCanvas.width, fwCanvas.height);
+    fwCtx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+
+    drawCalibrationRect(); 
+
+    const lm = results.poseLandmarks;
+    if (!lm) return;
+
+    // 腰位置取得
+    const hipX = (lm[23].x + lm[24].x) / 2;
+    const hipY = (lm[23].y + lm[24].y) / 2;
+    if(hipX < 0 || hipX > 1 || hipY < 0 || hipY > 1) return;
+
+    const px = hipX * fwCanvas.width;
+    const py = hipY * fwCanvas.height;
+
+    // ヒートマップ
+    updateFwHeatmap(hipX, hipY);
+    if(document.getElementById('fw-show-heatmap').checked) drawFwHeatmap();
+
+    // 軌跡
+    fwPath.push({x: px, y: py});
+    if (fwPath.length > 300) fwPath.shift();
+    if(document.getElementById('fw-show-trajectory').checked) drawFwTrajectory();
+
+    // 速度計算 (補正あり)
+    calculateFwSpeedWithCorrection(px, py);
+
+    // --- 負荷計算 (選手パラメータ反映版) ---
+    // 角度計算
+    const angKneeR = calculateFwAngle(lm[24], lm[26], lm[28]);
+    const angKneeL = calculateFwAngle(lm[23], lm[25], lm[27]);
+    
+    const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
+    const midHip = { x: hipX, y: hipY };
+    const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
+    const angTrunk = calculateFwAngle(verticalPt, midHip, midShoulder);
+    
+    // トルク計算 (入力された身長・体重を使用)
+    const tDataR = calculateFwTorque(0, 0, angKneeR, angTrunk);
+    const valKneeR = tDataR.knee;
+    const valTrunk = tDataR.trunk;
+
+    const tDataL = calculateFwTorque(0, 0, angKneeL, angTrunk);
+    const valKneeL = tDataL.knee;
+
+    // %換算 (基準値も体格に合わせて変動させる簡易ロジック)
+    // ※基準値: 膝200Nm, 体幹150Nm は標準体型用。ここでは固定で計算し、絶対値(Nm)で評価します。
+    const pctKneeR = Math.round((valKneeR / 200) * 100);
+    const pctKneeL = Math.round((valKneeL / 200) * 100);
+    const pctTrunk = Math.round((valTrunk / 150) * 100);
+    
+    // 画面表示
+    const setLoadDisplay = (id, pct, val) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = `${pct}% (${val.toFixed(0)}Nm)`;
+            el.style.color = pct > 100 ? "#d50000" : `hsl(${120 - Math.min(120, pct)}, 100%, 40%)`;
+        }
+    };
+    setLoadDisplay("fw-load-knee-r", pctKneeR, valKneeR);
+    setLoadDisplay("fw-load-knee-l", pctKneeL, valKneeL);
+    setLoadDisplay("fw-load-trunk",  pctTrunk, valTrunk);
+
+    // データ記録 (CSV用)
+    const currentSpeed = parseFloat(document.getElementById("fw-speed").textContent) || 0;
+    if (fwIsRecordingCSV) {
+        const elapsedTime = (Date.now() - fwRecStartTime) / 1000;
+        fwRecordedData.push({
+            time: elapsedTime.toFixed(2),
+            x: fwLastRealPos ? fwLastRealPos.x.toFixed(2) : 0, 
+            y: fwLastRealPos ? fwLastRealPos.y.toFixed(2) : 0,
+            speed: currentSpeed,
+            valKneeR: valKneeR.toFixed(1),
+            valKneeL: valKneeL.toFixed(1),
+            valTrunk: valTrunk.toFixed(1),
+            pctKneeR: pctKneeR,
+            pctKneeL: pctKneeL,
+            pctTrunk: pctTrunk
+        });
+    }
+
+    // ポイント描画
+    fwCtx.beginPath();
+    fwCtx.arc(px, py, 8, 0, 2*Math.PI);
+    fwCtx.fillStyle = fwIsRecordingCSV ? "red" : "#00e676";
+    fwCtx.fill();
+    fwCtx.stroke();
+}
+
+// -----------------------------------------------------
+// ⚙️ 負荷計算ロジック (選手パラメータ対応)
+// -----------------------------------------------------
+function calculateFwAngle(a, b, c) {
+    if(!a || !b || !c) return 0;
+    const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+    let angle = Math.abs(radians * 180.0 / Math.PI);
+    if (angle > 180.0) angle = 360 - angle;
+    return angle;
+}
+
+function calculateFwTorque(angShoulder, angElbow, angKnee, angTrunk) {
+    // HTMLの入力欄から値を取得 (フットワークセクション専用ID)
+    const elH = document.getElementById("fw-player-height");
+    const elW = document.getElementById("fw-player-weight");
+    const elR = document.getElementById("fw-player-racket");
+    
+    // 値がなければデフォルト
+    const H = elH ? (parseFloat(elH.value) || 170) : 170; 
+    const W = elW ? (parseFloat(elW.value) || 65) : 65;  
+    const R_mass = elR ? ((parseFloat(elR.value) || 85) / 1000) : 0.085;
+    
+    const g = 9.81;
+    const H_m = H / 100;
+    
+    // モーメントアーム長 (身長比)
+    const L_upper = 0.186 * H_m; 
+    const L_fore  = 0.146 * H_m;
+    const L_trunk = 0.3 * H_m; 
+    
+    // 部位質量 (体重比)
+    const M_arm = 0.05 * W; 
+    const M_upper_body = 0.6 * W; 
+    const M_body_above_knee = 0.85 * W; 
+
+    // 簡易物理モデル
+    const radT = angTrunk * (Math.PI / 180);
+    const kneeFlexFactor = Math.abs(Math.sin((180 - angKnee) * (Math.PI / 180)));
+    const factorS = Math.abs(Math.sin(angShoulder * Math.PI / 180)); 
+    
+    const t_elbow = (2.0 + R_mass) * g * L_fore * Math.sin(angElbow * Math.PI / 180); 
+    const t_shoulder = (M_arm + R_mass) * g * L_upper * factorS + t_elbow;
+    const t_trunk = M_upper_body * g * (L_trunk * 0.5) * Math.sin(radT);
+    const momentArmKnee = (H_m * 0.25) * kneeFlexFactor; 
+    const t_knee = M_body_above_knee * g * momentArmKnee;
+
+    return { 
+        shoulder: Math.abs(t_shoulder), 
+        elbow: Math.abs(t_elbow), 
+        trunk: Math.abs(t_trunk), 
+        knee: Math.abs(t_knee) 
+    };
+}
+
+// -----------------------------------------------------
+// ★ 修正済み: 計算ロジック & キャリブレーション
+// -----------------------------------------------------
+function fwToggleCalibration() {
+    fwIsCalibrating = !fwIsCalibrating;
+    const guide = document.getElementById("fw-calib-guide");
+    const btn = document.getElementById("btn-fw-calib");
+    
+    if (fwIsCalibrating) {
+        guide.style.display = "block";
+        btn.textContent = "キャンセル";
+        btn.style.background = "#999";
+        fwCalibPoints = [];
+        fwHomographyMatrix = null;
+        updateCalibStatus();
+        fwOverlay.style.pointerEvents = "auto";
+    } else {
+        guide.style.display = "none";
+        btn.textContent = "📏 4点キャリブレーション";
+        btn.style.background = "#ff9800";
+        fwOverlay.style.pointerEvents = "none";
+        fwOvCtx.clearRect(0,0,fwOverlay.width, fwOverlay.height);
+    }
+}
+
+function updateCalibStatus() {
+    const el = document.getElementById("fw-calib-status");
+    const msgs = ["左上 (奥の左隅)", "右上 (奥の右隅)", "右下 (手前の右隅)", "左下 (手前の左隅)"];
+    if(fwCalibPoints.length < 4) {
+        el.textContent = `現在: ${fwCalibPoints.length}点目 / 次は【${msgs[fwCalibPoints.length]}】をクリック`;
+    } else {
+        el.textContent = "設定完了！";
+    }
+}
+
+function handleFwCanvasClick(e) {
+    if (!fwIsCalibrating) return;
+
+    // クリックされた要素（キャンバスの親div、またはキャンバス自体）を取得
+    const target = e.target;
+    const rect = target.getBoundingClientRect();
+
+    // 表示サイズ（CSS上の幅・高さ）
+    const displayWidth = rect.width;
+    const displayHeight = rect.height;
+
+    // 内部解像度（実際の画素数）
+    const actualWidth = fwCanvas.width;
+    const actualHeight = fwCanvas.height;
+
+    // クリック位置（要素内の相対座標）を取得
+    // ※ e.offsetX が使えない場合（親要素での発火など）のフォールバックとして clientX - rect.left も使用
+    const clickX = (e.offsetX !== undefined) ? e.offsetX : (e.clientX - rect.left);
+    const clickY = (e.offsetY !== undefined) ? e.offsetY : (e.clientY - rect.top);
+
+    // 座標変換: 表示サイズ → 内部解像度
+    const x = clickX * (actualWidth / displayWidth);
+    const y = clickY * (actualHeight / displayHeight);
+
+    fwCalibPoints.push({x, y});
+    updateCalibStatus();
+
+    // 即座に点を描画（オーバーレイに描画して消えないようにする）
+    // ※fwOvCtx (オーバーレイ用コンテキスト) を使用します
+    if (fwOvCtx) {
+        fwOvCtx.beginPath();
+        fwOvCtx.arc(x, y, 5, 0, 2*Math.PI); // 半径5pxの赤丸
+        fwOvCtx.fillStyle = "red";
+        fwOvCtx.fill();
+        fwOvCtx.strokeStyle = "white";
+        fwOvCtx.lineWidth = 2;
+        fwOvCtx.stroke();
+    }
+
+    // 4点揃ったら計算
+    if (fwCalibPoints.length === 4) {
+        // 最後の点が描画されるのを一瞬待つ
+        setTimeout(() => {
+            computeHomographyMatrix();
+            alert("設定完了！");
+            fwToggleCalibration(); 
+        }, 50);
+    }
+}
+
+function drawCalibrationRect() {
+    if (fwCalibPoints.length === 0 && !fwHomographyMatrix) return;
+    const ctx = fwCtx; 
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+    ctx.lineWidth = 2;
+    if (fwCalibPoints.length > 0) {
+        ctx.moveTo(fwCalibPoints[0].x, fwCalibPoints[0].y);
+        for(let i=1; i<fwCalibPoints.length; i++) ctx.lineTo(fwCalibPoints[i].x, fwCalibPoints[i].y);
+        if (fwCalibPoints.length === 4) ctx.closePath();
+    }
+    ctx.stroke();
+    ctx.fillStyle = "red";
+    fwCalibPoints.forEach((p, i) => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 4, 0, 2*Math.PI);
+        ctx.fill();
+        ctx.font = "12px Arial";
+        ctx.fillStyle = "white";
+        ctx.fillText(i+1, p.x+5, p.y-5);
+        ctx.fillStyle = "red";
+    });
+}
+
+// 1. 行列計算の実行
+function computeHomographyMatrix() {
+    const elW = document.getElementById("fw-real-width");
+    const elH = document.getElementById("fw-real-height");
+    const realW = (elW && parseFloat(elW.value)) ? parseFloat(elW.value) : 6.1;
+    const realH = (elH && parseFloat(elH.value)) ? parseFloat(elH.value) : 6.7;
+
+    console.log(`Calibration Settings: W=${realW}m, H=${realH}m`);
+
+    const src = fwCalibPoints; 
+    const dst = [
+        {x: 0, y: 0},
+        {x: realW, y: 0},
+        {x: realW, y: realH},
+        {x: 0, y: realH}
+    ];
+
+    fwHomographyMatrix = getPerspectiveTransform(src, dst);
+    
+    if (fwHomographyMatrix) {
+        console.log("Homography Matrix calculated:", fwHomographyMatrix);
+    } else {
+        alert("計算に失敗しました。キャリブレーションをやり直してください。");
+    }
+}
+
+// 2. 4点から変換行列を求める関数 (OpenCV互換・安定版)
+function getPerspectiveTransform(src, dst) {
+    function solveLinearSystem(A, B) {
+        const n = 8;
+        for (let i = 0; i < n; i++) {
+            let pivot = i;
+            for (let j = i + 1; j < n; j++) {
+                if (Math.abs(A[j][i]) > Math.abs(A[pivot][i])) pivot = j;
+            }
+            [A[i], A[pivot]] = [A[pivot], A[i]];
+            [B[i], B[pivot]] = [B[pivot], B[i]];
+
+            if (Math.abs(A[i][i]) < 1e-10) continue; 
+
+            for (let j = i + 1; j < n; j++) {
+                const factor = A[j][i] / A[i][i];
+                for (let k = i; k < n; k++) A[j][k] -= factor * A[i][k];
+                B[j] -= factor * B[i];
+            }
+        }
+        const X = new Array(n).fill(0);
+        for (let i = n - 1; i >= 0; i--) {
+            let sum = 0;
+            for (let j = i + 1; j < n; j++) sum += A[i][j] * X[j];
+            if (Math.abs(A[i][i]) > 1e-10) X[i] = (B[i] - sum) / A[i][i];
+        }
+        return X;
+    }
+
+    const A = [];
+    const B = [];
+    for (let i = 0; i < 4; i++) {
+        const sx = src[i].x; const sy = src[i].y;
+        const dx = dst[i].x; const dy = dst[i].y;
+        A.push([sx, sy, 1, 0, 0, 0, -sx*dx, -sy*dx]);
+        A.push([0, 0, 0, sx, sy, 1, -sx*dy, -sy*dy]);
+        B.push(dx); B.push(dy);
+    }
+
+    const h = solveLinearSystem(A, B);
+    if (!h || h.some(v => isNaN(v) || !isFinite(v))) {
+        console.error("Matrix calculation failed (NaN).");
+        return null; 
+    }
+    return [[h[0], h[1], h[2]], [h[3], h[4], h[5]], [h[6], h[7], 1]];
+}
+
+// 3. 座標変換
+function transformPoint(x, y, H) {
+    if(!H) return {x:0, y:0};
+    const dem = H[2][0]*x + H[2][1]*y + H[2][2];
+    if (Math.abs(dem) < 0.0001) return {x:0, y:0};
+    return { 
+        x: (H[0][0]*x + H[0][1]*y + H[0][2]) / dem, 
+        y: (H[1][0]*x + H[1][1]*y + H[1][2]) / dem 
+    };
+}
+
+// 4. 速度計算 (m/s 対応・補正版)
+function calculateFwSpeedWithCorrection(px, py) {
+    if (!fwHomographyMatrix) return;
+
+    const isVideoFile = (fwVideo.src && fwVideo.src.startsWith("blob:"));
+    const currentTime = isVideoFile ? fwVideo.currentTime : (Date.now() / 1000);
+
+    const pt = transformPoint(px, py, fwHomographyMatrix);
+    const realX = pt.x;
+    const realY = pt.y;
+
+    if (isNaN(realX) || isNaN(realY)) return;
+
+    if (fwLastRealPos) {
+        const dx = realX - fwLastRealPos.x;
+        const dy = realY - fwLastRealPos.y;
+        const distMeters = Math.sqrt(dx*dx + dy*dy);
+        
+        let dt = currentTime - fwLastTime;
+        if (dt < 0) dt = 0; 
+
+        if (distMeters < 10.0 && distMeters > 0.001) {
+            fwTotalDistance += distMeters;
+            const distEl = document.getElementById("fw-distance");
+            if (distEl) distEl.textContent = fwTotalDistance.toFixed(1);
+
+            if (dt > 0.03) { 
+                const speedMPS = distMeters / dt; 
+                if (speedMPS < 12.5) { 
+                    const elSpeed = document.getElementById("fw-speed");
+                    if (elSpeed) {
+                        const currentDisp = parseFloat(elSpeed.textContent) || 0;
+                        const smoothSpeed = (currentDisp * 0.7) + (speedMPS * 0.3);
+                        elSpeed.textContent = smoothSpeed.toFixed(1);
+                    }
+                }
+            }
+        }
+    }
+    fwLastRealPos = {x: realX, y: realY};
+    fwLastTime = currentTime;
+}
+
+// ==========================
+// 🛠️ ユーティリティ
+// ==========================
+function updateFwHeatmap(nx, ny) {
+    const gx = Math.floor(nx * HEATMAP_GRID_SIZE);
+    const gy = Math.floor(ny * HEATMAP_GRID_SIZE);
+    if(gx >= 0 && gx < HEATMAP_GRID_SIZE && gy >= 0 && gy < HEATMAP_GRID_SIZE) {
+        fwHeatmap[gy][gx]++;
+    }
+}
+
+function drawFwHeatmap() {
+    const cellW = fwCanvas.width / HEATMAP_GRID_SIZE;
+    const cellH = fwCanvas.height / HEATMAP_GRID_SIZE;
+    let maxCount = 0;
+    for(let y=0; y<HEATMAP_GRID_SIZE; y++) for(let x=0; x<HEATMAP_GRID_SIZE; x++) if(fwHeatmap[y][x] > maxCount) maxCount = fwHeatmap[y][x];
+    if (maxCount === 0) return;
+
+    for(let y=0; y<HEATMAP_GRID_SIZE; y++) {
+        for(let x=0; x<HEATMAP_GRID_SIZE; x++) {
+            const count = fwHeatmap[y][x];
+            if(count > 0) {
+                const ratio = count / maxCount; 
+                const hue = (1.0 - ratio) * 240; 
+                fwCtx.fillStyle = `hsla(${hue}, 100%, 50%, 0.4)`;
+                fwCtx.fillRect(x * cellW, y * cellH, cellW, cellH);
+            }
+        }
+    }
+}
+
+function drawFwTrajectory() {
+    if(fwPath.length < 2) return;
+    fwCtx.beginPath();
+    fwCtx.strokeStyle = "yellow";
+    fwCtx.lineWidth = 3;
+    fwCtx.moveTo(fwPath[0].x, fwPath[0].y);
+    for(let i=1; i<fwPath.length; i++) fwCtx.lineTo(fwPath[i].x, fwPath[i].y);
+    fwCtx.stroke();
+}
+
+function fwResetData() {
+    fwPath = [];
+    for(let i=0; i<HEATMAP_GRID_SIZE; i++) fwHeatmap[i].fill(0);
+    fwTotalDistance = 0;
+    fwLastRealPos = null;
+    fwRecordedData = [];
+    fwRecStartTime = Date.now();
+
+    const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    setTxt("fw-speed", "0.0");
+    setTxt("fw-distance", "0.0");
+    
+    // 負荷表示の完全リセット
+    const elKneeR = document.getElementById("fw-load-knee-r");
+    const elKneeL = document.getElementById("fw-load-knee-l");
+    const elTrunk = document.getElementById("fw-load-trunk");
+
+    if (elKneeR) { elKneeR.textContent = "0% (0Nm)"; elKneeR.style.color = "#333"; }
+    if (elKneeL) { elKneeL.textContent = "0% (0Nm)"; elKneeL.style.color = "#333"; }
+    if (elTrunk) { elTrunk.textContent = "0% (0Nm)"; elTrunk.style.color = "#333"; }
+
+    if(fwCtx) {
+        fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+        if (!fwIsRunning) {
+            fwCtx.fillStyle = "#000";
+            fwCtx.fillRect(0, 0, fwCanvas.width, fwCanvas.height);
+        }
+    }
+    console.log("データをリセットしました");
+}
+
+function fwToggleCSVRecording() {
+    const btn = document.getElementById("btn-fw-rec-data");
+    const btnDl = document.getElementById("btn-fw-download-csv");
+    
+    if (!fwIsRecordingCSV) {
+        fwIsRecordingCSV = true;
+        fwRecordedData = [];
+        fwRecStartTime = Date.now();
+        btn.textContent = "■ 記録停止";
+        btn.style.background = "#d32f2f";
+        if(btnDl) { btnDl.disabled = true; btnDl.style.background = "#ccc"; }
+    } else {
+        fwIsRecordingCSV = false;
+        btn.textContent = "🔴 データ記録";
+        btn.style.background = "#424242";
+        if (fwRecordedData.length > 0 && btnDl) {
+            btnDl.disabled = false;
+            btnDl.style.background = "#1565c0";
+            btnDl.style.cursor = "pointer";
+            alert("記録完了。CSV保存ボタンからダウンロードできます。");
+        }
+    }
+}
+
+function fwDownloadCSV() {
+    if (fwRecordedData.length === 0) return;
+    let csvContent = "Time(s),X(m),Y(m),Speed(m/s),Right_Knee(Nm),Left_Knee(Nm),Trunk(Nm),Right_Knee(%),Left_Knee(%),Trunk(%)\n";
+    fwRecordedData.forEach(row => {
+        csvContent += `${row.time},${row.x},${row.y},${row.speed},${row.valKneeR},${row.valKneeL},${row.valTrunk},${row.pctKneeR},${row.pctKneeL},${row.pctTrunk}\n`;
+    });
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); 
+    const blob = new Blob([bom, csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Footwork_Data_${Date.now()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+async function fwGeneratePDFReport() {
+    const btn = document.getElementById("btn-fw-report");
+    const originalText = btn.textContent;
+    btn.textContent = "生成中...";
+    btn.disabled = true;
+
+    try {
+        pdfMake.fonts = {
+            Roboto: {
+                normal: 'Roboto-Regular.ttf',
+                bold: 'Roboto-Medium.ttf',
+                italics: 'Roboto-Italic.ttf',
+                bolditalics: 'Roboto-MediumItalic.ttf'
+            }
+        };
+
+        const mapImage = fwCanvas.toDataURL("image/png");
+        const totalDist = document.getElementById("fw-distance").textContent;
+        
+        let maxSpeed = 0, avgSpeed = 0;
+        let integKneeR = 0, integKneeL = 0, integTrunk = 0;
+        let avgKneeR = 0, avgKneeL = 0;
+        
+        if (fwRecordedData.length > 0) {
+            maxSpeed = Math.max(...fwRecordedData.map(d => parseFloat(d.speed))).toFixed(1);
+            const sumSpeed = fwRecordedData.reduce((sum, d) => sum + parseFloat(d.speed), 0);
+            avgSpeed = (sumSpeed / fwRecordedData.length).toFixed(1);
+            
+            const sumR = fwRecordedData.reduce((sum, d) => sum + parseFloat(d.valKneeR), 0);
+            const sumL = fwRecordedData.reduce((sum, d) => sum + parseFloat(d.valKneeL), 0);
+            const sumT = fwRecordedData.reduce((sum, d) => sum + parseFloat(d.valTrunk), 0);
+
+            integKneeR = Math.round(sumR / 100);
+            integKneeL = Math.round(sumL / 100);
+            integTrunk = Math.round(sumT / 100);
+
+            avgKneeR = (sumR / fwRecordedData.length).toFixed(1);
+            avgKneeL = (sumL / fwRecordedData.length).toFixed(1);
+        }
+
+        let balanceComment = "Balanced (バランス良好)";
+        if (integKneeR > integKneeL * 1.2) balanceComment = "Right Leg Dominant (右足偏重 - 右への負担大)";
+        else if (integKneeL > integKneeR * 1.2) balanceComment = "Left Leg Dominant (左足偏重 - 左への負担大)";
+
+        const docDefinition = {
+            content: [
+                { text: 'Footwork & Load Analysis Report', style: 'header' },
+                { text: `Date: ${new Date().toLocaleString()}`, style: 'subheader' },
+                
+                { text: '■ 1. Movement Performance', style: 'sectionHeader' },
+                {
+                    table: {
+                        widths: ['*', '*', '*'],
+                        body: [
+                            [
+                                { text: 'Total Distance', style: 'tableHeader' },
+                                { text: 'Max Speed', style: 'tableHeader' },
+                                { text: 'Avg Speed', style: 'tableHeader' }
+                            ],
+                            [
+                                { text: `${totalDist} m`, style: 'tableData' },
+                                { text: `${maxSpeed} m/s`, style: 'tableData' },
+                                { text: `${avgSpeed} m/s`, style: 'tableData' }
+                            ]
+                        ]
+                    },
+                    margin: [0, 5, 0, 15]
+                },
+
+                { text: '■ 2. Total Workload (Integral Score)', style: 'sectionHeader' },
+                {
+                    table: {
+                        widths: ['*', '*', '*'],
+                        body: [
+                            [
+                                { text: 'Right Knee (右脚)', style: 'tableHeader', fillColor: '#ffccbc' }, 
+                                { text: 'Left Knee (左脚)', style: 'tableHeader', fillColor: '#b3e5fc' },  
+                                { text: 'Trunk (体幹)', style: 'tableHeader', fillColor: '#fff9c4' }      
+                            ],
+                            [
+                                { text: `${integKneeR} pts`, style: 'tableDataBold', fontSize: 16 },
+                                { text: `${integKneeL} pts`, style: 'tableDataBold', fontSize: 16 },
+                                { text: `${integTrunk} pts`, style: 'tableDataBold', fontSize: 16 }
+                            ],
+                            [
+                                { text: `Avg: ${avgKneeR} Nm`, style: 'tableDataSmall' },
+                                { text: `Avg: ${avgKneeL} Nm`, style: 'tableDataSmall' },
+                                { text: '-' }
+                            ]
+                        ]
+                    },
+                    margin: [0, 5, 0, 10]
+                },
+                { text: `Balance Check: ${balanceComment}`, fontSize: 11, bold: true, color: '#333', margin: [0, 0, 0, 20] },
+
+                { text: '■ 3. Visualization', style: 'sectionHeader' },
+                {
+                    image: mapImage,
+                    width: 500,
+                    alignment: 'center',
+                    margin: [0, 10, 0, 20]
+                },
+
+                { text: '■ Coach Comments', style: 'sectionHeader' },
+                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1 }] },
+                { text: '\n' },
+                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1 }] },
+                { text: '\n' },
+                { canvas: [{ type: 'line', x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1 }] },
+
+                { text: 'Generated by Smart Coach Badminton', style: 'footer', alignment: 'right', margin: [0, 20, 0, 0] }
+            ],
+            defaultStyle: { font: 'Roboto' },
+            styles: {
+                header: { fontSize: 22, bold: true, color: '#2e7d32', margin: [0, 0, 0, 5] },
+                subheader: { fontSize: 10, margin: [0, 0, 0, 20], color: '#555' },
+                sectionHeader: { fontSize: 14, bold: true, color: '#1565c0', margin: [0, 10, 0, 5] },
+                tableHeader: { bold: true, fontSize: 11, color: '#333', alignment: 'center' },
+                tableData: { fontSize: 12, alignment: 'center', margin: [0, 5, 0, 5] },
+                tableDataBold: { fontSize: 14, bold: true, alignment: 'center', margin: [0, 5, 0, 5] },
+                tableDataSmall: { fontSize: 9, alignment: 'center', color: '#666' },
+                footer: { fontSize: 9, color: '#999', italics: true }
+            }
+        };
+
+        pdfMake.createPdf(docDefinition).download(`Analysis_Report_${Date.now()}.pdf`);
+
+    } catch (e) {
+        console.error("PDF Error:", e);
+        alert("PDF生成に失敗しました。\n" + e.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+
+// ==========================================
 // 🏸 動画比較機能 (Video Comparison)
 // ==========================================
 
@@ -8403,7 +9505,6 @@ function compLoadVideo(input, videoId) {
     const url = URL.createObjectURL(file);
     video.src = url;
     video.load();
-    // シークバーのリセット
     const seek = document.getElementById('seek-' + videoId);
     if(seek) seek.value = 0;
 }
@@ -8413,24 +9514,18 @@ async function compPlayBoth() {
     const vA = document.getElementById('video-a');
     const vB = document.getElementById('video-b');
     
-    // 速度適用
     compChangeSpeed();
 
-    // 【重要】スマホでの同時再生にはミュートが必須条件になることが多いです
-    // 音声を聞きたい場合は、再生後に手動でボリュームを上げてもらう必要があります
     if (vA) vA.muted = true;
     if (vB) vB.muted = true;
 
     try {
-        // Promise処理を使って、非同期で再生を試みる
         const playPromiseA = vA.src ? vA.play() : Promise.resolve();
         const playPromiseB = vB.src ? vB.play() : Promise.resolve();
 
         await Promise.all([playPromiseA, playPromiseB]);
     } catch (err) {
         console.error("再生エラー:", err);
-        // スマホによっては「ユーザーのタップ」と「再生」が1対1でないといけない場合があり、
-        // その場合はアラートを出すなどの対応が必要ですが、mutedなら大抵動きます。
     }
 }
 
@@ -8462,7 +9557,6 @@ function compChangeSpeed() {
 // 左右反転 (ミラー) 切り替え
 function compToggleMirror(videoId) {
     const video = document.getElementById(videoId);
-    // 現在のtransformを取得してscaleXを反転させる簡易実装
     if (video.style.transform === 'scaleX(-1)') {
         video.style.transform = 'scaleX(1)';
     } else {
@@ -8493,12 +9587,12 @@ function compMasterSeek(value) {
     const vA = document.getElementById('video-a');
     const vB = document.getElementById('video-b');
     
-    // 両方を一時停止してから移動（スムーズにするため）
     compPauseBoth();
 
     if (vA.duration) vA.currentTime = vA.duration * (value / 100);
     if (vB.duration) vB.currentTime = vB.duration * (value / 100);
 }
+
 </script>
 </body>
 </html>
