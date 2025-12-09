@@ -3006,9 +3006,11 @@ function openSimulation() {
     </div>
     <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
       <button onclick="fwStartCamera()" style="background:#2e7d32; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
-        📷 カメラ
+        📷 カメラ起動 (外側/内側)
       </button>
-      
+      <button onclick="fwToggleCamera()" style="background:#00bcd4; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        🔄 カメラ切替
+      </button>
       <label style="background:#00897b; color:white; padding:10px 20px; border-radius:4px; cursor:pointer; display:inline-block;">
         📁 動画読込
         <input type="file" accept="video/*" style="display:none;" onchange="fwHandleVideoUpload(this)">
@@ -8652,6 +8654,7 @@ var fwOvCtx = fwOverlay ? fwOverlay.getContext('2d') : null;
 var fwPose = null;
 var fwIsRunning = false;
 var fwAnimId;
+var fwFacingMode = 'environment';
 
 // データ保存用
 var fwPath = []; 
@@ -8697,7 +8700,7 @@ function initFwPose() {
 
 // カメラ起動
 async function fwStartCamera() {
-    fwStopAnalysis(); // リセット
+    fwStopAnalysis(); 
     initFwPose();
     if(typeof stopTracking === 'function') stopTracking(); 
 
@@ -8708,7 +8711,12 @@ async function fwStartCamera() {
 
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 480, frameRate: 30 },
+            video: { 
+                facingMode: fwFacingMode, // ★ここを変更
+                width: { ideal: 640 }, 
+                height: { ideal: 480 }, 
+                frameRate: 30 
+            },
             audio: false
         });
         fwVideo.srcObject = stream;
@@ -8721,6 +8729,18 @@ async function fwStartCamera() {
     } catch(e) {
         console.error(e);
         alert("カメラの起動に失敗しました");
+    }
+}
+
+function fwToggleCamera() {
+    // モードを反転 (environment <-> user)
+    fwFacingMode = (fwFacingMode === 'user') ? 'environment' : 'user';
+    
+    // すでにカメラが動いている場合は、新しい向きで再起動
+    if (fwVideo.srcObject) {
+        fwStartCamera();
+    } else {
+        alert(`次回のカメラ起動時は「${fwFacingMode === 'user' ? '内側' : '外側'}」になります。`);
     }
 }
 
