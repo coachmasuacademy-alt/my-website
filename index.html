@@ -124,6 +124,12 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
+
+
 <script>
 const firebaseConfig = {
     apiKey: "AIzaSyDSzYUAvn8sOse_twlArlMqQxh1Zug02GM",
@@ -1822,8 +1828,12 @@ async function downloadKnowledgePDF() {
       バドミントントレーニングプログラム＆学習サポートアプリ
     </p>
     <div style="margin-top:12px;">
-      <a href="https://www.youtube.com/@MASUBadmintonAcademy" target="_blank" style="display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
-         <span id="channel-title" style="font-weight:bold; color:#1a237e;">MASU Badminton Academy YouTubeチャンネル</span>
+      <a href="https://www.youtube.com/@MASUBadmintonAcademy" target="_blank" 
+         style="display:inline-flex; align-items:center; gap:6px; text-decoration:none;">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/0/09/YouTube_full-color_icon_(2017).svg" 
+             alt="YouTube" 
+             style="width:24px; height:24px;">
+        <span id="channel-title" style="font-weight:bold; color:#1a237e;">MASU Badminton Academy YouTubeチャンネル</span>
       </a>
    </div>
    
@@ -3201,8 +3211,89 @@ function openSimulation() {
         </div>
         <input type="range" id="seek-video-b" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-b', this.value)">
       </div>
-
     </div>
+  </div>
+</section>
+
+<section id="formation-analysis-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #e0f2f1; padding: 15px 20px; border-bottom: 1px solid #b2dfdb;">
+    <h3 style="margin:0; color:#00695c; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      🏸 ダブルス陣形分析 (Formation Analysis)
+    </h3>
+    <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+      動画から4人の選手を検出し、サイドバイサイド(守備)とトップアンドバック(攻撃)の比率を分析します。<br>
+      ※処理が重いためPCでの利用を推奨します。
+    </p>
+  </div>
+
+  <div style="padding: 20px;">
+    <div style="margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+      <label style="background:#00897b; color:white; padding:10px 20px; border-radius:4px; cursor:pointer; display:inline-block;">
+        📁 ダブルス動画を選択
+        <input type="file" id="formation-video-upload" accept="video/*" style="display:none;" onchange="handleFormationVideo(this)">
+      </label>
+
+      <button onclick="toggleFormationAnalysis()" id="btn-formation-toggle" disabled style="background:#ccc; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:not-allowed;">
+        ▶ 分析開始
+      </button>
+      
+      <button onclick="toggleAreaSelectMode()" id="btn-formation-area" style="background:#ff9800; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        📐 分析エリア指定
+      </button>
+      <button onclick="resetFormationData()" style="background:#757575; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        🗑️ リセット
+      </button>
+    </div>
+    
+    <div id="formation-area-msg" style="display:none; color:#d32f2f; font-weight:bold; margin-bottom:10px;">
+      ※ 画面をドラッグして、手前側コートの範囲を囲ってください。
+    </div>
+
+    <div style="position: relative; width: 100%; max-width: 640px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+      <video id="formation_video" style="display: none;" playsinline muted></video>
+      <canvas id="formation_canvas" width="640" height="360" style="width: 100%; height: auto; display: block;"></canvas>
+      <div id="formation-loading" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:white; background:rgba(0,0,0,0.7); padding:10px 20px; border-radius:8px; display:none;">
+        AIモデル読み込み中...
+      </div>
+    </div>
+
+    <div style="margin-top: 20px; max-width: 640px; margin-left: auto; margin-right: auto;">
+      <div style="background:#fafafa; padding:20px; border-radius:8px; border:1px solid #ddd; border-top: 4px solid #d32f2f; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+        <h4 style="margin:0 0 15px 0; color:#d32f2f; text-align:center; font-size: 18px;">
+           手前側コート (Near Side) 陣形分析
+        </h4>
+        
+        <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size: 16px;">
+          <span>⚔️ 攻撃 (Top & Back):</span>
+          <span id="near-tb-val" style="font-weight:bold; color:#ef5350;">0%</span>
+        </div>
+        <div style="background:#e0e0e0; height:15px; border-radius:8px; overflow:hidden; margin-bottom:15px;">
+          <div id="near-tb-bar" style="width:0%; height:100%; background:#ef5350; transition: width 0.3s;"></div>
+        </div>
+        
+        <div style="display:flex; justify-content:space-between; margin-bottom:5px; font-size: 16px;">
+          <span>🛡️ 守備 (Side by Side):</span>
+          <span id="near-ss-val" style="font-weight:bold; color:#1976d2;">0%</span>
+        </div>
+        <div style="background:#e0e0e0; height:15px; border-radius:8px; overflow:hidden;">
+          <div id="near-ss-bar" style="width:0%; height:100%; background:#1976d2; transition: width 0.3s;"></div>
+        </div>
+      </div>
+    </div>
+</div>
+    
+    <p style="font-size:12px; color:#666; margin-top:10px; text-align:center;">
+      ※ 動画の画角によっては奥側の検出精度が落ちる場合があります。<br>
+      ※ 横並びと縦並びの判定は、ペア間の角度(45度)を基準にしています。
+    </p>
   </div>
 </section>
 
@@ -8416,6 +8507,8 @@ function processCameraFrame() {
 function handleVideoUpload(input) {
     const file = input.files[0];
     if (!file) return;
+    
+    // 初期化処理
     initPose();
     stopTracking(); 
     resetGraphData(); 
@@ -8424,7 +8517,7 @@ function handleVideoUpload(input) {
     recordingStartTime = Date.now();
     maxTorqueValues = { r_elbow: 0, r_shoulder: 0, r_knee: 0, l_elbow: 0, l_shoulder: 0, l_knee: 0, trunk: 0 };
 
-    // ★追加: 操作ボタンを表示
+    // 操作ボタンを表示
     const ctrls = document.getElementById("pose-video-controls");
     if(ctrls) ctrls.style.display = "flex";
 
@@ -8432,6 +8525,7 @@ function handleVideoUpload(input) {
     videoElement.srcObject = null; 
     videoElement.src = url;
     
+    // 動画要素の設定（非表示にしておく）
     videoElement.style.display = "block";
     videoElement.style.position = "absolute";
     videoElement.style.width = "1px";
@@ -8444,21 +8538,28 @@ function handleVideoUpload(input) {
     videoElement.setAttribute('playsinline', ''); 
     
     videoElement.onloadeddata = () => {
-        // ★修正: 自動再生せずに一時停止状態で待機
+        // まず一時停止し、先頭へシーク
         videoElement.pause();
-        videoElement.currentTime = 0;
+        videoElement.currentTime = 0; 
         isCameraRunning = false;
-        
-        // 最初の1フレームだけ解析して表示（任意）
-        setTimeout(() => {
-             if(pose) pose.send({image: videoElement});
-        }, 500);
     };
 
+    videoElement.onseeked = () => {
+        canvasElement.width = videoElement.videoWidth;
+        canvasElement.height = videoElement.videoHeight;
+
+        if (canvasCtx) {
+            canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+        }
+
+        setTimeout(() => {
+             if(pose) pose.send({image: videoElement});
+        }, 100);
+    };
+    
     const btn = document.getElementById("btn-record-start");
     if(btn) btn.style.display = "inline-block";
     
-    // 同じファイルを再選択できるようにリセット
     input.value = '';
 }
 
@@ -8769,12 +8870,32 @@ function fwHandleVideoUpload(input) {
     fwVideo.muted = true;
     fwVideo.playsInline = true;
 
-    fwVideo.onloadedmetadata = () => {
+    
+    fwVideo.onloadeddata = () => {
         fwVideo.pause();
         fwVideo.currentTime = 0;
         fwIsRunning = false;
-        setTimeout(() => { if(fwPose) fwPose.send({image: fwVideo}); }, 500);
     };
+
+   
+    fwVideo.onseeked = () => {
+        
+        fwCanvas.width = fwVideo.videoWidth || 640;
+        fwCanvas.height = fwVideo.videoHeight || 480;
+        fwOverlay.width = fwCanvas.width;
+        fwOverlay.height = fwCanvas.height;
+
+        
+        if(fwCtx) {
+            fwCtx.drawImage(fwVideo, 0, 0, fwCanvas.width, fwCanvas.height);
+        }
+
+       
+        setTimeout(() => { 
+            if(fwPose) fwPose.send({image: fwVideo}); 
+        }, 100);
+    };
+   
 
     setupFwCanvasListener();
     input.value = '';
@@ -9620,6 +9741,502 @@ function compMasterSeek(value) {
 
     if (vA.duration) vA.currentTime = vA.duration * (value / 100);
     if (vB.duration) vB.currentTime = vB.duration * (value / 100);
+}
+
+// ==========================================
+// 🏸 ダブルス陣形分析機能 (MoveNet MultiPose)
+// ==========================================
+
+let formationDetector = null;
+let isFormationRunning = false;
+let formationAnimId = null;
+
+let lastFormationState = "Side by Side"; // 初期値
+let lastFormationColor = "#1976d2";      // 初期色
+let lostTrackingCount = 0;
+
+// 統計データ
+let formationStats = {
+    far: { tb: 0, ss: 0, total: 0 },
+    near: { tb: 0, ss: 0, total: 0 }
+};
+
+const formationVideo = document.getElementById("formation_video");
+const formationCanvas = document.getElementById("formation_canvas");
+const formationCtx = formationCanvas ? formationCanvas.getContext("2d") : null;
+
+let isSelectingArea = false;
+let formationDragStart = null;
+let formationAnalysisArea = null; // {x, y, w, h} (nullなら全画面)
+
+// --- エリア指定機能 ---
+function toggleAreaSelectMode() {
+    isSelectingArea = !isSelectingArea;
+    const btn = document.getElementById("btn-formation-area");
+    const msg = document.getElementById("formation-area-msg");
+    const canvas = document.getElementById("formation_canvas");
+
+    if (isSelectingArea) {
+        btn.textContent = "完了";
+        btn.style.background = "#d32f2f";
+        msg.style.display = "block";
+        
+        // 既存のエリアをリセット
+        formationAnalysisArea = null;
+        
+        // イベントリスナー追加
+        canvas.addEventListener("mousedown", onAreaMouseDown);
+        canvas.addEventListener("mousemove", onAreaMouseMove);
+        canvas.addEventListener("mouseup", onAreaMouseUp);
+        
+        // キャンバス再描画（枠を消すため）
+        if(!isFormationRunning) {
+             formationCtx.drawImage(formationVideo, 0, 0, formationCanvas.width, formationCanvas.height);
+        }
+    } else {
+        btn.textContent = "📐 分析エリア指定";
+        btn.style.background = "#ff9800";
+        msg.style.display = "none";
+        
+        // イベントリスナー削除
+        canvas.removeEventListener("mousedown", onAreaMouseDown);
+        canvas.removeEventListener("mousemove", onAreaMouseMove);
+        canvas.removeEventListener("mouseup", onAreaMouseUp);
+    }
+}
+
+function onAreaMouseDown(e) {
+    const rect = formationCanvas.getBoundingClientRect();
+    const scaleX = formationCanvas.width / rect.width;
+    const scaleY = formationCanvas.height / rect.height;
+    formationDragStart = {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+    };
+}
+
+function onAreaMouseMove(e) {
+    if (!formationDragStart) return;
+    const rect = formationCanvas.getBoundingClientRect();
+    const scaleX = formationCanvas.width / rect.width;
+    const scaleY = formationCanvas.height / rect.height;
+    const currentX = (e.clientX - rect.left) * scaleX;
+    const currentY = (e.clientY - rect.top) * scaleY;
+
+    // 描画更新（動画の上に枠線を描く）
+    formationCtx.drawImage(formationVideo, 0, 0, formationCanvas.width, formationCanvas.height);
+    
+    // 枠線描画
+    formationCtx.strokeStyle = "#00e676";
+    formationCtx.lineWidth = 3;
+    formationCtx.strokeRect(
+        formationDragStart.x, 
+        formationDragStart.y, 
+        currentX - formationDragStart.x, 
+        currentY - formationDragStart.y
+    );
+}
+
+function onAreaMouseUp(e) {
+    if (!formationDragStart) return;
+    const rect = formationCanvas.getBoundingClientRect();
+    const scaleX = formationCanvas.width / rect.width;
+    const scaleY = formationCanvas.height / rect.height;
+    const currentX = (e.clientX - rect.left) * scaleX;
+    const currentY = (e.clientY - rect.top) * scaleY;
+
+    // 確定したエリアを保存 (左上x, 左上y, 幅, 高さ に正規化)
+    const x = Math.min(formationDragStart.x, currentX);
+    const y = Math.min(formationDragStart.y, currentY);
+    const w = Math.abs(currentX - formationDragStart.x);
+    const h = Math.abs(currentY - formationDragStart.y);
+
+    // 小さすぎる誤操作は無視
+    if (w > 20 && h > 20) {
+        formationAnalysisArea = { x, y, w, h };
+    }
+    
+    formationDragStart = null;
+    toggleAreaSelectMode(); // 自動で完了モードへ
+}
+
+
+
+// 1. モデルのロード
+async function loadFormationModel() {
+    const loadingEl = document.getElementById("formation-loading");
+    if(loadingEl) loadingEl.style.display = "block";
+
+    try {
+        await tf.setBackend('webgl');
+        await tf.ready();
+
+        const detectorConfig = {
+            modelType: 'MultiPose.Lightning',
+            enableTracking: true,
+            trackerType: 'boundingBox',
+            trackerConfig: {
+                maxTracks: 4, 
+                maxAge: 800   // 追跡保持期間
+            },
+            modelConfig: {
+                enableSmoothing: true // ▼ 追加: 座標のブレを抑える
+            },
+            minPoseScore: 0.2 
+        };
+        
+        formationDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
+        
+        console.log("Model Loaded: High Sensitivity & Smoothing ON");
+        if(loadingEl) loadingEl.style.display = "none";
+        
+        const btn = document.getElementById("btn-formation-toggle");
+        if(btn) {
+            btn.textContent = "▶ 分析開始";
+            btn.disabled = false;
+            btn.style.background = "#00897b";
+            btn.style.cursor = "pointer";
+        }
+    } catch (e) {
+        console.error("Model Load Error:", e);
+        alert("モデル読み込みエラー:\n" + e.message);
+        if(loadingEl) loadingEl.style.display = "none";
+    }
+}
+
+// 2. 動画選択時の処理
+function handleFormationVideo(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    // 前回の分析が動いていたら止める
+    if (isFormationRunning) {
+        toggleFormationAnalysis();
+    }
+    
+    // リセット処理
+    resetFormationData();
+
+    const url = URL.createObjectURL(file);
+    formationVideo.src = url;
+    
+    // 1. メタデータ読み込み完了時
+    formationVideo.onloadeddata = () => {
+        formationVideo.pause();   // 停止
+        formationVideo.currentTime = 0; // 先頭へ
+        isFormationRunning = false;
+        
+        // ボタンの見た目をリセット
+        const btn = document.getElementById("btn-formation-toggle");
+        if(btn) {
+            btn.textContent = "▶ 分析開始";
+            btn.style.background = "#00897b";
+        }
+    };
+
+    // 2. 先頭へのシーク（頭出し）完了時
+    // ★ここが重要：動画の準備が整った瞬間に画像を描画する
+    formationVideo.onseeked = () => {
+        // キャンバスサイズを動画に合わせる
+        formationCanvas.width = formationVideo.videoWidth;
+        formationCanvas.height = formationVideo.videoHeight;
+        
+        if (formationCtx) {
+            // まずクリア
+            formationCtx.clearRect(0, 0, formationCanvas.width, formationCanvas.height);
+            // 動画の1フレーム目をそのまま描画（明るい状態で表示）
+            formationCtx.drawImage(formationVideo, 0, 0, formationCanvas.width, formationCanvas.height);
+        }
+
+        // モデルが未ロードなら裏でロード開始しておく（ユーザーを待たせないため）
+        if (!formationDetector) {
+            loadFormationModel();
+        }
+    };
+}
+
+// 3. 分析の開始・停止
+function toggleFormationAnalysis() {
+    const btn = document.getElementById("btn-formation-toggle");
+    
+    if (!isFormationRunning) {
+        // 開始
+        formationVideo.play();
+        isFormationRunning = true;
+        btn.textContent = "⏸ 一時停止";
+        btn.style.background = "#fb8c00";
+        analyzeFormationFrame();
+    } else {
+        // 停止
+        formationVideo.pause();
+        isFormationRunning = false;
+        btn.textContent = "▶ 分析再開";
+        btn.style.background = "#00897b";
+        if (formationAnimId) cancelAnimationFrame(formationAnimId);
+    }
+}
+
+// 4. フレームごとの処理ループ
+async function analyzeFormationFrame() {
+    if (!isFormationRunning || !formationDetector) return;
+
+    formationCtx.drawImage(formationVideo, 0, 0, formationCanvas.width, formationCanvas.height);
+
+    const poses = await formationDetector.estimatePoses(formationCanvas, {
+        // ▼ 修正: 手前側だけなら最大3〜4人で十分。処理も軽くなり精度が上がる。
+        maxPoses: 4, 
+        flipHorizontal: false
+    });
+
+    // 画面演出（少し暗くする）
+    formationCtx.fillStyle = "rgba(0, 0, 0, 0.3)";
+    formationCtx.fillRect(0, 0, formationCanvas.width, formationCanvas.height);
+
+    processFormationLogic(poses);
+
+    if (!formationVideo.paused && !formationVideo.ended) {
+        formationAnimId = requestAnimationFrame(analyzeFormationFrame);
+    } else if (formationVideo.ended) {
+        isFormationRunning = false;
+        document.getElementById("btn-formation-toggle").textContent = "▶ 最初から";
+        toggleFormationAnalysis();
+    }
+}
+
+// 5. 陣形判定ロジック
+function processFormationLogic(poses) {
+    // スコア基準（少し甘めに設定して拾いやすくする）
+    const validPoses = poses.filter(p => p.score > 0.15);
+
+    const nearTeam = [];
+
+    // エリアが指定されていればそれを使う。なければ全画面。
+    const area = formationAnalysisArea || { 
+        x: 0, 
+        y: 0, 
+        w: formationCanvas.width, 
+        h: formationCanvas.height 
+    };
+
+    // 描画: 指定エリアを緑枠で表示（確認用）
+    if (formationAnalysisArea) {
+        formationCtx.strokeStyle = "rgba(0, 230, 118, 0.5)";
+        formationCtx.lineWidth = 2;
+        formationCtx.strokeRect(area.x, area.y, area.w, area.h);
+    }
+
+    validPoses.forEach(pose => {
+        const kp = pose.keypoints;
+        let yCenter = 0;
+        let xCenter = 0;
+
+        // 腰の位置（なければ肩）を取得
+        if (kp[11].score > 0.1 && kp[12].score > 0.1) {
+            xCenter = (kp[11].x + kp[12].x) / 2;
+            yCenter = (kp[11].y + kp[12].y) / 2;
+        } else {
+            xCenter = (kp[5].x + kp[6].x) / 2;
+            yCenter = (kp[5].y + kp[6].y) / 2;
+        }
+        
+        // ★重要: その位置が「指定エリア内」にあるか判定
+        const inAreaX = xCenter >= area.x && xCenter <= (area.x + area.w);
+        const inAreaY = yCenter >= area.y && yCenter <= (area.y + area.h);
+
+        // エリア内なら採用
+        if (inAreaX && inAreaY) {
+            nearTeam.push(pose);
+        }
+    });
+
+    evaluateTeamFormation(nearTeam);
+    updateFormationUI();
+}
+
+// チームごとの詳細判定 (遠近補正あり)
+function evaluateTeamFormation(teamPoses) {
+    const canvasWidth = formationCanvas.width;
+
+    // -----------------------------------------------------
+    // パターンA: 2人とも検出できている場合 (正常判定)
+    // -----------------------------------------------------
+    if (teamPoses.length >= 2) {
+        lostTrackingCount = 0; // 見失いカウンタリセット
+
+        // スコアが高い順に2名選出
+        const players = teamPoses.sort((a, b) => b.score - a.score).slice(0, 2);
+        
+        // 座標取得 (腰優先、なければ肩)
+        const getPos = (p) => {
+            const kp = p.keypoints;
+            if (kp[11].score > 0.1 && kp[12].score > 0.1) {
+                return { x: (kp[11].x + kp[12].x)/2, y: (kp[11].y + kp[12].y)/2 };
+            } else {
+                return { x: (kp[5].x + kp[6].x)/2, y: (kp[5].y + kp[6].y)/2 };
+            }
+        };
+        
+        const pos1 = getPos(players[0]);
+        const pos2 = getPos(players[1]);
+
+        // 距離計算
+        const dx = Math.abs(pos1.x - pos2.x);
+        const dy = Math.abs(pos1.y - pos2.y);
+
+        // ★改良1: 遠近法補正 (4.0倍で維持)
+        // 奥に行くほど縦距離が潰れるため、強力に補正して縦判定しやすくする
+        const weightedDy = dy * 4.0;
+
+        // ★改良2: 強制トップ＆バック判定 (Overlap Check)
+        // 横幅(dx)が画面幅の15%以下なら、ほぼ縦に重なっているとみなして強制的にT&Bにする
+        const isOverlappingX = dx < (canvasWidth * 0.15);
+
+        // 判定: 「補正縦距離 > 横距離」 または 「横に重なっている」
+        let isTopAndBack = (weightedDy > dx) || isOverlappingX;
+        
+        // 結果を更新して記憶
+        if (isTopAndBack) {
+            lastFormationState = "Top & Back";
+            lastFormationColor = "#ef5350"; // 赤:攻撃
+            formationStats.near.tb++;
+        } else {
+            lastFormationState = "Side by Side";
+            lastFormationColor = "#1976d2"; // 青:守備
+            formationStats.near.ss++;
+        }
+        formationStats.near.total++;
+
+        // 現在の線を描画
+        formationCtx.beginPath();
+        formationCtx.moveTo(pos1.x, pos1.y);
+        formationCtx.lineTo(pos2.x, pos2.y);
+        formationCtx.strokeStyle = lastFormationColor;
+        formationCtx.lineWidth = 4;
+        formationCtx.stroke();
+
+        players.forEach(p => drawSkeleton(p, lastFormationColor));
+        
+        // ラベル表示
+        const midX = (pos1.x + pos2.x) / 2;
+        const midY = (pos1.y + pos2.y) / 2;
+        formationCtx.fillStyle = lastFormationColor;
+        formationCtx.font = "bold 16px sans-serif";
+        formationCtx.fillText(lastFormationState, midX - 40, midY - 10);
+    } 
+    // -----------------------------------------------------
+    // パターンB: 選手が重なって1人しか見えない場合 (自動追従)
+    // -----------------------------------------------------
+    else if (teamPoses.length === 1) {
+        lostTrackingCount++;
+
+        // ★改良3: 1人しかいない = 「重なっている(Top & Back)」とみなす
+        // バドミントンにおいてエリア内で1人になるのは、手前の選手に奥の選手が隠れた時です。
+        // つまり、これは「究極のTop & Back」状態と言えます。
+        
+        // 3秒(90フレーム)以内なら追従する（永遠に1人の場合は除外するため）
+        if (lostTrackingCount < 90) {
+            
+            // 強制的に T&B モードとしてカウントする
+            lastFormationState = "Top & Back"; 
+            lastFormationColor = "#ef5350"; // 赤
+            
+            formationStats.near.tb++; // ★T&Bとしてカウント加算
+            formationStats.near.total++;
+
+            // 1人だけでも骨格を描画（赤色で）
+            const p = teamPoses[0];
+            drawSkeleton(p, lastFormationColor); 
+
+            // ラベル表示位置の計算
+            const kp = p.keypoints;
+            let px = 0, py = 0;
+            // 腰があれば腰、なければ鼻
+            if(kp[11].score > 0.1) { 
+                px = (kp[11].x + kp[12].x)/2; 
+                py = (kp[11].y + kp[12].y)/2; 
+            } else { 
+                px = kp[0].x; 
+                py = kp[0].y; 
+            }
+
+            formationCtx.fillStyle = lastFormationColor;
+            formationCtx.font = "bold 16px sans-serif";
+            // 自動判定中であることを示すラベル
+            formationCtx.fillText("Top & Back (Auto)", px - 60, py - 40);
+        }
+    }
+}
+
+// 簡易骨格描画
+function drawSkeleton(pose, color) {
+    const kps = pose.keypoints;
+    const edges = [
+        [5,7], [7,9], [6,8], [8,10], // 腕
+        [11,13], [13,15], [12,14], [14,16], // 脚
+        [5,6], [11,12], [5,11], [6,12] // 胴体
+    ];
+
+    formationCtx.strokeStyle = "white";
+    formationCtx.lineWidth = 2;
+
+    edges.forEach(([i, j]) => {
+        if (kps[i].score > 0.3 && kps[j].score > 0.3) {
+            formationCtx.beginPath();
+            formationCtx.moveTo(kps[i].x, kps[i].y);
+            formationCtx.lineTo(kps[j].x, kps[j].y);
+            formationCtx.stroke();
+        }
+    });
+
+    // 関節点
+    formationCtx.fillStyle = color;
+    kps.forEach(kp => {
+        if (kp.score > 0.3) {
+            formationCtx.beginPath();
+            formationCtx.arc(kp.x, kp.y, 4, 0, 2*Math.PI);
+            formationCtx.fill();
+        }
+    });
+}
+
+// 6. UI更新
+function updateFormationUI() {
+    const calcPct = (val, total) => total > 0 ? Math.round((val / total) * 100) : 0;
+
+    // 手前側 (Near Side) の集計
+    const nearTotal = formationStats.near.total;
+    const nearTbPct = calcPct(formationStats.near.tb, nearTotal);
+    const nearSsPct = calcPct(formationStats.near.ss, nearTotal);
+    
+    // 要素をIDで取得
+    const elTbVal = document.getElementById("near-tb-val");
+    const elTbBar = document.getElementById("near-tb-bar");
+    const elSsVal = document.getElementById("near-ss-val");
+    const elSsBar = document.getElementById("near-ss-bar");
+
+    // 要素が存在する場合のみ書き換える（ここがエラー対策）
+    if (elTbVal) elTbVal.textContent = `${nearTbPct}%`;
+    if (elTbBar) elTbBar.style.width = `${nearTbPct}%`;
+    
+    if (elSsVal) elSsVal.textContent = `${nearSsPct}%`;
+    if (elSsBar) elSsBar.style.width = `${nearSsPct}%`;
+}
+
+// 7. リセット (修正版)
+function resetFormationData() {
+    // 統計データをゼロリセット
+    formationStats = {
+        far: { tb: 0, ss: 0, total: 0 },
+        near: { tb: 0, ss: 0, total: 0 }
+    };
+    
+    // UI表示もリセット
+    updateFormationUI();
+    
+    // キャンバスをクリア
+    if(formationCtx && formationCanvas) {
+        formationCtx.clearRect(0, 0, formationCanvas.width, formationCanvas.height);
+    }
 }
 
 </script>
