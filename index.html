@@ -3188,30 +3188,32 @@ function openSimulation() {
 
     <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
       
-      <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
-        <div style="font-weight:bold; color:#0277bd; margin-bottom:5px; display:flex; justify-content:space-between;">
-          <span>📺 動画 A</span>
-          <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-a')"> 左右反転</label>
-        </div>
-        <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="font-size:12px; margin-bottom:5px; width:100%;">
-        <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
-          <video id="video-a" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-a')"></video>
-        </div>
-        <input type="range" id="seek-video-a" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-a', this.value)">
-      </div>
-
-      <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
-        <div style="font-weight:bold; color:#c2185b; margin-bottom:5px; display:flex; justify-content:space-between;">
-          <span>📸 動画 B </span>
-          <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-b')"> 左右反転</label>
-        </div>
-        <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-b')" style="font-size:12px; margin-bottom:5px; width:100%;">
-        <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
-          <video id="video-b" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-b')"></video>
-        </div>
-        <input type="range" id="seek-video-b" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px;" oninput="compIndividualSeek('video-b', this.value)">
-      </div>
+  <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
+    <div style="font-weight:bold; color:#0277bd; margin-bottom:5px; display:flex; justify-content:space-between;">
+      <span>📺 動画 A</span>
+      <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-a')"> 左右反転</label>
     </div>
+    <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="font-size:12px; margin-bottom:5px; width:100%; box-sizing: border-box;">
+    
+    <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
+      <video id="video-a" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-a')"></video>
+    </div>
+    <input type="range" id="seek-video-a" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px; box-sizing: border-box; display: block;" oninput="compIndividualSeek('video-a', this.value)">
+  </div>
+
+  <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
+    <div style="font-weight:bold; color:#c2185b; margin-bottom:5px; display:flex; justify-content:space-between;">
+      <span>📸 動画 B </span>
+      <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-b')"> 左右反転</label>
+    </div>
+    <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-b')" style="font-size:12px; margin-bottom:5px; width:100%; box-sizing: border-box;">
+    
+    <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
+      <video id="video-b" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-b')"></video>
+    </div>
+    <input type="range" id="seek-video-b" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px; box-sizing: border-box; display: block;" oninput="compIndividualSeek('video-b', this.value)">
+  </div>
+</div>
   </div>
 </section>
 
@@ -3226,11 +3228,12 @@ function openSimulation() {
 ">
   <div style="background: #e0f2f1; padding: 15px 20px; border-bottom: 1px solid #b2dfdb;">
     <h3 style="margin:0; color:#00695c; display:flex; align-items:center; gap:8px; font-size: 20px;">
-      🏸 ダブルス陣形分析 (Formation Analysis)
+      ダブルス陣形分析 (Formation Analysis)
     </h3>
     <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
-      動画から4人の選手を検出し、サイドバイサイド(守備)とトップアンドバック(攻撃)の比率を分析します。<br>
-      ※処理が重いためPCでの利用を推奨します。
+      動画から手前側コートの選手を検出し、サイドバイサイド(守備)とトップアンドバック(攻撃)の比率を分析します。<br>
+奥側コートの選手を認識しないようにするために分析エリアを指定します。<br>
+※処理が重いためPCでの利用を推奨します。
     </p>
   </div>
 
@@ -3291,7 +3294,6 @@ function openSimulation() {
 </div>
     
     <p style="font-size:12px; color:#666; margin-top:10px; text-align:center;">
-      ※ 動画の画角によっては奥側の検出精度が落ちる場合があります。<br>
       ※ 横並びと縦並びの判定は、ペア間の角度(45度)を基準にしています。
     </p>
   </div>
