@@ -2858,6 +2858,13 @@ function openSimulation() {
   </div>
 
   <div style="padding: 20px;">
+<div style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+  <span style="font-size:12px; font-weight:bold; color:#555;">設定保存:</span>
+  <button onclick="savePoseParams()" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+  <button onclick="loadPoseParams()" style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+  <button onclick="clearPoseParams()" style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+  <span id="pose-local-status" style="font-size:12px; color:#e65100;"></span>
+</div>
 <div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 4px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; border: 1px solid #ddd;">
       <span style="font-weight: bold; font-size: 12px; color: #555;">⚙️ 身体パラメータ設定:</span>
       <label style="font-size: 13px;">身長(cm): <input type="number" id="bio-height" value="170" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
@@ -2972,6 +2979,13 @@ function openSimulation() {
   </div>
 
   <div style="padding: 20px;">
+<div style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+  <span style="font-size:12px; font-weight:bold; color:#555;">設定保存:</span>
+  <button onclick="saveFwParams()" style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+  <button onclick="loadFwParams()" style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+  <button onclick="clearFwParams()" style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+  <span id="fw-local-status" style="font-size:12px; color:#e65100;"></span>
+</div>
 <div style="margin-bottom: 10px; background: #fff3e0; padding: 10px 15px; border-radius: 6px; border: 1px solid #ffe0b2; display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
       <span style="font-weight:bold; font-size:13px; color:#e65100;">👤 選手設定:</span>
       <label style="font-size:13px;">身長: <input type="number" id="fw-player-height" value="170" style="width:50px; padding:4px; border:1px solid #ccc; border-radius:4px;"> cm</label>
@@ -10241,6 +10255,137 @@ function resetFormationData() {
     }
 }
 
+// ==========================================
+// ✅ AIフォーム解析パラメータ 保存機能
+// ==========================================
+function savePoseParams() {
+    const height = document.getElementById("bio-height").value;
+    const weight = document.getElementById("bio-weight").value;
+    const racket = document.getElementById("bio-racket").value;
+
+    const saveData = {
+        height: height,
+        weight: weight,
+        racket: racket,
+        timestamp: new Date().toLocaleString()
+    };
+
+    localStorage.setItem("smartCoachPoseParams", JSON.stringify(saveData));
+
+    const statusEl = document.getElementById("pose-local-status");
+    if(statusEl) {
+        statusEl.textContent = "保存完了";
+        setTimeout(() => { statusEl.textContent = ""; }, 2000);
+    }
+}
+
+function loadPoseParams() {
+    const json = localStorage.getItem("smartCoachPoseParams");
+    if (!json) {
+        alert("保存されたデータがありません。");
+        return;
+    }
+    if (!confirm("保存された設定を復元しますか？")) return;
+
+    try {
+        const data = JSON.parse(json);
+        if(data.height) document.getElementById("bio-height").value = data.height;
+        if(data.weight) document.getElementById("bio-weight").value = data.weight;
+        if(data.racket) document.getElementById("bio-racket").value = data.racket;
+
+        const statusEl = document.getElementById("pose-local-status");
+        if(statusEl) {
+            statusEl.textContent = "復元しました: " + (data.timestamp || "");
+            setTimeout(() => { statusEl.textContent = ""; }, 3000);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("復元に失敗しました。");
+    }
+}
+
+function clearPoseParams() {
+    if(confirm("AIフォーム解析の保存設定を削除しますか？")) {
+        localStorage.removeItem("smartCoachPoseParams");
+        const statusEl = document.getElementById("pose-local-status");
+        if(statusEl) {
+            statusEl.textContent = "削除しました";
+            setTimeout(() => { statusEl.textContent = ""; }, 2000);
+        }
+    }
+}
+
+// ==========================================
+// ✅ ゲーム分析(フットワーク)パラメータ 保存機能
+// ==========================================
+function saveFwParams() {
+    const height = document.getElementById("fw-player-height").value;
+    const weight = document.getElementById("fw-player-weight").value;
+    const racket = document.getElementById("fw-player-racket").value;
+
+    const saveData = {
+        height: height,
+        weight: weight,
+        racket: racket,
+        timestamp: new Date().toLocaleString()
+    };
+
+    localStorage.setItem("smartCoachFwParams", JSON.stringify(saveData));
+
+    const statusEl = document.getElementById("fw-local-status");
+    if(statusEl) {
+        statusEl.textContent = "保存完了";
+        setTimeout(() => { statusEl.textContent = ""; }, 2000);
+    }
+}
+
+function loadFwParams() {
+    const json = localStorage.getItem("smartCoachFwParams");
+    if (!json) {
+        alert("保存されたデータがありません。");
+        return;
+    }
+    if (!confirm("保存された設定を復元しますか？")) return;
+
+    try {
+        const data = JSON.parse(json);
+        if(data.height) document.getElementById("fw-player-height").value = data.height;
+        if(data.weight) document.getElementById("fw-player-weight").value = data.weight;
+        if(data.racket) document.getElementById("fw-player-racket").value = data.racket;
+
+        const statusEl = document.getElementById("fw-local-status");
+        if(statusEl) {
+            statusEl.textContent = "復元しました: " + (data.timestamp || "");
+            setTimeout(() => { statusEl.textContent = ""; }, 3000);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("復元に失敗しました。");
+    }
+}
+
+function clearFwParams() {
+    if(confirm("ゲーム分析の保存設定を削除しますか？")) {
+        localStorage.removeItem("smartCoachFwParams");
+        const statusEl = document.getElementById("fw-local-status");
+        if(statusEl) {
+            statusEl.textContent = "削除しました";
+            setTimeout(() => { statusEl.textContent = ""; }, 2000);
+        }
+    }
+}
+
+// ページ読み込み時に保存データがあれば自動復元するか、メッセージを出す処理（任意）
+document.addEventListener("DOMContentLoaded", () => {
+    if (localStorage.getItem("smartCoachPoseParams")) {
+        const statusEl = document.getElementById("pose-local-status");
+        if (statusEl) statusEl.textContent = "※保存データあり";
+    }
+    if (localStorage.getItem("smartCoachFwParams")) {
+        const statusEl = document.getElementById("fw-local-status");
+        if (statusEl) statusEl.textContent = "※保存データあり";
+    }
+});
 </script>
 </body>
 </html>
