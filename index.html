@@ -103,6 +103,19 @@
       border: none !important;
       box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
     }
+
+/* 🔴 録画中・分析中の枠線アニメーション */
+    .recording-active {
+      border: 5px solid #ff3d00 !important; /* 鮮やかな赤枠 */
+      box-shadow: 0 0 15px rgba(255, 61, 0, 0.7) !important; /* 赤く光らせる */
+      transition: all 0.1s ease; /* パカパカしないよう少し滑らかに */
+    }
+
+    /* 🟡 スタンバイ中（手動ONだけど人がいない）の枠線 */
+    .recording-standby {
+      border: 5px solid #ffd600 !important; /* 黄色枠 */
+      box-shadow: 0 0 10px rgba(255, 214, 0, 0.5) !important;
+    }
   </style>
 
   <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -3077,7 +3090,10 @@ function openSimulation() {
       <button onclick="fwResetData()" style="background:#757575; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
         🗑️ リセット
       </button>
-      
+      <label style="background:#fff3e0; padding:10px 15px; border-radius:4px; border:1px solid #ffe0b2; display:flex; align-items:center; gap:5px; margin-left:10px; cursor:pointer;">
+        <input type="checkbox" id="fw-rally-mode"> 
+        <span style="font-weight:bold; font-size:13px; color:#e65100;">🟢 ラリー中のみ記録 (Spaceキー)</span>
+      </label>
       <label style="font-size:13px; display:flex; align-items:center; gap:5px; background:#f1f8e9; padding:5px 10px; border-radius:4px;">
         <input type="checkbox" id="fw-show-heatmap" checked> ヒートマップ
       </label>
@@ -3147,87 +3163,58 @@ function openSimulation() {
     </div>
 </section>
 
-<section id="video-comparison-section" style="
-  margin-top: 30px; 
-  padding: 0; 
-  background: #fff; 
-  border: 1px solid #ccc; 
-  border-radius: 10px; 
-  overflow: hidden; 
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
+<section id="video-comparison-section" style="margin-top: 30px; padding: 0; background: #fff; border: 1px solid #ccc; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.05);">
   <div style="background: #e1f5fe; padding: 15px 20px; border-bottom: 1px solid #b3e5fc;">
     <h3 style="margin:0; color:#01579b; display:flex; align-items:center; gap:8px; font-size: 20px;">
-      フォーム比較プレーヤー (2画面)
+      AIフォーム比較コーチ 
     </h3>
     <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
-      動画を並べて再生し、フォームの違いを確認しましょう。<br>
-      ※スロー再生や左右反転（ミラー）も可能です。
+      動画Aと動画Bを選択し「AI比較診断」を押してください。<br>
+      動画全体の動き（移動→テイクバック→スイング）を解析し、改善点をアドバイスします。
     </p>
   </div>
 
   <div style="padding: 20px;">
-    <div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; border: 1px solid #ddd; text-align: center;">
-      
-      <div style="display: flex; justify-content: center; align-items: center; gap: 15px; margin-bottom: 10px; flex-wrap: wrap;">
-        <button onclick="compPlayBoth()" style="background:#0288d1; color:white; padding:8px 24px; border-radius:30px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2); border:none; cursor:pointer;">
-          ▶ 同時再生
-        </button>
-        <button onclick="compPauseBoth()" style="background:#d32f2f; color:white; padding:8px 24px; border-radius:30px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2); border:none; cursor:pointer;">
-          ⏸ 一時停止
-        </button>
-        <button onclick="compResetBoth()" style="background:#757575; color:white; padding:8px 16px; border-radius:30px; font-size:12px; border:none; cursor:pointer;">
-          ⏮ 最初に戻す
-        </button>
+    <div style="background: #fff9c4; padding: 15px; border-radius: 8px; border: 1px solid #fbc02d; margin-bottom: 20px;">
+      <h4 style="margin: 0 0 10px 0; color: #f57f17; font-size: 15px;">📥 見本動画の準備</h4>
+      <p style="font-size: 12px; color: #333; margin-bottom: 10px;">
+        1. ボタンを押してGoogleドライブを開く ➡ 2. 右上のアイコンで保存 ➡ 3. 下の「見本 (Video B)」で選択
+      </p>
+      <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+        
+        <a href="https://drive.google.com/file/d/1t5U0Jxan59WPnkOXI56C-ao77bviXIqv/view?usp=sharing" target="_blank" style="text-decoration: none;"><button style="background:#fbc02d; color:#333; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">📂 素振り1（動いて振る）</button></a>
+        <a href="https://drive.google.com/file/d/1ST5G4k68hg5UqWvwlGpJgzRWlrQ1-u4r/view?usp=sharing" target="_blank" style="text-decoration: none;"><button style="background:#fbc02d; color:#333; border:none; padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">📂 素振り2（スマッシュ・プッシュ）</button></a>
       </div>
+    </div>
 
-      <div style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; font-size: 13px;">
-        <label style="color:#333;">
-          🐢 スピード: 
-          <select id="comp-speed" onchange="compChangeSpeed()" style="padding:4px; border-radius:4px; border:1px solid #ccc;">
-            <option value="0.1">0.1x (超スロー)</option>
-            <option value="0.25">0.25x (スロー)</option>
-            <option value="0.5">0.5x (半速)</option>
-            <option value="1.0" selected>1.0x (標準)</option>
-            <option value="1.5">1.5x</option>
-          </select>
-        </label>
-        <span style="color:#999;">|</span>
-        <label style="color:#333;">
-          🔄 同期シーク: 
-          <input type="range" id="comp-master-seek" value="0" min="0" max="100" step="0.1" style="vertical-align:middle; width:100px;" oninput="compMasterSeek(this.value)">
-        </label>
+    <div style="margin-bottom: 15px; padding: 10px; background: #f5f5f5; border-radius: 8px; border: 1px solid #ddd; text-align: center;">
+      <div style="display: flex; justify-content: center; gap: 10px; margin-bottom: 10px;">
+        <button onclick="compPlayBoth()" style="background:#0288d1; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">▶ 再生</button>
+        <button onclick="compPauseBoth()" style="background:#d32f2f; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">⏸ 停止</button>
+        <button onclick="compResetBoth()" style="background:#757575; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">⏮ リセット</button>
       </div>
+      <button onclick="runFullAnalysis()" style="background:#ff9800; color:white; padding:10px 30px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:16px; box-shadow: 0 4px 0 #e65100;">
+        🤖 AI比較診断を実行 (全体解析)
+      </button>
+    </div>
+
+    <div id="ai-comparison-result" style="display:none; margin-bottom:15px; background:#fff; padding:15px; border:2px solid #0288d1; border-radius:8px;">
+      <h4 style="margin:0 0 10px 0; color:#01579b; border-bottom:1px solid #ddd; padding-bottom:5px;">📊 分析レポート</h4>
+      <div id="ai-advice-text" style="font-size:14px; line-height:1.6; color:#333;"></div>
     </div>
 
     <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-      
-  <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
-    <div style="font-weight:bold; color:#0277bd; margin-bottom:5px; display:flex; justify-content:space-between;">
-      <span>📺 動画 A</span>
-      <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-a')"> 左右反転</label>
+      <div style="flex: 1; min-width: 300px;">
+        <div style="font-weight:bold; color:#0277bd; margin-bottom:5px;">👤 あなた (Video A)</div>
+        <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="width:100%; margin-bottom:5px;">
+        <div style="position:relative; padding-top:56.25%; background:#000; border-radius:4px;"><video id="video-a" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;"></video></div>
+      </div>
+      <div style="flex: 1; min-width: 300px;">
+        <div style="font-weight:bold; color:#c2185b; margin-bottom:5px;">🏆 見本 (Video B)</div>
+        <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-b')" style="width:100%; margin-bottom:5px;">
+        <div style="position:relative; padding-top:56.25%; background:#000; border-radius:4px;"><video id="video-b" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;"></video></div>
+      </div>
     </div>
-    <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="font-size:12px; margin-bottom:5px; width:100%; box-sizing: border-box;">
-    
-    <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
-      <video id="video-a" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-a')"></video>
-    </div>
-    <input type="range" id="seek-video-a" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px; box-sizing: border-box; display: block;" oninput="compIndividualSeek('video-a', this.value)">
-  </div>
-
-  <div style="flex: 1; min-width: 300px; background: #fafafa; border: 1px solid #eee; border-radius: 6px; padding: 10px;">
-    <div style="font-weight:bold; color:#c2185b; margin-bottom:5px; display:flex; justify-content:space-between;">
-      <span>📸 動画 B </span>
-      <label style="font-size:12px; cursor:pointer; color:#333;"><input type="checkbox" onchange="compToggleMirror('video-b')"> 左右反転</label>
-    </div>
-    <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-b')" style="font-size:12px; margin-bottom:5px; width:100%; box-sizing: border-box;">
-    
-    <div style="position:relative; width:100%; padding-top:56.25%; background:#000; border-radius:4px; overflow:hidden;">
-      <video id="video-b" playsinline muted style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain;" ontimeupdate="compUpdateSeek('video-b')"></video>
-    </div>
-    <input type="range" id="seek-video-b" value="0" min="0" max="100" step="0.1" style="width:100%; margin-top:5px; box-sizing: border-box; display: block;" oninput="compIndividualSeek('video-b', this.value)">
-  </div>
-</div>
   </div>
 </section>
 
@@ -3265,6 +3252,10 @@ function openSimulation() {
       <button onclick="toggleAreaSelectMode()" id="btn-formation-area" style="background:#ff9800; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
         📐 分析エリア指定
       </button>
+<label style="background:#fff3e0; padding:10px 15px; border-radius:4px; border:1px solid #ffe0b2; display:flex; align-items:center; gap:5px; margin-left:10px; cursor:pointer;">
+        <input type="checkbox" id="formation-rally-mode"> 
+        <span style="font-weight:bold; font-size:13px; color:#e65100;">🟢 ラリー中のみ集計 (Spaceキー)</span>
+      </label>
       <button onclick="resetFormationData()" style="background:#757575; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
         🗑️ リセット
       </button>
@@ -8580,38 +8571,44 @@ function handleVideoUpload(input) {
 }
 
 function processVideoFrame() {
-    if (videoElement.paused || videoElement.ended) return;
-    pose.send({image: videoElement}).then(() => {
-        if (!videoElement.paused && !videoElement.ended) {
-            if ('requestVideoFrameCallback' in videoElement) videoElement.requestVideoFrameCallback(processVideoFrame);
-            else animationId = requestAnimationFrame(processVideoFrame);
-        }
-    });
-}
-
-function stopTracking() {
-    isCameraRunning = false; 
-    if (animationId) cancelAnimationFrame(animationId);
-    if (videoElement.srcObject) {
-        videoElement.srcObject.getTracks().forEach(track => track.stop());
-        videoElement.srcObject = null;
-    }
-    if (videoElement.src) {
-        videoElement.pause();
-        videoElement.removeAttribute('src'); // src属性を削除
-        videoElement.load();
-    }
-    stopRecording(); 
-    if(canvasCtx) canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    if (!isAnalysisRunning) return;
     
-    const btnStart = document.getElementById("btn-record-start");
-    const btnStop = document.getElementById("btn-record-stop");
-    if(btnStart) btnStart.style.display = "none";
-    if(btnStop) btnStop.style.display = "none";
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
 
-    // ★追加: 動画操作ボタンを隠す
-    const ctrls = document.getElementById("pose-video-controls");
-    if(ctrls) ctrls.style.display = "none";
+    // --- 終了判定の修正 ---
+    
+    // 1. 両方の動画が終了している場合 -> レポート作成へ
+    if (vA.ended && vB.ended) {
+        if (realDataA.length > 5) {
+            isAnalysisRunning = false;
+            compPauseBoth();
+            generateRealReport();
+        } else {
+            // データ不足エラー
+            isAnalysisRunning = false;
+            document.getElementById('ai-advice-text').innerHTML = "⚠️ データが不足しています。もう一度再生してください。";
+        }
+        return;
+    }
+
+    // 2. 手動で一時停止された場合 (どちらかが「終了ではないのに停止」している)
+    if ((vA.paused && !vA.ended) || (vB.paused && !vB.ended)) {
+        // ループは止めるが、isAnalysisRunningはtrueのまま（再開待ち）
+        return;
+    }
+
+    // --- AI解析処理 ---
+    
+    // 動画Aが再生中の場合のみ、AIに画像を送る
+    if (!vA.paused && !vA.ended) {
+        pose.send({image: vA}).then(() => {
+            requestAnimationFrame(processVideoFrame);
+        });
+    } else {
+        // 動画Aが終わっていても、動画Bが動いているならループを回し続ける
+        requestAnimationFrame(processVideoFrame);
+    }
 }
 
 // 🎥 録画機能
@@ -9019,7 +9016,7 @@ function fwVideoReset() {
 function onFwResults(results) {
     if (!fwCtx) return;
     
-    // キャンバスサイズを映像に合わせる（これが重要）
+    // キャンバスサイズ調整
     if (fwCanvas.width !== fwVideo.videoWidth || fwCanvas.height !== fwVideo.videoHeight) {
         fwCanvas.width = fwVideo.videoWidth || 640;
         fwCanvas.height = fwVideo.videoHeight || 480;
@@ -9035,6 +9032,39 @@ function onFwResults(results) {
     drawCalibrationRect(); 
 
     const lm = results.poseLandmarks;
+    const isRallyModeOn = document.getElementById('fw-rally-mode').checked;
+    const container = document.getElementById('fw_canvas_container');
+
+    // --- 状態判定と枠の色付け ---
+    if (isRallyModeOn) {
+        if (lm) {
+            // 手動ON かつ AI検出中 ➔ 🔴 赤枠 (記録中)
+            if(container) {
+                container.classList.add('recording-active');
+                container.classList.remove('recording-standby');
+            }
+        } else {
+            // 手動ON だけど AI未検出 ➔ 🟡 黄枠 (待機中)
+            if(container) {
+                container.classList.remove('recording-active');
+                container.classList.add('recording-standby');
+            }
+            // 検出できなければここで終了（記録しない）
+            return;
+        }
+    } else {
+        // 手動OFF ➔ 枠なし
+        if(container) {
+            container.classList.remove('recording-active');
+            container.classList.remove('recording-standby');
+        }
+        // スイッチOFFなら、前回位置情報をリセットして距離が飛ばないようにする
+        fwLastRealPos = null;
+        
+        // 描画だけして終了したい場合はここでreturnしても良いが、
+        // プレビューは見たい場合は以下に進む。ただしデータ更新はガードする。
+    }
+
     if (!lm) return;
 
     // 腰位置取得
@@ -9045,20 +9075,24 @@ function onFwResults(results) {
     const px = hipX * fwCanvas.width;
     const py = hipY * fwCanvas.height;
 
-    // ヒートマップ
-    updateFwHeatmap(hipX, hipY);
-    if(document.getElementById('fw-show-heatmap').checked) drawFwHeatmap();
+    // ★★★ データ更新処理（ラリーモードONの時のみ実行） ★★★
+    if (isRallyModeOn) {
+        // ヒートマップ
+        updateFwHeatmap(hipX, hipY);
+        
+        // 軌跡
+        fwPath.push({x: px, y: py});
+        if (fwPath.length > 300) fwPath.shift();
 
-    // 軌跡
-    fwPath.push({x: px, y: py});
-    if (fwPath.length > 300) fwPath.shift();
+        // 速度計算 (補正あり)
+        calculateFwSpeedWithCorrection(px, py);
+    }
+
+    // 描画は常に行う（確認のため）
+    if(document.getElementById('fw-show-heatmap').checked) drawFwHeatmap();
     if(document.getElementById('fw-show-trajectory').checked) drawFwTrajectory();
 
-    // 速度計算 (補正あり)
-    calculateFwSpeedWithCorrection(px, py);
-
-    // --- 負荷計算 (選手パラメータ反映版) ---
-    // 角度計算
+    // --- 負荷計算 ---
     const angKneeR = calculateFwAngle(lm[24], lm[26], lm[28]);
     const angKneeL = calculateFwAngle(lm[23], lm[25], lm[27]);
     
@@ -9067,21 +9101,16 @@ function onFwResults(results) {
     const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
     const angTrunk = calculateFwAngle(verticalPt, midHip, midShoulder);
     
-    // トルク計算 (入力された身長・体重を使用)
     const tDataR = calculateFwTorque(0, 0, angKneeR, angTrunk);
     const valKneeR = tDataR.knee;
     const valTrunk = tDataR.trunk;
-
     const tDataL = calculateFwTorque(0, 0, angKneeL, angTrunk);
     const valKneeL = tDataL.knee;
 
-    // %換算 (基準値も体格に合わせて変動させる簡易ロジック)
-    // ※基準値: 膝200Nm, 体幹150Nm は標準体型用。ここでは固定で計算し、絶対値(Nm)で評価します。
     const pctKneeR = Math.round((valKneeR / 200) * 100);
     const pctKneeL = Math.round((valKneeL / 200) * 100);
     const pctTrunk = Math.round((valTrunk / 150) * 100);
     
-    // 画面表示
     const setLoadDisplay = (id, pct, val) => {
         const el = document.getElementById(id);
         if (el) {
@@ -9093,9 +9122,9 @@ function onFwResults(results) {
     setLoadDisplay("fw-load-knee-l", pctKneeL, valKneeL);
     setLoadDisplay("fw-load-trunk",  pctTrunk, valTrunk);
 
-    // データ記録 (CSV用)
+    // ★★★ CSV記録（ラリーモードON かつ CSV記録中の時のみ） ★★★
     const currentSpeed = parseFloat(document.getElementById("fw-speed").textContent) || 0;
-    if (fwIsRecordingCSV) {
+    if (fwIsRecordingCSV && isRallyModeOn) {
         const elapsedTime = (Date.now() - fwRecStartTime) / 1000;
         fwRecordedData.push({
             time: elapsedTime.toFixed(2),
@@ -9114,7 +9143,8 @@ function onFwResults(results) {
     // ポイント描画
     fwCtx.beginPath();
     fwCtx.arc(px, py, 8, 0, 2*Math.PI);
-    fwCtx.fillStyle = fwIsRecordingCSV ? "red" : "#00e676";
+    // 記録中は赤、それ以外は緑
+    fwCtx.fillStyle = (fwIsRecordingCSV && isRallyModeOn) ? "red" : "#00e676";
     fwCtx.fill();
     fwCtx.stroke();
 }
@@ -9370,6 +9400,7 @@ function transformPoint(x, y, H) {
 function calculateFwSpeedWithCorrection(px, py) {
     if (!fwHomographyMatrix) return;
 
+const isRallyModeOn = document.getElementById('fw-rally-mode').checked;
     const isVideoFile = (fwVideo.src && fwVideo.src.startsWith("blob:"));
     const currentTime = isVideoFile ? fwVideo.currentTime : (Date.now() / 1000);
 
@@ -9379,7 +9410,7 @@ function calculateFwSpeedWithCorrection(px, py) {
 
     if (isNaN(realX) || isNaN(realY)) return;
 
-    if (fwLastRealPos) {
+    if (fwLastRealPos && isRallyModeOn) { // 条件追加
         const dx = realX - fwLastRealPos.x;
         const dy = realY - fwLastRealPos.y;
         const distMeters = Math.sqrt(dx*dx + dy*dy);
@@ -10069,9 +10100,31 @@ function processFormationLogic(poses) {
     updateFormationUI();
 }
 
-// チームごとの詳細判定 (遠近補正あり)
+
 function evaluateTeamFormation(teamPoses) {
     const canvasWidth = formationCanvas.width;
+
+    // ▼▼▼ 追加: ラリーモードの状態取得 ▼▼▼
+    const isRallyModeOn = document.getElementById('formation-rally-mode').checked;
+    const canvas = document.getElementById('formation_canvas');
+
+    // ▼▼▼ 追加: 視覚フィードバック (枠線の色付け) ▼▼▼
+    // チェックONなら、人がいれば赤枠(記録中)、いなければ黄色枠(待機中)にする
+    if (isRallyModeOn) {
+        if (teamPoses.length > 0) {
+             // 手動ON かつ 人を検出 ➔ 🔴 記録中 (赤枠)
+             canvas.style.border = "5px solid #ff3d00"; 
+             canvas.style.boxShadow = "0 0 15px rgba(255, 61, 0, 0.7)";
+        } else {
+             // 手動ON だけど 人がいない ➔ 🟡 待機中 (黄色枠)
+             canvas.style.border = "5px solid #ffd600"; 
+             canvas.style.boxShadow = "none";
+        }
+    } else {
+        // 手動OFF ➔ 枠なし
+        canvas.style.border = "none";
+        canvas.style.boxShadow = "0 4px 6px rgba(0,0,0,0.3)";
+    }
 
     // -----------------------------------------------------
     // パターンA: 2人とも検出できている場合 (正常判定)
@@ -10114,13 +10167,19 @@ function evaluateTeamFormation(teamPoses) {
         if (isTopAndBack) {
             lastFormationState = "Top & Back";
             lastFormationColor = "#ef5350"; // 赤:攻撃
-            formationStats.near.tb++;
+            
+            // ▼▼▼ 修正: 記録モードONの時だけカウント ▼▼▼
+            if (isRallyModeOn) formationStats.near.tb++;
         } else {
             lastFormationState = "Side by Side";
             lastFormationColor = "#1976d2"; // 青:守備
-            formationStats.near.ss++;
+            
+            // ▼▼▼ 修正: 記録モードONの時だけカウント ▼▼▼
+            if (isRallyModeOn) formationStats.near.ss++;
         }
-        formationStats.near.total++;
+
+        // ▼▼▼ 修正: 記録モードONの時だけカウント ▼▼▼
+        if (isRallyModeOn) formationStats.near.total++;
 
         // 現在の線を描画
         formationCtx.beginPath();
@@ -10156,8 +10215,11 @@ function evaluateTeamFormation(teamPoses) {
             lastFormationState = "Top & Back"; 
             lastFormationColor = "#ef5350"; // 赤
             
-            formationStats.near.tb++; // ★T&Bとしてカウント加算
-            formationStats.near.total++;
+            // ▼▼▼ 修正: 記録モードONの時だけカウント ▼▼▼
+            if (isRallyModeOn) {
+                formationStats.near.tb++; 
+                formationStats.near.total++;
+            }
 
             // 1人だけでも骨格を描画（赤色で）
             const p = teamPoses[0];
@@ -10289,9 +10351,15 @@ function loadPoseParams() {
 
     try {
         const data = JSON.parse(json);
-        if(data.height) document.getElementById("bio-height").value = data.height;
-        if(data.weight) document.getElementById("bio-weight").value = data.weight;
-        if(data.racket) document.getElementById("bio-racket").value = data.racket;
+        // ここで要素を取得
+        const h = document.getElementById("bio-height");
+        const w = document.getElementById("bio-weight");
+        const r = document.getElementById("bio-racket");
+
+        // 要素が存在する場合のみ値をセット
+        if(h && data.height) h.value = data.height;
+        if(w && data.weight) w.value = data.weight;
+        if(r && data.racket) r.value = data.racket;
 
         const statusEl = document.getElementById("pose-local-status");
         if(statusEl) {
@@ -10386,6 +10454,360 @@ document.addEventListener("DOMContentLoaded", () => {
         if (statusEl) statusEl.textContent = "※保存データあり";
     }
 });
+
+// ==========================================
+// ⌨️ スペースキーでラリーモード切替
+// ==========================================
+document.addEventListener('keydown', (e) => {
+    // 入力フォームにいるときは反応させない
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.code === 'Space') {
+        e.preventDefault(); // スクロール防止
+        
+        // フットワーク分析が表示されている場合
+        const fwSection = document.getElementById('footwork-analysis-section');
+        const fwCheck = document.getElementById('fw-rally-mode');
+        
+        // 親要素が表示されているか確認（簡易的な判定）
+        if (fwCheck && fwSection.offsetParent !== null) {
+            fwCheck.checked = !fwCheck.checked;
+            // 視覚フィードバック更新はループ内で自動的に行われます
+        }
+
+        // 陣形分析が表示されている場合
+        const formSection = document.getElementById('formation-analysis-section');
+        const formCheck = document.getElementById('formation-rally-mode');
+        if (formCheck && formSection.offsetParent !== null) {
+            formCheck.checked = !formCheck.checked;
+        }
+    }
+});
+
+
+// ==========================================
+// 🤖 AIフォーム比較 (ダブル解析・完全比較版)
+// ==========================================
+
+let isCompAnalysisRunning = false;
+let compData = { A: [], B: [] };
+let compPose = null; // "pose" ではなく "compPose" を使用
+let currentTargetVideo = 'A'; 
+
+// 1. 動画読み込み
+function compLoadVideo(input, videoId) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const video = document.getElementById(videoId);
+    if (!video) return;
+    try {
+        if(video.src) URL.revokeObjectURL(video.src);
+        video.src = URL.createObjectURL(file);
+        video.load();
+        const seek = document.getElementById('seek-' + videoId);
+        if(seek) seek.value = 0;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// 2. Pose初期化 (比較機能専用)
+function initCompPose() {
+    if (typeof Pose === 'undefined') {
+        alert("AIモデルの読み込みに失敗しました。リロードしてください。");
+        return;
+    }
+    // すでに初期化済みなら何もしない
+    if (compPose) return;
+
+    compPose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+    compPose.setOptions({
+        modelComplexity: 1,
+        smoothLandmarks: true,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+    
+    compPose.onResults(onCompPoseResults);
+}
+
+// 3. 解析結果の処理
+function onCompPoseResults(results) {
+    if (!isCompAnalysisRunning) return;
+    
+    const lm = results.poseLandmarks;
+    
+    // 解析対象のデータを保存
+    const targetArray = (currentTargetVideo === 'A') ? compData.A : compData.B;
+    const videoId = (currentTargetVideo === 'A') ? 'video-a' : 'video-b';
+    const video = document.getElementById(videoId);
+    const t = video.currentTime;
+
+    // データ計算（骨格が取れなければ0扱い）
+    let leanAngle = 0;
+    let velElbow = 0;
+
+    if (lm) {
+        // --- ① 脊柱の前傾角度 ---
+        const midHipX = (lm[23].x + lm[24].x) / 2;
+        const midHipY = (lm[23].y + lm[24].y) / 2;
+        const midShoulderX = (lm[11].x + lm[12].x) / 2;
+        const midShoulderY = (lm[11].y + lm[12].y) / 2;
+        const dx = midShoulderX - midHipX;
+        const dy = midShoulderY - midHipY; 
+        const rad = Math.atan2(dx, -dy);
+        leanAngle = Math.abs(rad * (180 / Math.PI)); 
+
+        // --- ② 肘の速度 (前のフレームとの差分) ---
+        const prev = targetArray[targetArray.length - 1];
+        if (prev && (t - prev.time) > 0.01) {
+            const dt = t - prev.time;
+            // 画面上の相対移動距離
+            const dist = Math.sqrt(Math.pow(lm[14].x - prev.x, 2) + Math.pow(lm[14].y - prev.y, 2));
+            velElbow = dist / dt; 
+        }
+        
+        // データ保存
+        targetArray.push({
+            time: t,
+            x: lm[14].x, y: lm[14].y, // 肘座標
+            lean: leanAngle,
+            velElbow: velElbow
+        });
+    }
+
+    // 交互に処理を進める
+    switchTargetAndContinue();
+}
+
+function switchTargetAndContinue() {
+    if (!isCompAnalysisRunning) return;
+
+    // A -> B -> 次のフレームへ
+    if (currentTargetVideo === 'A') {
+        currentTargetVideo = 'B';
+        const vB = document.getElementById('video-b');
+        // Bが動いていれば解析、止まっていればスキップ
+        if (!vB.paused && !vB.ended) {
+            compPose.send({image: vB});
+        } else {
+            checkFinishOrNext();
+        }
+    } else {
+        currentTargetVideo = 'A';
+        checkFinishOrNext();
+    }
+}
+
+function checkFinishOrNext() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+
+    // 終了判定: 両方とも終わっているか停止している
+    const isAFinished = vA.paused || vA.ended;
+    const isBFinished = vB.paused || vB.ended;
+
+    if (isAFinished && isBFinished) {
+        // データがある程度あればレポート
+        if (compData.A.length > 5 && compData.B.length > 5) {
+            isCompAnalysisRunning = false;
+            compPauseBoth();
+            generateComparisonReport();
+        } else if (vA.currentTime < 0.5) {
+            // 開始直後はループ継続
+            requestAnimationFrame(processNextFrame);
+        } else {
+            isCompAnalysisRunning = false;
+            document.getElementById('ai-advice-text').innerHTML = "⚠️ 解析データ不足。もう一度再生してください。";
+        }
+        return;
+    }
+
+    // 次のフレームへ
+    requestAnimationFrame(processNextFrame);
+}
+
+function processNextFrame() {
+    if (!isCompAnalysisRunning) return;
+    const vA = document.getElementById('video-a');
+    
+    // Aを解析（完了したら callback で B へ）
+    if (!vA.paused && !vA.ended) {
+        currentTargetVideo = 'A';
+        compPose.send({image: vA});
+    } else {
+        // Aが止まっていてもBが動いているならBへ
+        currentTargetVideo = 'B';
+        const vB = document.getElementById('video-b');
+        if(!vB.paused && !vB.ended) {
+            compPose.send({image: vB});
+        } else {
+            checkFinishOrNext();
+        }
+    }
+}
+
+// 4. 分析実行ボタン
+async function runFullAnalysis() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    const resBox = document.getElementById('ai-comparison-result');
+    const resText = document.getElementById('ai-advice-text');
+
+    if (!vA.src || !vB.src) {
+        alert("動画Aと動画Bの両方をセットしてください。");
+        return;
+    }
+
+    if (!compPose) initCompPose();
+    
+    // リセット
+    compData = { A: [], B: [] };
+    currentTargetVideo = 'A';
+    isCompAnalysisRunning = true;
+    
+    resBox.style.display = "block";
+    resText.innerHTML = `
+        <div style="text-align:center; padding:20px; color:#e65100;">
+            <b>🔄 W解析実行中...</b><br>
+            2つの動画を同時に解析しています。<br>
+            <span style="font-size:12px;">※動作が重くなる場合があります</span>
+        </div>
+    `;
+
+    vA.currentTime = 0;
+    vB.currentTime = 0;
+    compPlayBoth();
+
+    // 処理開始
+    processNextFrame();
+}
+
+// 5. 最終レポート (A vs B の比較採点)
+function generateComparisonReport() {
+    const resText = document.getElementById('ai-advice-text');
+    const dataA = compData.A;
+    const dataB = compData.B;
+
+    // --- 最大値の取得 ---
+    const getMax = (arr) => {
+        let mVel = 0, mLean = 0, totalMove = 0;
+        arr.forEach(d => {
+            if (d.velElbow > mVel) mVel = d.velElbow;
+            if (d.lean > mLean) mLean = d.lean;
+            totalMove += d.velElbow;
+        });
+        return { vel: mVel, lean: mLean, move: totalMove };
+    };
+
+    const resA = getMax(dataA);
+    const resB = getMax(dataB);
+
+    // --- 採点ロジック (一致度) ---
+    
+    // 1. スピード一致度
+    let speedScore = 0;
+    if (resB.vel > 0) {
+        // 比率を計算 (A / B)
+        let ratio = resA.vel / resB.vel;
+        // 1.0に近いほど高得点 (0.8 -> 80点, 1.2 -> 100点)
+        if (ratio > 1.0) ratio = 1.0; 
+        speedScore = Math.round(ratio * 100);
+    } else {
+        // 見本が動いていない場合
+        speedScore = 0;
+    }
+
+    // 2. 姿勢の一致度 (差分)
+    const leanDiff = Math.abs(resA.lean - resB.lean);
+    const postureScore = Math.max(0, 100 - (leanDiff * 3)); // 1度違うと3点減点
+
+    // 総合点
+    const totalScore = Math.round((speedScore + postureScore) / 2);
+
+    // --- アドバイス生成 ---
+    let speedComment = "";
+    if (speedScore > 90) speedComment = "⭕ 速度は完璧です。見本と同じ鋭さがあります。";
+    else if (speedScore > 70) speedComment = "⚠️ スピードが少し不足しています。見本より遅れています。";
+    else speedComment = "❌ 加速が足りません。もっと鋭く振りましょう。";
+
+    let postureComment = "";
+    // 同じ動画なら leanDiff はほぼ0になる
+    if (leanDiff < 5) postureComment = "⭕ 姿勢は見本とほぼ同じです。素晴らしい！";
+    else if (resA.lean > resB.lean) postureComment = `❌ 見本より前傾しています(差: ${leanDiff.toFixed(1)}°)。体を起こしましょう。`;
+    else postureComment = `⚠️ 見本より棒立ち気味です。もう少し前傾姿勢を取りましょう。`;
+
+    // 判定結果の出力
+    resText.innerHTML = `
+        <div style="text-align:center; margin-bottom:15px; border-bottom:2px solid #ddd; padding-bottom:10px;">
+            <div style="font-size:12px; color:#666;">再現度スコア (Similarity)</div>
+            <div style="font-size:36px; font-weight:bold; color:#0277bd;">${totalScore} <span style="font-size:16px;">/ 100</span></div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <strong style="color:#ef6c00;">⚡ スイング速度 (Speed)</strong>
+            <div style="background:#fff3e0; padding:8px; border-radius:4px; font-size:13px; margin-top:5px;">
+                再現度: <b>${speedScore}%</b><br>
+                ${speedComment}
+            </div>
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <strong style="color:#2e7d32;">🧍 姿勢・軸 (Posture)</strong>
+            <div style="background:#e8f5e9; padding:8px; border-radius:4px; font-size:13px; margin-top:5px;">
+                再現度: <b>${postureScore}%</b><br>
+                ${postureComment}
+            </div>
+        </div>
+
+        <div style="font-size:11px; color:#999; text-align:right; margin-top:5px;">
+            Max Speed: A(${resA.vel.toFixed(2)}) / B(${resB.vel.toFixed(2)})
+        </div>
+    `;
+}
+
+// 既存制御関数 (変更なし)
+function compPlayBoth() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    compChangeSpeed();
+    if(vA) { vA.muted = true; vA.play().catch(e=>console.log(e)); }
+    if(vB) { vB.muted = true; vB.play().catch(e=>console.log(e)); }
+}
+function compPauseBoth() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    if(vA) vA.pause();
+    if(vB) vB.pause();
+}
+function compResetBoth() {
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    if(vA) { vA.pause(); vA.currentTime = 0; }
+    if(vB) { vB.pause(); vB.currentTime = 0; }
+    isCompAnalysisRunning = false;
+    document.getElementById('ai-comparison-result').style.display = "none";
+}
+function compChangeSpeed() {
+    const speedSelect = document.getElementById('comp-speed');
+    const speed = speedSelect ? parseFloat(speedSelect.value) : 1.0;
+    const vA = document.getElementById('video-a');
+    const vB = document.getElementById('video-b');
+    if(vA) vA.playbackRate = speed;
+    if(vB) vB.playbackRate = speed;
+}
+function compIndividualSeek(videoId, value) {
+    const video = document.getElementById(videoId);
+    if (!video || !video.duration) return;
+    video.currentTime = video.duration * (value / 100);
+}
+function compUpdateSeek(videoId) {
+    const video = document.getElementById(videoId);
+    const seek = document.getElementById('seek-' + videoId);
+    if (video && video.duration && seek) {
+        seek.value = (video.currentTime / video.duration) * 100;
+    }
+}
 </script>
 </body>
 </html>
