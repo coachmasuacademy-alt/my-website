@@ -4745,150 +4745,181 @@ const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxNUGti2mki0Jw0
 
 // ✅ 1. Gemini API呼び出し関数 (エラーハンドリング強化版)
 window.analyzeAndSuggest = async function() {
-  console.log("🚀 AIボタンがクリックされました");  
-  
-  const text = document.getElementById("free-text").value.trim();
-  const output = document.getElementById("ai-suggested");
-  const addBtn = document.getElementById("add-ai-menus-btn");
+  console.log("🚀 AIボタンがクリックされました");  
+  
+  const text = document.getElementById("free-text").value.trim();
+  const output = document.getElementById("ai-suggested");
+  const addBtn = document.getElementById("add-ai-menus-btn");
 
-  // 初期化
-  suggestedMenusData = []; 
-  if(addBtn) addBtn.style.display = "none";
-  if(output) output.style.display = "block";
+  // 初期化
+  suggestedMenusData = []; 
+  if(addBtn) addBtn.style.display = "none";
+  if(output) output.style.display = "block";
 
-  if (!text) {
-    output.innerHTML = "⚠️ 課題を入力してください。";
-    return;
-  }
+  if (!text) {
+    output.innerHTML = "⚠️ 課題を入力してください。";
+    return;
+  }
 
-  // 解析中の表示
-  output.innerHTML = '<span style="color:#ff9800">🔄 Gemini AIがシート内から最適なメニューを探しています…</span>';
+  // 解析中の表示
+  output.innerHTML = '<span style="color:#ff9800">🔄 Gemini AIがシート内から最適なメニューを探しています…</span>';
 
-  try {
-    // URLの決定
-    const targetUrl = (typeof SHEET_URL !== 'undefined') ? SHEET_URL : DEFAULT_GAS_URL;
-    
-    // API通信
-    const res = await fetch(`${targetUrl}?mode=ai&text=${encodeURIComponent(text)}`);
-    const jsonString = await res.text();
-    
-    let data;
-    try {
-        data = JSON.parse(jsonString);
-    } catch (e) {
-        console.error("JSON Parse Error:", jsonString);
-        output.innerHTML = `⚠️ サーバーエラー: データの読み込みに失敗しました。<br>詳細: ${jsonString.substring(0, 50)}...`;
-        return;
-    }
+  try {
+    // URLの決定
+    const targetUrl = (typeof SHEET_URL !== 'undefined') ? SHEET_URL : DEFAULT_GAS_URL;
+    
+    // API通信
+    const res = await fetch(`${targetUrl}?mode=ai&text=${encodeURIComponent(text)}`);
+    const jsonString = await res.text();
+    
+    let data;
+    try {
+        data = JSON.parse(jsonString);
+    } catch (e) {
+        console.error("JSON Parse Error:", jsonString);
+        output.innerHTML = `⚠️ サーバーエラー: データの読み込みに失敗しました。<br>詳細: ${jsonString.substring(0, 50)}...`;
+        return;
+    }
 
-    // ▼▼▼ エラーチェック & メッセージ分岐 (ここを修正しました) ▼▼▼
-    if (data.error) {
-         console.error("API Error Response:", data.error);
-         
-         // エラー文言に「429」や「quota」が含まれているかチェック
-         if (data.error.includes("429") || data.error.includes("RESOURCE_EXHAUSTED") || data.error.includes("quota")) {
-             output.innerHTML = `
-                <div style="background:#fff3cd; color:#856404; padding:15px; border-radius:6px; border:1px solid #ffeeba; text-align:left; margin-top:10px;">
-                    <h4 style="margin:0 0 10px 0; color:#856404;">⚠️ AIの利用制限に達しました</h4>
-                    <p style="font-size:13px; line-height:1.6; margin:0;">
-                        アクセスが集中しているか、1日の無料利用枠（Quota）を超過した可能性があります。<br>
-                        以下の手順をお試しください。
-                    </p>
-                    <ul style="font-size:13px; margin:10px 0 0 0; padding-left:20px;">
-                        <li style="margin-bottom:5px;"><b>1分ほど時間を空けてから</b>、もう一度ボタンを押してみてください。</li>
-                        <li>それでも改善しない場合は、本日の利用上限に達しています。<b>明日またご利用ください。</b></li>
-                    </ul>
-                </div>
-             `;
-         } else {
-             // その他のエラー (404など)
-             output.innerHTML = `⚠️ エラーが発生しました: ${data.advice || data.error}`;
-         }
-         return;
-    }
-    // ▲▲▲ 修正ここまで ▲▲▲
+    // ▼▼▼ エラーチェック & メッセージ分岐 (ここを修正しました) ▼▼▼
+    if (data.error) {
+         console.error("API Error Response:", data.error);
+         
+         // エラー文言に「429」や「quota」が含まれているかチェック
+         if (data.error.includes("429") || data.error.includes("RESOURCE_EXHAUSTED") || data.error.includes("quota")) {
+             // AI機能が使えない場合に表示するメッセージ
+output.innerHTML = `
+    <div style="background:#fff3cd; color:#856404; padding:20px; border-radius:8px; border:2px solid #ffeeba; text-align:left; margin-top:15px;">
+        
+        <h4 style="margin:0 0 15px 0; color:#d32f2f; font-size:18px; border-bottom:1px solid #ffe0b2; padding-bottom: 8px;">
+            ⚠️ 【重要】AI機能のサービス一時停止について
+        </h4>
+        
+        <p style="font-size:15px; line-height:1.7; margin:0 0 20px 0;">
+            いつもご利用いただきありがとうございます。<br>
+            現在、トレーニングメニュー提案のAI機能において、サービス基盤であるGoogle Gemini APIの**利用枠が上限に達した**ため、機能が一時的にご利用いただけない状況となっております。
+        </p>
 
-    // データの整形（新しいGASの形式に対応）
-    let parsedMenus = [];
-    let adviceText = "";
+        <h5 style="margin:0 0 10px 0; color:#856404; font-size:16px;">📚 原因と今後の対応</h5>
+        
+        <ul style="font-size:14px; margin:0 0 20px 0; padding-left:20px; line-height:1.7;">
+            <li style="margin-bottom:8px;">
+                システムの無料トライアル期間の終了、および皆さまからの想定以上のアクセスにより、継続的なリソース確保が困難となりました。
+            </li>
+            <li>
+                サービスの安定的な継続と機能再開に向けて、**有料枠（課金アカウント）への移行手続き**が必要になります。
+            </li>
+        </ul>
 
-    // パターン: { advice: "...", suggested_menus: [...] }
-    if (data.suggested_menus && Array.isArray(data.suggested_menus)) {
-        adviceText = data.advice || "";
-        parsedMenus = data.suggested_menus.map(m => ({
-            category: m.category || m.step || "AI提案", 
-            name: m.name,
-            note: m.note || m.reason || "",       
-            url: m.url || m.video_url || ""      
-        }));
-    } 
-    // 古いパターン（念のため残す）
-    else if (Array.isArray(data)) {
-        data.forEach(group => {
-            const catName = group.カテゴリ || "AI提案";
-            (group.メニュー || []).forEach(name => parsedMenus.push({ category: catName, name: name }));
-        });
-    }
-
-    // グローバル変数に格納
-    suggestedMenusData = parsedMenus.map(m => ({
-        category: m.category,
-        name: m.name,
-        time: 5, // デフォルト時間
-        note: m.note || "",
-        url: m.url || ""
-    }));
-
-    if (suggestedMenusData.length === 0) {
-        output.innerHTML = "⚠️ 条件に合うメニューが見つかりませんでした。";
-        return;
-    }
-
-    // HTML生成
-    const adviceHtml = adviceText ? `<div style="background:#fff3e0; padding:10px; margin-bottom:10px; border-radius:4px; font-size:13px; line-height:1.5;">💡 <b>コーチのアドバイス:</b><br>${adviceText}</div>` : "";
-
-    const listHtml = suggestedMenusData.map((m, i) => {
-        return `
-            <div style="display: flex; align-items: flex-start; margin-bottom: 8px; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #ddd;">
-                <input type="checkbox" id="ai-chk-${i}" checked style="transform: scale(1.2); margin-top: 5px; margin-right: 10px; cursor: pointer;">
-                
-                <div style="flex: 1;">
-                    <div style="margin-bottom:4px;">
-                        <span style="font-size: 11px; color: #fff; background: #00796b; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">${m.category}</span>
-                        <span style="font-weight: bold; color: #333;">${m.name}</span>
-                    </div>
-                    ${m.note ? `<div style="font-size: 12px; color: #666; background:#f5f5f5; padding:4px; border-radius:2px;">POINT: ${m.note}</div>` : ""}
-                    ${m.url ? `<a href="${m.url}" target="_blank" style="font-size:11px; color:#1a73e8; display:inline-block; margin-top:2px;">📺 動画を確認</a>` : ""}
-                </div>
-
-                <div style="margin-left: 8px; text-align:right;">
-                    <span style="font-size:11px;">時間</span><br>
-                    <input type="number" id="ai-time-${i}" value="5" min="1" style="width: 40px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; text-align:center;">
-                </div>
-            </div>`;
-    }).join('');
-
-    output.innerHTML = `
-        <div style="background:#e0f7fa; padding:15px; border-radius:6px; border: 1px solid #b2ebf2;">
-            ${adviceHtml}
-            <p style="margin:0 0 10px 0; font-weight:bold; color:#00796b;">▼ 提案されたメニュー構成</p>
-            <div style="max-height: 400px; overflow-y: auto;">
-                ${listHtml}
-            </div>
+        <h5 style="margin:0 0 10px 0; color:#d32f2f; font-size:16px;">🙇‍♀️ サービス継続へのご協力のお願い</h5>
+        
+        <p style="font-size:14px; line-height:1.7; margin:0 0 15px 0;">
+            より多くの皆さまに安定してサービスを提供し続けるため、サービス運営費（AI利用料）の継続的な確保が必要です。
+        </p>
+        
+        <div style="margin-top:10px; padding:12px; background: #fafafa; border-radius: 6px; border: 1px dashed #ddd;">
+             <p style="font-weight:bold; margin:0 0 8px 0; font-size:15px;">
+                 **SNSでの周知とチャンネル登録にご協力ください**
+            </p>
+            <p style="margin:0; font-size:14px; line-height:1.6;">
+                当アプリの運営元である**YouTubeチャンネルの収益化**を目指しております。ご友人やSNSなどでチャンネルをご紹介いただき、ご支援をお願いいたします。
+            </p>
         </div>
-    `;
+        
+        <p style="font-size:14px; line-height:1.7; margin:20px 0 0 0;">
+            皆さまからのご支援が、本WebアプリのAI機能の安定した復旧と、今後の新機能開発の大きな力となります。
+            ご不便をおかけし大変申し訳ございませんが、ご理解とご協力のほど、心よりお願い申し上げます。
+        </p>
+    </div>
+`;
+         } else { // ★追加：その他のエラー（404など）のフォールバック
+             output.innerHTML = `⚠️ サーバーまたはAPIで予期せぬエラーが発生しました。<br>詳細: ${data.error}`;
+         }
+         return; // ★重要：エラーが見つかった場合はここで処理を終了
+    } // ★重要：外側の if (data.error) を閉じる
+    // ▲▲▲ 修正ここまで ▲▲▲
 
-    // 追加ボタンを表示
-    if(addBtn) {
-        addBtn.textContent = "✅ チェックしたメニューを一括追加";
-        addBtn.style.display = "block";
-        addBtn.onclick = window.addSuggestedMenus; 
-    }
+    // データの整形（新しいGASの形式に対応）
+    let parsedMenus = [];
+    let adviceText = "";
 
-  } catch (e) {
-    console.error("AI Analyze Error:", e);
-    output.innerHTML = `⚠️ 通信エラーが発生しました。<br>詳細: ${e.message}`;
-  }
+    // パターン: { advice: "...", suggested_menus: [...] }
+    if (data.suggested_menus && Array.isArray(data.suggested_menus)) {
+        adviceText = data.advice || "";
+        parsedMenus = data.suggested_menus.map(m => ({
+            category: m.category || m.step || "AI提案", 
+            name: m.name,
+            note: m.note || m.reason || "",       
+            url: m.url || m.video_url || ""      
+        }));
+    } 
+    // 古いパターン（念のため残す）
+    else if (Array.isArray(data)) {
+        data.forEach(group => {
+            const catName = group.カテゴリ || "AI提案";
+            (group.メニュー || []).forEach(name => parsedMenus.push({ category: catName, name: name }));
+        });
+    }
+
+    // グローバル変数に格納
+    suggestedMenusData = parsedMenus.map(m => ({
+        category: m.category,
+        name: m.name,
+        time: 5, // デフォルト時間
+        note: m.note || "",
+        url: m.url || ""
+    }));
+
+    if (suggestedMenusData.length === 0) {
+        output.innerHTML = "⚠️ 条件に合うメニューが見つかりませんでした。";
+        return;
+    }
+
+    // HTML生成
+    const adviceHtml = adviceText ? `<div style="background:#fff3e0; padding:10px; margin-bottom:10px; border-radius:4px; font-size:13px; line-height:1.5;">💡 <b>コーチのアドバイス:</b><br>${adviceText}</div>` : "";
+
+    const listHtml = suggestedMenusData.map((m, i) => {
+        return `
+            <div style="display: flex; align-items: flex-start; margin-bottom: 8px; padding: 8px; background: #fff; border-radius: 4px; border: 1px solid #ddd;">
+                <input type="checkbox" id="ai-chk-${i}" checked style="transform: scale(1.2); margin-top: 5px; margin-right: 10px; cursor: pointer;">
+                
+                <div style="flex: 1;">
+                    <div style="margin-bottom:4px;">
+                        <span style="font-size: 11px; color: #fff; background: #00796b; padding: 2px 6px; border-radius: 4px; margin-right: 5px;">${m.category}</span>
+                        <span style="font-weight: bold; color: #333;">${m.name}</span>
+                    </div>
+                    ${m.note ? `<div style="font-size: 12px; color: #666; background:#f5f5f5; padding:4px; border-radius:2px;">POINT: ${m.note}</div>` : ""}
+                    ${m.url ? `<a href="${m.url}" target="_blank" style="font-size:11px; color:#1a73e8; display:inline-block; margin-top:2px;">📺 動画を確認</a>` : ""}
+                </div>
+
+                <div style="margin-left: 8px; text-align:right;">
+                    <span style="font-size:11px;">時間</span><br>
+                    <input type="number" id="ai-time-${i}" value="5" min="1" style="width: 40px; padding: 2px; border: 1px solid #ccc; border-radius: 4px; text-align:center;">
+                </div>
+            </div>`;
+    }).join('');
+
+    output.innerHTML = `
+        <div style="background:#e0f7fa; padding:15px; border-radius:6px; border: 1px solid #b2ebf2;">
+            ${adviceHtml}
+            <p style="margin:0 0 10px 0; font-weight:bold; color:#00796b;">▼ 提案されたメニュー構成</p>
+            <div style="max-height: 400px; overflow-y: auto;">
+                ${listHtml}
+            </div>
+        </div>
+    `;
+
+    // 追加ボタンを表示
+    if(addBtn) {
+        addBtn.textContent = "✅ チェックしたメニューを一括追加";
+        addBtn.style.display = "block";
+        addBtn.onclick = window.addSuggestedMenus; 
+    }
+
+  } catch (e) {
+    console.error("AI Analyze Error:", e);
+    output.innerHTML = `⚠️ 通信エラーが発生しました。<br>詳細: ${e.message}`;
+  }
 };
 
 // ✅ 2. 選択した提案メニューをリストに追加する関数
