@@ -4,6 +4,18 @@
   <meta charset="UTF-8" />
   <title>Smart Coach Badminton</title>
   
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta name="description" content="バドミントンの練習メニュー自動作成、AIフォーム分析、戦術ボード、ゲーム分析ができる無料Webアプリです。初心者指導から上級者のパフォーマンス分析まで、指導者やプレイヤーの活動をサポートします。">
+
+  <meta name="keywords" content="バドミントン,練習メニュー,アプリ,AI分析,フォーム解析,戦術ボード,指導,Smart Coach">
+
+  <meta property="og:title" content="Smart Coach Badminton - 練習メニュー＆AI分析アプリ">
+  <meta property="og:description" content="AIでのフォーム分析や練習メニュー作成ができる無料アプリです。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://coachmasuacademy-alt.github.io/my-website/">
+  <meta property="og:image" content="https://coachmasuacademy-alt.github.io/my-website/icon.png">
+
 <link rel="apple-touch-icon" href="icon.png?v=2">
 <link rel="icon" type="image/png" href="icon.png?v=2">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -276,7 +288,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-// ⚠️ グループの秘密の合言葉を入力 ⚠️
+// ⚠️ パスワードを入力 ⚠️
 const GROUP_SECRET_PASSWORD = "badmintontraining2025"; // 👈 ここに自分で決めた合言葉を設定
 
 let currentProgramId = "default_program"; 
