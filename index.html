@@ -3156,18 +3156,44 @@ function openSimulation() {
       <label style="font-size: 13px;">ラケット(g): <input type="number" id="bio-racket" value="85" style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
     </div>
 
-<div style="margin-bottom: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; display: flex; gap: 15px; align-items: center; border: 1px solid #90caf9;">
-  <span style="font-weight: bold; font-size: 13px; color: #0277bd;">👁️ 表示モード:</span>
-  <span style="font-size: 14px; font-weight:bold; color:#0277bd;">
-     💠 ポリゴン表示 (固定)
-  </span>
+<div style="margin-bottom: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; border: 1px solid #90caf9;">
+  <span style="font-weight: bold; font-size: 13px; color: #0277bd;">👁️ 表示設定:</span>
   
-  <span style="margin-left: 15px; border-left: 1px solid #ccc; padding-left: 15px;">
-      <label style="cursor: pointer; font-size: 14px; font-weight: bold; color: #333;">
-        <input type="checkbox" id="bg-toggle" checked onchange="toggleBackground()">
-        🖼️ 背景を表示
-      </label>
-  </span>
+  <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #0277bd;">
+    <input type="checkbox" id="polygon-toggle" checked> 💠 骨格
+  </label>
+
+  <span style="border-left: 1px solid #999; height: 20px;"></span>
+
+  <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #333;">
+    <input type="checkbox" id="bg-toggle" checked onchange="toggleBackground()"> 🖼️ 背景
+  </label>
+
+  <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #555;">
+    <input type="checkbox" id="dim-toggle"> 🌑 暗くする
+  </label>
+
+  <span style="border-left: 1px solid #999; height: 20px;"></span>
+
+  <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #e91e63;">
+    <input type="checkbox" id="strobe-toggle"> 🎞️ 画像残像
+  </label>
+
+  <div style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
+    <span>間隔:密</span>
+    <input type="range" id="strobe-interval" min="5" max="60" value="15" step="5" style="width: 60px;">
+    <span>疎</span>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; margin-left: 5px;">
+    <span>枚数:少</span>
+    <input type="range" id="strobe-count" min="10" max="100" value="50" step="10" style="width: 60px;">
+    <span>多</span>
+  </div>
+
+  <button onclick="clearStrobeData()" style="font-size: 12px; padding: 3px 8px; background: #e91e63; color: white; border: none; border-radius: 4px; cursor: pointer;">
+    🗑️ 消去
+  </button>
 </div>
 
     <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -3463,7 +3489,15 @@ function openSimulation() {
         <button onclick="compPlayBoth()" style="background:#0288d1; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">▶ 再生</button>
         <button onclick="compPauseBoth()" style="background:#d32f2f; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">⏸ 停止</button>
         <button onclick="compResetBoth()" style="background:#757575; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">⏮ リセット</button>
-      </div>
+     
+<button onclick="toggleOverlayMode()" id="btn-overlay-toggle" style="background:#673ab7; color:white; padding:8px 20px; border-radius:30px; border:none; cursor:pointer;">
+    🔲 重ね合わせ (Overlay)
+  </button>
+ </div>
+<div id="overlay-controls" style="display:none; justify-content:center; align-items:center; gap:10px; margin-bottom:10px; background:#ede7f6; padding:8px; border-radius:4px;">
+    <span style="font-size:12px; font-weight:bold; color:#5e35b1;">見本(B)の透明度:</span>
+    <input type="range" id="overlay-opacity" min="0" max="1" step="0.1" value="0.5" style="width:100px;" oninput="updateOverlayOpacity(this.value)">
+</div>
       <button onclick="runFullAnalysis()" style="background:#ff9800; color:white; padding:10px 30px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:16px; box-shadow: 0 4px 0 #e65100;">
         🤖 AI比較診断を実行 (全体解析)
       </button>
@@ -3474,7 +3508,7 @@ function openSimulation() {
       <div id="ai-advice-text" style="font-size:14px; line-height:1.6; color:#333;"></div>
     </div>
 
-    <div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+    <div id="comp-video-container" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; position: relative;">
       <div style="flex: 1; min-width: 300px;">
         <div style="font-weight:bold; color:#0277bd; margin-bottom:5px;">👤 あなた (Video A)</div>
         <input type="file" accept="video/*" onchange="compLoadVideo(this, 'video-a')" style="width:100%; margin-bottom:5px;">
@@ -8676,143 +8710,188 @@ function initPose() {
     pose.setOptions({
         modelComplexity: 1,
         smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
+        enableSegmentation: true, // ★ここを true に変更 (人物切り抜き有効化)
+        smoothSegmentation: true, // 境界を滑らかにする
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
     });
     pose.onResults(onPoseResults);
 
-pose.initialize().then(() => {
+    pose.initialize().then(() => {
         isPoseModelLoaded = true;
-        console.log("AI Pose Model (Pose Estimation) Loaded successfully.");
-        
-        // モデルロード完了後にボタンを活性化
+        console.log("AI Pose Model Loaded successfully.");
         const btnStart = document.getElementById("btn-record-start");
         if(btnStart) {
             btnStart.disabled = false; 
             btnStart.style.background = '#e91e63';
         }
-        
     }).catch((error) => {
         console.error("Pose Model Initialization Error:", error);
-        alert("AIモデルの初期化に失敗しました。トラッキング防止機能を無効にするか、ブラウザ設定を確認してください。");
+        alert("AIモデルの初期化に失敗しました。");
     });
 }
 
-// 2. 結果処理 (メインループ)
+// ==========================================
+// 🎞️ コマ送り（ストロボ画像）機能用変数
+// ==========================================
+var strobeFrames = [];       // 過去の「画像」を保存する配列
+var strobeFrameCounter = 0;  // カウンター
+
+// 残像をクリアする関数
+function clearStrobeData() {
+    strobeFrames = [];
+    strobeFrameCounter = 0;
+}
+
+// ==========================================
+// 🤖 2. 結果処理 (メインループ) ★画像ストロボ版
+// ==========================================
 function onPoseResults(results) {
     if (!results.poseLandmarks || !canvasCtx) return;
 
-    // キャンバスサイズ調整
     canvasElement.width = videoElement.videoWidth || 640;
     canvasElement.height = videoElement.videoHeight || 480;
 
+    // --- UI設定値の取得 ---
+    const showPolygon = document.getElementById('polygon-toggle') ? document.getElementById('polygon-toggle').checked : true;
+    const isStrobeOn = document.getElementById('strobe-toggle') ? document.getElementById('strobe-toggle').checked : false;
+    const isDimOn = document.getElementById('dim-toggle') ? document.getElementById('dim-toggle').checked : false;
+    
+    // 間隔と枚数
+    const strobeIntervalInput = document.getElementById('strobe-interval');
+    const strobeInterval = strobeIntervalInput ? parseInt(strobeIntervalInput.value) : 30;
+    const strobeCountInput = document.getElementById('strobe-count');
+    const maxStrobeCount = strobeCountInput ? parseInt(strobeCountInput.value) : 50;
+
     canvasCtx.save();
-    
-    // ------------------------------------------------
-    // 1. 背景の描画処理
-    // ------------------------------------------------
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-    
+
+    // ------------------------------------------------
+    // 1. 現在の映像（背景）を描画
+    // ------------------------------------------------
     if (isBackgroundVisible) {
-        // 背景ON: カメラ映像を描画
+        canvasCtx.globalAlpha = 1.0;
+        canvasCtx.globalCompositeOperation = 'source-over';
         canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
-        
-        // ポリゴンモードなので、発光を目立たせるために少し暗くする
-        canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+
+        // 背景を暗くする
+        if (isDimOn) {
+            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+        }
     } else {
-        // 背景OFF: 真っ黒にする
         canvasCtx.fillStyle = '#000000';
         canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
     }
 
+    // ------------------------------------------------
+    // 2. 残像の保存と描画（人物切り抜き）
+    // ------------------------------------------------
+    if (isStrobeOn) {
+        strobeFrameCounter++;
+        
+        // 指定間隔ごとに保存
+        if (strobeFrameCounter % strobeInterval === 0) {
+            const snapCanvas = document.createElement('canvas');
+            snapCanvas.width = canvasElement.width;
+            snapCanvas.height = canvasElement.height;
+            const snapCtx = snapCanvas.getContext('2d');
+            
+            // ★重要: 人物切り抜き処理
+            if (results.segmentationMask) {
+                // 1. まず映像を描画
+                snapCtx.drawImage(results.image, 0, 0, snapCanvas.width, snapCanvas.height);
+                
+                // 2. 「destination-in」モードでマスクを描画
+                // これにより、マスク（人物）が重なる部分以外が透明になります
+                snapCtx.globalCompositeOperation = 'destination-in';
+                snapCtx.drawImage(results.segmentationMask, 0, 0, snapCanvas.width, snapCanvas.height);
+                
+                // 設定を戻す
+                snapCtx.globalCompositeOperation = 'source-over';
+            } else {
+                // 切り抜きがまだ準備できていない場合はそのまま描画
+                snapCtx.drawImage(results.image, 0, 0, snapCanvas.width, snapCanvas.height);
+            }
+
+            strobeFrames.push(snapCanvas);
+            
+            if (strobeFrames.length > maxStrobeCount) strobeFrames.shift();
+        }
+
+        // 残像を描画
+        // 背景が透明になっているので、単純に重ねるだけで綺麗に見えます
+        canvasCtx.globalAlpha = 1.0;
+        canvasCtx.globalCompositeOperation = 'source-over'; 
+        
+        strobeFrames.forEach(frame => {
+            canvasCtx.drawImage(frame, 0, 0, canvasElement.width, canvasElement.height);
+        });
+    }
+
     const lm = results.poseLandmarks;
-    
+
     // ------------------------------------------------
-    // 2. 負荷(トルク)の計算処理
+    // 3. 負荷(トルク)の計算処理
     // ------------------------------------------------
-    // 右側
     const visR = (lm[12].visibility + lm[14].visibility + lm[24].visibility + lm[26].visibility) / 4;
     let torqueR = { shoulder: 0, elbow: 0, knee: 0 };
     if (visR > 0.5) {
-        const angElbowR    = calculateAngle(lm[12], lm[14], lm[16]);
+        const angElbowR = calculateAngle(lm[12], lm[14], lm[16]);
         const angShoulderR = calculateAngle(lm[24], lm[12], lm[14]);
-        const angKneeR     = calculateAngle(lm[24], lm[26], lm[28]);
-        
+        const angKneeR = calculateAngle(lm[24], lm[26], lm[28]);
         const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
-        const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
-        const verticalPt  = { x: midHip.x, y: midHip.y - 0.5 };
-        const angTrunk    = calculateAngle(verticalPt, midHip, midShoulder);
-
+        const midHip = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
+        const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
+        const angTrunk = calculateAngle(verticalPt, midHip, midShoulder);
         torqueR = calculateFullBodyTorque(angShoulderR, angElbowR, angKneeR, angTrunk);
         updateMaxAndDrawVisual('r', lm, torqueR, {e:angElbowR, s:angShoulderR, k:angKneeR});
     }
 
-    // 左側
     const visL = (lm[11].visibility + lm[13].visibility + lm[23].visibility + lm[25].visibility) / 4;
     let torqueL = { shoulder: 0, elbow: 0, knee: 0 };
     if (visL > 0.5) {
-        const angElbowL    = calculateAngle(lm[11], lm[13], lm[15]);
+        const angElbowL = calculateAngle(lm[11], lm[13], lm[15]);
         const angShoulderL = calculateAngle(lm[23], lm[11], lm[13]);
-        const angKneeL     = calculateAngle(lm[23], lm[25], lm[27]);
-        
+        const angKneeL = calculateAngle(lm[23], lm[25], lm[27]);
         torqueL = calculateFullBodyTorque(angShoulderL, angElbowL, angKneeL, 0); 
         updateMaxAndDrawVisual('l', lm, torqueL, {e:angElbowL, s:angShoulderL, k:angKneeL});
     }
 
-    // 体幹負荷
     let valTrunk = 0;
     if (visR > 0.5 || visL > 0.5) {
         const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
-        const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
-        const verticalPt  = { x: midHip.x, y: midHip.y - 0.5 };
-        const angTrunk    = calculateAngle(verticalPt, midHip, midShoulder);
+        const midHip = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
+        const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
+        const angTrunk = calculateAngle(verticalPt, midHip, midShoulder);
         const tData = calculateFullBodyTorque(0, 0, 0, angTrunk);
         valTrunk = tData.trunk;
         if (valTrunk > maxTorqueValues.trunk) maxTorqueValues.trunk = valTrunk;
-        
         setText("val-trunk", Math.round(angTrunk));
         setText("max-trunk-t", maxTorqueValues.trunk.toFixed(1));
     }
 
     // ------------------------------------------------
-    // 3. 描画モード (ポリゴンのみに固定)
+    // 4. ポリゴン描画
     // ------------------------------------------------
-    
-    // ===================================
-    // 💠 ポリゴンモード描画
-    // ===================================
-    
-    // 胴体を面で塗る
-    drawPolygonBody(lm);
-
-    // 筋肉 (第5引数を true にする = 太く光る)
-    // 右側
-    drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
-    drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
-    drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
-    drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
-    // 左側
-    drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
-    drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
-    drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
-    drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
-    
-    // 体幹
-    if(visR > 0.5 || visL > 0.5) {
+    if (showPolygon) {
+        drawPolygonBody(lm);
+        drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
+        drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
+        drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
+        drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
+        drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
+        drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
+        drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
+        drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
+        if(visR > 0.5 || visL > 0.5) {
             const midShoulder = { x: (lm[12].x + lm[11].x)/2, y: (lm[12].y + lm[11].y)/2 };
-            const midHip      = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
+            const midHip = { x: (lm[24].x + lm[23].x)/2, y: (lm[24].y + lm[23].y)/2 };
             drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, true);
+        }
+        drawJoints(lm, true);
     }
-    
-    // 関節 (第2引数を true = リッチなリング)
-    drawJoints(lm, true);
 
-    // ------------------------------------------------
-    // 4. データ記録とグラフ更新
-    // ------------------------------------------------
     updateAllGraphData(torqueR, torqueL, valTrunk);
     drawAllGraphs();
     
@@ -12379,6 +12458,94 @@ function autoCalibrateServicePos() {
         alert(`位置を補正しました！\n補正値: ${requiredOffset}\n(現在の立ち位置を手前コートの中央に合わせました)`);
     }
 }
+
+// ==========================================
+// 🔲 動画重ね合わせ (Overlay) 機能
+// ==========================================
+let isOverlayMode = false;
+
+function toggleOverlayMode() {
+    isOverlayMode = !isOverlayMode;
+    const container = document.getElementById("comp-video-container");
+    const btn = document.getElementById("btn-overlay-toggle");
+    const controls = document.getElementById("overlay-controls");
+    
+    // コンテナ内の2つのビデオラッパーdivを取得
+    const wrappers = container.children;
+    if (wrappers.length < 2) return;
+    
+    const wrapperA = wrappers[0]; // あなた (Video A)
+    const wrapperB = wrappers[1]; // 見本 (Video B)
+    const videoB = document.getElementById("video-b");
+
+    if (isOverlayMode) {
+        // --- 重ね合わせモード ON ---
+        btn.style.background = "#e91e63";
+        btn.textContent = "◫ 並べて表示 (Side-by-Side)";
+        controls.style.display = "flex";
+
+        // Wrapper A (背面)
+        wrapperA.style.width = "100%";
+        wrapperA.style.maxWidth = "640px";
+        wrapperA.style.flex = "none";
+        
+        // Wrapper B (前面)
+        wrapperB.style.position = "absolute";
+        wrapperB.style.top = "0";
+        wrapperB.style.left = "0";
+        wrapperB.style.width = "100%";
+        wrapperB.style.height = "100%";
+        wrapperB.style.pointerEvents = "none";
+        
+        wrapperB.style.display = "flex";
+        wrapperB.style.flexDirection = "column";
+        wrapperB.style.justifyContent = "flex-end"; 
+        
+        container.style.display = "grid";
+        container.style.gridTemplateAreas = "'stack'";
+        
+        wrapperA.style.gridArea = "stack";
+        wrapperB.style.gridArea = "stack";
+        
+        wrapperA.style.opacity = "1";
+        wrapperB.style.opacity = document.getElementById("overlay-opacity").value;
+        wrapperB.style.pointerEvents = "none"; 
+
+    } else {
+        // --- 重ね合わせモード OFF (元に戻す) ---
+        btn.style.background = "#673ab7";
+        btn.textContent = "🔲 重ね合わせ (Overlay)";
+        controls.style.display = "none";
+
+        container.style.display = "flex";
+        container.style.gridTemplateAreas = "none";
+        
+        wrapperA.style.width = "";
+        wrapperA.style.maxWidth = "";
+        wrapperA.style.flex = "1";
+        wrapperA.style.gridArea = "";
+        
+        wrapperB.style.position = "";
+        wrapperB.style.top = "";
+        wrapperB.style.left = "";
+        wrapperB.style.width = "";
+        wrapperB.style.height = "";
+        wrapperB.style.opacity = "1";
+        wrapperB.style.pointerEvents = "auto";
+        wrapperB.style.flex = "1";
+        wrapperB.style.gridArea = "";
+    }
+}
+
+function updateOverlayOpacity(val) {
+    if (!isOverlayMode) return;
+    const container = document.getElementById("comp-video-container");
+    const wrapperB = container.children[1];
+    if(wrapperB) {
+        wrapperB.style.opacity = val;
+    }
+}
+
 </script>
 </body>
 </html>
