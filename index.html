@@ -116,6 +116,121 @@
       border: 5px solid #ffd600 !important; /* 黄色枠 */
       box-shadow: 0 0 10px rgba(255, 214, 0, 0.5) !important;
     }
+
+/* New CSS for Navigation and Screen Management (Homepage Layout) */
+   .screen-content {
+    display: none; /* 全ての機能画面をデフォルトで非表示 */
+    padding: 10px 0;
+}
+.screen-content.active {
+    display: block; /* 選択された画面のみ表示 */
+}
+
+/* ---------------------------------------------------- */
+/* ★★★ 1. メインナビゲーションボタンのデザイン (タグ化) ★★★ */
+/* ---------------------------------------------------- */
+#main-nav {
+    margin-bottom: 20px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px; /* ボタン間の間隔 */
+    justify-content: center;
+    padding: 10px 0;
+    border-bottom: 2px solid #ddd;
+    border-top: 2px solid #ddd;
+}
+#main-nav button {
+    flex-grow: 1;
+    min-width: 150px;
+    max-width: 250px;
+    padding: 8px 12px;
+    
+    /* 基本デザイン: 角を丸く、背景を白、枠線を薄い青に */
+    border: 2px solid #b3e5fc; 
+    background: #ffffff;
+    color: #1a237e; /* ネイビー */
+    font-weight: 500;
+    border-radius: 20px; /* タグらしい丸み */
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    font-size: 14px;
+    text-align: left;
+}
+#main-nav button:hover {
+    background: #e0f7fa; /* ホバー時に明るい青 */
+    color: #01579b; 
+    border-color: #01579b;
+}
+#main-nav button.active {
+    /* 選択状態: 背景を濃い青緑にし、文字を白に */
+    background: #00acc1; /* メインカラー */
+    color: white;
+    border-color: #00acc1;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transform: translateY(-1px);
+}
+/* ---------------------------------------------------- */
+/* ★★★ 2. ホーム画面のカテゴリカードのデザイン改善 ★★★ */
+/* ---------------------------------------------------- */
+#screen-home {
+    padding: 20px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    margin-top: 20px;
+}
+.category-card {
+    /* ボーダーを左側のみにし、立体感とアクセントを出す */
+    border: 1px solid #e0e0e0;
+    border-left: 5px solid #00acc1; /* アクセントカラー */
+    padding: 15px;
+    margin-bottom: 15px;
+    background: #f8f8f8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.category-card:hover {
+    background: #e0f7fa; /* ホバー時に明るい青 */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+}
+.category-card h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: #01579b; /* 濃い青 */
+    font-size: 16px;
+}
+
+/* コート図コンテナのスタイル */
+#court-diagram-container {
+  background-color: #f9fbe7; /* 薄い緑の背景 */
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #c5e1a5;
+}
+
+/* SVG自体のスタイル */
+#court-diagram-container svg {
+  width: 100%;      /* 横幅いっぱいに表示 */
+  height: auto;     /* 高さは自動 */
+  max-height: 50vh; /* 画面半分くらいの高さまで許容 */
+  margin: 0 auto;
+  display: block;
+  background-color: white;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* SVG内のテキストスタイル（もしクラスを付けるなら） */
+.court-label {
+  font-family: sans-serif;
+  font-size: 10px;
+  fill: #d32f2f; /* 赤っぽい色で目立たせる */
+  font-weight: bold;
+}
+
   </style>
 
   <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -176,6 +291,9 @@ let selectedMenus = [];
 let editableName = "";
 let editablePurpose = "";
 let isProgramGenerated = false;
+let isPoseModelLoaded = false;
+let isFwModelLoaded = false;
+let isStrokeModelLoaded = false;
 
 // ログイン処理
 async function loginWithPassword() {
@@ -307,6 +425,63 @@ async function deleteFeedback(docId) {
     }
 }
 
+// ==============================================
+// 画面切り替え関数 (新規追加)
+// ==============================================
+function showScreen(screenId, senderButton) {
+    // 1. 全てのコンテンツを非表示
+    document.querySelectorAll('.screen-content').forEach(el => {
+        el.classList.remove('active');
+        el.style.display = 'none'; // 強制的に display: none を設定
+    });
+
+    // 2. 選択されたコンテンツを表示
+    const targetScreen = document.getElementById(`screen-${screenId}`);
+    if (targetScreen) {
+        targetScreen.classList.add('active');
+        targetScreen.style.display = 'block';
+
+        // 3. 画面ごとの特殊処理 (必要であれば)
+        if (screenId === 'beginner' && typeof renderBeginnerSection === 'function') {
+            renderBeginnerSection();
+        }
+        
+        // 講習会画面の認証状態チェック
+        if (screenId === 'course') {
+            const authContainer = document.getElementById("auth-container");
+            const shareSection = document.getElementById("share-section");
+            const feedbackContainer = document.getElementById("feedback-container");
+
+            // isAuthenticated フラグが利用可能であることを前提とする
+            if (typeof isAuthenticated !== 'undefined' && isAuthenticated) {
+                if (authContainer) authContainer.style.display = 'none';
+                if (shareSection) shareSection.style.display = 'block';
+                if (feedbackContainer) { 
+                    feedbackContainer.style.display = 'block';
+                    // loadFeedbacks が定義されている場合のみ呼び出し
+                    if (typeof loadFeedbacks === 'function') loadFeedbacks(); 
+                }
+            } else {
+                if (authContainer) authContainer.style.display = 'block';
+                if (shareSection) shareSection.style.display = 'none';
+                if (feedbackContainer) feedbackContainer.style.display = 'none';
+            }
+        }
+    }
+    
+    // 4. ナビゲーションボタンのアクティブ状態を切り替え
+    document.querySelectorAll('#main-nav button').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    if (senderButton) {
+        senderButton.classList.add('active');
+    }
+
+    // 5. スクロールをトップに戻す
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+
 // ===========================
 // ✅ 感想投稿処理
 // ===========================
@@ -353,7 +528,6 @@ async function handleFeedbackSubmit() {
 // 認証状態の監視
 auth.onAuthStateChanged(user => {
     const authContainer = document.getElementById("auth-container");
-    const programContainer = document.getElementById("program-output");
     const shareSection = document.getElementById("share-section");
     const feedbackContainer = document.getElementById("feedback-container");
     const logoutBtn = document.getElementById("logout-button");
@@ -362,30 +536,26 @@ auth.onAuthStateChanged(user => {
         // ログイン済み
         isAuthenticated = true;
         
-        // ログインUIを非表示、ログアウトボタンを表示
         if (authContainer) authContainer.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'block';
 
-        // プログラムや感想セクションを表示
-        // 🚨 修正: programContainerの表示条件を削除または簡素化
-        if (programContainer) programContainer.style.display = 'block'; 
-        if (shareSection) shareSection.style.display = 'block';
-        
-        if (feedbackContainer) { // 👈 ここを修正
-            feedbackContainer.style.display = 'block';
-            loadFeedbacks();     // 👈 ★★★ この行を追加 ★★★
-        }
-
-    } else {
+        // ★★★ 講習会画面がアクティブな場合のみ表示を制御 ★★★
+        if (document.getElementById('screen-course')?.classList.contains('active')) {
+            if (shareSection) shareSection.style.display = 'block';
+            if (feedbackContainer) { 
+                feedbackContainer.style.display = 'block';
+                // loadFeedbacks 関数が定義されている場合のみ実行
+                if (typeof loadFeedbacks === 'function') loadFeedbacks(); 
+            }
+        }
+    } else {
         // ログアウト済み
         isAuthenticated = false;
 
-        // ログインUIを表示、ログアウトボタンを非表示
         if (authContainer) authContainer.style.display = 'block';
         if (logoutBtn) logoutBtn.style.display = 'none';
 
-        // 認証が必要なセクションを非表示
-        if (programContainer) programContainer.style.display = 'none';
+        // 認証が必要なセクションを常に非表示
         if (shareSection) shareSection.style.display = 'none';
         if (feedbackContainer) feedbackContainer.style.display = 'none';
     }
@@ -1821,7 +1991,7 @@ async function downloadKnowledgePDF() {
 </script>
 </head>
 
-<body>
+<body onload="showScreen('home', document.getElementById('nav-home'))">
   <header style="
     text-align: center;
     margin-bottom: 30px;
@@ -1873,60 +2043,109 @@ async function downloadKnowledgePDF() {
    </script>
    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit&hl=en"></script>
    </header>
+
+<nav id="main-nav">
+    <button id="nav-home" onclick="showScreen('home', this)">🏠 ホーム</button>
+    <button id="nav-training" onclick="showScreen('training', this)">1. トレーニング計画</button>
+    <button id="nav-analysis" onclick="showScreen('analysis', this)">2. パフォーマンス分析</button>
+    <button id="nav-tactics" onclick="showScreen('tactics', this)">3. 戦術・コート</button>
+    <button id="nav-beginner" onclick="showScreen('beginner', this)">4. 初心者指導</button>
+    <button id="nav-learning" onclick="showScreen('learning', this)">5. 知識・スキル学習</button>
+    <button id="nav-utility" onclick="showScreen('utility', this)">6. ユーティリティ</button>
+    <button id="nav-course" onclick="showScreen('course', this)">7. 講習会用 (Login)</button>
+</nav>
 <div class="status-message" id="statusMessage" style="margin: 10px 0; font-weight: bold;">データ取得中...</div>
 
-<section id="announcement-section" style="
-  margin-bottom: 25px;
-  padding: 20px;
-  background: linear-gradient(to bottom, #fffde7, #fff9c4); /* 薄い黄色のグラデーション */
-  border: 2px solid #fbc02d; /* ゴールド系の枠線 */
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-  font-family: 'Noto Sans JP', sans-serif;
-  animation: fadeIn 1s ease-in-out;
-">
-  <h3 style="margin: 0 0 15px 0; color: #f57f17; display: flex; align-items: center; gap: 8px; font-size: 18px; border-bottom: 1px dashed #f9a825; padding-bottom: 10px;">
-    🔔 【重要】今後の大幅アップデートとご協力のお願い
-  </h3>
-  
-  <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 15px;">
-    いつも当アプリをご利用いただきありがとうございます。<br>
-    今後のアップデートにて、皆様のトレーニングライフをより強力にサポートする新機能を実装予定です。
-  </p>
-
-  <div style="background: rgba(255, 255, 255, 0.7); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #ff9800;">
-    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #333; font-weight: bold;">
-      <li style="margin-bottom: 8px;">🔐 個人データのクラウド管理（ID・パスワードによる保護と機種変更対応）</li>
-      <li>🤖 AIによるゲーム・トレーニング分析＆アドバイス機能</li>
-    </ul>
-  </div>
-
-  <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 20px;">
-    これらの高度な機能を<strong style="color: #d32f2f; font-size: 16px; background: yellow;">「完全無料」</strong>で皆様に提供し続けるため、開発費用の確保としてYouTubeチャンネルの収益化を目指しております。<br>
-    皆様のチャンネル登録が、そのままアプリの進化（開発費）に繋がります。より良いアプリを無料で作り続けていくために、ぜひチャンネル登録でのご支援をお願いいたします。
-  </p>
-
-  <div style="text-align: center;">
-    <a href="https://www.youtube.com/@MASUBadmintonAcademy?sub_confirmation=1" target="_blank" style="
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      background: #d32f2f; /* YouTubeレッド */
-      color: white;
-      text-decoration: none;
-      padding: 12px 35px;
-      border-radius: 30px;
-      font-weight: bold;
-      font-size: 16px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-      transition: transform 0.2s, background 0.2s;
-    " onmouseover="this.style.transform='scale(1.05)'; this.style.background='#b71c1c'" onmouseout="this.style.transform='scale(1)'; this.style.background='#d32f2f'">
-      <span style="font-size: 20px;">▶</span> YouTubeチャンネル登録して応援する
-    </a>
-    <p style="font-size: 11px; color: #666; margin-top: 8px;">※リンクをクリックするとYouTubeが開きます</p>
-  </div>
+<section id="screen-home" class="screen-content active">
+    <h2 style="color: #1a237e; margin-top: 0;">Smart Coach Badminton へようこそ</h2>
+    
+    <div id="home-youtube-request-section" style="
+        margin-bottom: 25px;
+        padding: 20px;
+        background: linear-gradient(to bottom, #fffde7, #fff9c4);
+        border: 2px solid #fbc02d; 
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        font-family: 'Noto Sans JP', sans-serif;
+    ">
+        <h3 style="margin: 0 0 15px 0; color: #f57f17; display: flex; align-items: center; gap: 8px; font-size: 18px; border-bottom: 1px dashed #f9a825; padding-bottom: 10px;">
+            🔔 【重要】今後の大幅アップデートとご協力のお願い
+        </h3>
+        <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 15px;">
+            いつも当アプリをご利用いただきありがとうございます。<br>
+            今後のアップデートにて、皆様のトレーニングライフをより強力にサポートする新機能を実装予定です。
+        </p>
+        <div style="background: rgba(255, 255, 255, 0.7); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #ff9800;">
+            <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #333; font-weight: bold;">
+                <li style="margin-bottom: 8px;">🔐 個人データのクラウド管理（ID・パスワードによる保護と機種変更対応）</li>
+                <li>🤖 AIによるゲーム・トレーニング分析＆アドバイス機能</li>
+            </ul>
+        </div>
+        <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 20px;">
+            これらの高度な機能を<strong style="color: #d32f2f; font-size: 16px; background: yellow;">「完全無料」</strong>で皆様に提供し続けるため、開発費用の確保としてYouTubeチャンネルの収益化を目指しております。<br>
+            皆様のチャンネル登録が、そのままアプリの進化（開発費）に繋がります。より良いアプリを無料で作り続けていくために、ぜひチャンネル登録でのご支援をお願いいたします。
+        </p>
+        <div style="text-align: center;">
+            <a href="https://www.youtube.com/@MASUBadmintonAcademy?sub_confirmation=1" target="_blank" style="
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                background: #d32f2f;
+                color: white;
+                text-decoration: none;
+                padding: 12px 35px;
+                border-radius: 30px;
+                font-weight: bold;
+                font-size: 16px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+                transition: transform 0.2s, background 0.2s;
+            " onmouseover="this.style.transform='scale(1.05)'; this.style.background='#b71c1c'" onmouseout="this.style.transform='scale(1)'; this.style.background='#d32f2f'">
+                <span style="font-size: 20px;">▶</span> YouTubeチャンネル登録して応援する
+            </a>
+            <p style="font-size: 11px; color: #666; margin-top: 8px;">※リンクをクリックするとYouTubeが開きます</p>
+        </div>
+    </div>
+    
+    <h3 style="color: #1a237e; border-bottom: 1px solid #ccc; padding-bottom: 5px;">機能カテゴリ一覧</h3>
+    
+    <div class="category-card" onclick="showScreen('training', document.getElementById('nav-training'))">
+        <h4>1. トレーニング計画・実行サポート</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">目的・課題を入力すると、AIが最適なメニューを提案。ドラッグ&ドロップで簡単に練習プログラムを作成し、PDFや画像で共有できます。（プログラム作成、課題目的の入力）</p>
+    </div>
+    
+    <div class="category-card" onclick="showScreen('analysis', document.getElementById('nav-analysis'))">
+        <h4>2. AI/動画によるパフォーマンス分析</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">AIフォーム解析、移動速度/距離計測（ゲーム分析）、ダブルス陣形比率分析、ストローク位置分析など、試合や練習を科学的に評価します。（AIフォーム解析、ゲーム分析、AIフォーム比較コーチ、ダブルス陣形分析、ストローク位置分析）</p>
+    </div>
+    
+    <div class="category-card" onclick="showScreen('tactics', document.getElementById('nav-tactics'))">
+        <h4>3. 戦術・コート関連シミュレーション</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">戦術ボード（手書き・矢印）でプレーの意図を共有。コート配置シミュレーターで、体育館のコートや人を自由に配置・管理できます。（コート描画、コート配置シミュレーター）</p>
+    </div>
+    
+    <div class="category-card" onclick="showScreen('beginner', document.getElementById('nav-beginner'))">
+        <h4>4. 初心者指導</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">バドミントン初心者に必要なルールや技術を、動画レッスンとルール学習シミュレーターで体系的に学習できます。（初心者向け動画レッスン、ルール学習シミュレーター）</p>
+    </div>
+    
+    <div class="category-card" onclick="showScreen('learning', document.getElementById('nav-learning'))">
+        <h4>5. 知識・スキル学習</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">技術・戦術の理論クイズ、動画を見て行う理解度チェック、バドミントン特化の英会話フレーズ学習機能を提供します。（Video Learning＆Check、Badminton English Learning、Badminton Theory Quiz）</p>
+    </div>
+    
+    <div class="category-card" onclick="showScreen('utility', document.getElementById('nav-utility'))">
+        <h4>6. ユーティリティ・その他</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">フィジカル強化のモチベーションを維持する「日本一周の旅」マップ、プログラムタイマー、公平な抽選・グループ分けツールなどの便利機能。（日本一周フィジカル強化の旅、グループワーク）</p>
+    </div>
+    
+    <div class="category-card" onclick="showScreen('course', document.getElementById('nav-course'))">
+        <h4>7. 講習会用</h4>
+        <p style="margin: 0; font-size: 13px; color: #555;">指導者・講師向けの機能です。受講生への資料QRコード共有や、受講生からの感想・振り返り（掲示板）を一元管理できます。（受講生への資料共有、振り返り）</p>
+    </div>
+    
 </section>
 
+<section id="screen-beginner" class="screen-content">
 <section id="beginner-instruction-section" style="
   margin-bottom: 30px; 
   padding: 20px; 
@@ -1950,6 +2169,110 @@ async function downloadKnowledgePDF() {
   </div>
 </section>
 
+<section id="learning-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
+    <h3 style="margin:0; color:#1a237e; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      🎓 ルール学習シミュレーション
+    </h3>
+  </div>
+
+  <div style="padding: 20px;">
+
+    <div id="sim-start-screen" style="text-align: center; padding: 20px 0;">
+  <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
+    実際の試合の流れを見ながら、<br>
+    ダブルスの複雑なサーブ権移動やポジションを学びましょう。<br>
+    <strong>※最初に簡単なルール確認クイズがあります。</strong>
+  </p>
+  <button onclick="startQuizMode()" style="
+    background: #ff9800; color: white; border: none; 
+    padding: 12px 30px; border-radius: 30px; 
+    font-size: 16px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform 0.2s;
+  ">
+    ▶ ルール確認をして開始
+  </button>
+</div>
+
+<div id="sim-quiz-screen" style="display: none; animation: fadeIn 0.5s;">
+  <div style="background:#e3f2fd; padding:15px; border-radius:8px; border:1px solid #90caf9; margin-bottom:15px;">
+    <div style="font-weight:bold; color:#1565c0; margin-bottom:10px;">📋 ルール確認クイズ <span id="quiz-progress">(1/3)</span></div>
+    
+    <div id="quiz-text" style="font-size:15px; margin-bottom:15px; font-weight:bold; color: #333;"></div>
+    
+    <div id="quiz-options-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;"></div>
+
+    <div id="court-diagram-container" style="display:none; text-align:center; margin-bottom:20px;">
+      </div>
+    
+    <div id="quiz-explanation" style="display:none; background:#fff; padding:10px; border-radius:6px; margin-bottom:10px; border-left:4px solid #1565c0;">
+      <div id="quiz-explanation-text" style="font-size:13px;"></div>
+    </div>
+
+    <div style="text-align:center;">
+       <button id="btn-next-quiz" onclick="nextQuiz()" style="display:none; background:#1565c0; color:white; border:none; padding:8px 25px; border-radius:20px;">次へ ▶</button>
+    </div>
+  </div>
+</div>
+
+<div id="sim-game-screen" style="display: none; animation: fadeIn 0.5s;">
+  <div style="background:#fff3e0; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #ffe0b2;">
+    <div style="font-weight:bold; color:#d84315; margin-bottom:5px;">Scenario: <span id="scenario-title">試合シミュレーション</span></div>
+    
+    <div id="scenario-text" style="font-size:14px; min-height:40px; margin-bottom:10px;"></div>
+
+    <div id="sim-options-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;"></div>
+
+    <div style="display:flex; justify-content:center; gap:10px;">
+      <button onclick="prevStep()" style="background:#ccc; color:#333; border:none; padding:8px 15px; border-radius:20px; font-size:12px;">◀ 前へ</button>
+      <button onclick="nextStep()" id="btn-next-step" style="display:none; background:#ff9800; color:white; border:none; padding:8px 25px; border-radius:20px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2);">次へ進む ▶</button>
+    </div>
+  </div>
+  
+  <div class="visual-court-container" style="margin-bottom:10px;">
+    <div class="court-net"></div>
+     <div class="court-grid">
+       <div class="c-cell" id="sim-c-l-odd"  style="grid-row: 2/3; grid-column: 2/3;"></div>
+       <div class="c-cell" id="sim-c-l-even" style="grid-row: 3/4; grid-column: 2/3;"></div>
+       <div class="c-cell" id="sim-c-r-even" style="grid-row: 3/4; grid-column: 3/4;"></div>
+       <div class="c-cell" id="sim-c-r-odd"  style="grid-row: 2/3; grid-column: 3/4;"></div>
+       <div class="c-cell area-out" style="grid-row: 2/4; grid-column: 1/2; background:rgba(0,0,0,0.1);"></div>
+       <div class="c-cell area-out" style="grid-row: 2/4; grid-column: 4/5; background:rgba(0,0,0,0.1);"></div>
+     </div>
+     <div id="p-A1" class="player-label" style="background:#ffcdd2; color:#b71c1c;">A1</div>
+     <div id="p-A2" class="player-label" style="background:#ffcdd2; color:#b71c1c;">A2</div>
+     <div id="p-B1" class="player-label" style="background:#bbdefb; color:#0d47a1;">B1</div>
+     <div id="p-B2" class="player-label" style="background:#bbdefb; color:#0d47a1;">B2</div>
+     <div id="sim-shuttle" style="position:absolute; font-size:20px; z-index:20; transition:all 0.5s;">🏸</div>
+  </div>
+
+  <div style="display:flex; justify-content:center; align-items:center; gap:20px; font-weight:bold; font-size:20px;">
+    <span style="color:#d32f2f;">A: <span id="sim-score-a">0</span></span>
+    <span>-</span>
+    <span style="color:#1976d2;">B: <span id="sim-score-b">0</span></span>
+  </div>
+  
+  <div id="sim-explanation" style="display:none; margin-top:15px; background:#e8f5e9; padding:10px; border-radius:6px; border-left:4px solid #4caf50;">
+    <div style="font-weight:bold; color:#2e7d32; margin-bottom:5px;">💡 解説</div>
+    <div id="sim-explanation-text" style="font-size:13px;"></div>
+  </div>
+</div>
+
+  </div>
+</section>
+</section>
+
+<section id="screen-training" class="screen-content">
 <!-- 🧠 課題・目的の入力欄（AI提案） -->
 <section id="ai-section" style="
   background:#fff;
@@ -2088,7 +2411,9 @@ async function downloadKnowledgePDF() {
   <p id="time-status" style="margin-top:6px; font-size:14px; color:#333;">現在 0 / 120 分</p>
 </div>
 </div>  
+</section>
 
+<section id="screen-tactics" class="screen-content">
 <div id="tactics-board-box" style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
   <div style="margin-bottom: 15px;">
     <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード</h3>
@@ -2242,81 +2567,8 @@ async function downloadKnowledgePDF() {
   </div>
 </div>
 
-<div class="timer-container" style="
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-  margin-top: 15px;
-">
-<h3 id="random-plan-title" style="margin-bottom:15px; color:#00796b;">グループワーク</h3>
-
-  <div style="background: #f1f8e9; padding: 10px; border-radius: 6px; border: 1px solid #c5e1a5;">
-    <label id="lbl-name-list" style="font-weight:bold; color:#33691e;">参加者名簿 (改行で区切って入力):</label>
-    
-    <textarea id="name-list-input" placeholder="例：
-佐藤
-鈴木
-高橋
-田中" style="width:100%; height:80px; box-sizing:border-box; border:1px solid #ccc; padding:5px; margin-bottom:10px;"></textarea>
-    
-    <div id="note-name-list" style="font-size:12px; color:#555; margin-bottom:10px;">
-      ※ここに名前リストを入力すると、抽選されます。
-    </div>
-
-    <h4 id="h-pick-winner" style="margin:10px 0 5px 0; color:#008c9e;">① 当選者を選ぶ (1名)</h4>
-    
-    <button id="btn-pick-winner" onclick="extractNameRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
-      1名抽出
-    </button>
-
-    <h4 id="h-group-divide" style="margin:15px 0 5px 0; color:#008c9e;">② グループ分け</h4>
-    
-    <label>
-        <span id="lbl-group-num-text">グループ数:</span> 
-        <input type="number" id="group-num-input" value="2" min="2" style="width:50px; padding:4px;">
-    </label>
-    
-    <button id="btn-group-divide" onclick="groupNamesRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
-      グループ分け実行
-    </button>
-
-    <div style="text-align:right; margin-top:5px;">
-        <button id="btn-clear-history" onclick="clearHistory()" style="background:#9e9e9e; color:white; border:none; padding:4px 8px; font-size:12px; border-radius:4px; cursor:pointer;">履歴をクリア</button>
-    </div>
-</div>
-
-<div id="history-container" style="margin-top:15px; border-top:2px solid #ddd; padding-top:10px;">
-    <p id="h-history-title" style="color:#666; font-size:13px; margin:0 0 5px 0;">▼ 抽選結果履歴 (新しい順)</p>
-    <div id="history-list" style="max-height: 300px; overflow-y: auto;">
-    </div>
-</div>
-
-  <h3 id="program-timer-title" style="margin-bottom:8px; color:#00796b;">プログラムタイマー</h3>
-
-<div id="steps-container" class="steps"></div>
-<button id="add-step" type="button">＋ ステップ追加</button>
-
-<div class="set-group" style="margin-top:10px; margin-bottom:15px;">
-  <!-- id を追加 -->
-  <label id="set-count-label" for="set-count">セット数：</label>
-<input type="number" id="set-count" min="1">
-</div>
-
-<div style="display:flex; gap:10px; margin-bottom:15px;">
-  <button id="start-timer" type="button">▶ スタート</button>
-  <button id="stop-timer" type="button">■ ストップ</button>
-  <button id="reset-timer" type="button">⟳ リセット</button>
-</div>
-
-  <div id="timer-display" class="timer-display">
-    <h2 id="current-set">Set 1 / 3</h2>
-    <h1 id="time-left">00:00</h1>
-    <h3 id="step-info">Step 1</h3>
-  </div>
-</div>
-
+</section>
+<section id="screen-learning" class="screen-content">
 <section id="video-quiz-section" style="
   margin-top: 30px; 
   padding: 0; 
@@ -2656,94 +2908,13 @@ async function downloadKnowledgePDF() {
     </div>
   </div>
 </section>
-
-<section id="learning-section" style="
-  margin-top: 30px; 
-  padding: 0; 
-  background: #fff; 
-  border: 1px solid #ccc; 
-  border-radius: 10px; 
-  overflow: hidden; 
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
-  <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
-    <h3 style="margin:0; color:#1a237e; display:flex; align-items:center; gap:8px; font-size: 20px;">
-      🎓 ルール学習シミュレーション
-    </h3>
-  </div>
-
-  <div style="padding: 20px;">
-
-    <div id="sim-start-screen" style="text-align: center; padding: 20px 0;">
-      <p style="color: #666; font-size: 14px; margin-bottom: 20px;">
-        実際の試合の流れを見ながら、<br>
-        ダブルスの複雑なサーブ権移動やポジションを学びましょう。
-      </p>
-      <button onclick="openSimulation()" style="
-        background: #ff9800; color: white; border: none; 
-        padding: 12px 30px; border-radius: 30px; 
-        font-size: 16px; font-weight: bold; cursor: pointer;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        display: inline-flex; align-items: center; gap: 8px;
-        transition: transform 0.2s;
-      ">
-        ▶ シミュレーションを開始
-      </button>
-    </div>
-
-    <div id="sim-game-screen" style="display: none; animation: fadeIn 0.5s;">
-      
-      <div style="background:#fff3e0; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #ffe0b2;">
-        <div style="font-weight:bold; color:#d84315; margin-bottom:5px;">Scenario: <span id="scenario-title">ダブルスの基本</span></div>
-        
-        <div id="scenario-text" style="font-size:14px; min-height:40px; margin-bottom:10px;">
-          試合開始！0-0です。まずはポジションを確認しましょう。
-        </div>
-
-        <div id="sim-options-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:15px;">
-        </div>
-
-        <div style="display:flex; justify-content:center; gap:10px;">
-          <button onclick="prevStep()" style="background:#ccc; color:#333; border:none; padding:8px 15px; border-radius:20px; font-size:12px;">◀ 前へ</button>
-          <button onclick="nextStep()" id="btn-next-step" style="display:none; background:#ff9800; color:white; border:none; padding:8px 25px; border-radius:20px; font-weight:bold; box-shadow:0 2px 5px rgba(0,0,0,0.2);">次へ進む ▶</button>
-        </div>
-      </div>
-
-      <div class="visual-court-container" style="margin-bottom:10px;">
-        <div class="court-net"></div>
-        <div class="court-grid">
-          <div class="c-cell" id="sim-c-l-odd"  style="grid-row: 2/3; grid-column: 2/3;"></div>
-          <div class="c-cell" id="sim-c-l-even" style="grid-row: 3/4; grid-column: 2/3;"></div>
-          <div class="c-cell" id="sim-c-r-even" style="grid-row: 3/4; grid-column: 3/4;"></div>
-          <div class="c-cell" id="sim-c-r-odd"  style="grid-row: 2/3; grid-column: 3/4;"></div>
-          <div class="c-cell area-out" style="grid-row: 2/4; grid-column: 1/2; background:rgba(0,0,0,0.1);"></div>
-          <div class="c-cell area-out" style="grid-row: 2/4; grid-column: 4/5; background:rgba(0,0,0,0.1);"></div>
-        </div>
-        
-        <div id="p-A1" class="player-label" style="background:#ffcdd2; color:#b71c1c;">A1</div>
-        <div id="p-A2" class="player-label" style="background:#ffcdd2; color:#b71c1c;">A2</div>
-        <div id="p-B1" class="player-label" style="background:#bbdefb; color:#0d47a1;">B1</div>
-        <div id="p-B2" class="player-label" style="background:#bbdefb; color:#0d47a1;">B2</div>
-
-        <div id="sim-shuttle" style="position:absolute; font-size:20px; z-index:20; transition:all 0.5s;">🏸</div>
-      </div>
-
-      <div style="display:flex; justify-content:center; align-items:center; gap:20px; font-weight:bold; font-size:20px;">
-        <span style="color:#d32f2f;">A: <span id="sim-score-a">0</span></span>
-        <span>-</span>
-        <span style="color:#1976d2;">B: <span id="sim-score-b">0</span></span>
-      </div>
-      
-      <div id="sim-explanation" style="display:none; margin-top:15px; background:#e8f5e9; padding:10px; border-radius:6px; border-left:4px solid #4caf50;">
-        <div style="font-weight:bold; color:#2e7d32; margin-bottom:5px;">💡 解説</div>
-        <div id="sim-explanation-text" style="font-size:13px;"></div>
-      </div>
-    </div>
-
-  </div>
+</section>
 </section>
 
 <script>
+
+
+
 function openSimulation() {
   document.getElementById('sim-start-screen').style.display = 'none';
   document.getElementById('sim-game-screen').style.display = 'block';
@@ -2751,6 +2922,7 @@ function openSimulation() {
 }
 </script>
 
+<section id="screen-utility" class="screen-content">
 <section id="daily-challenge-section" style="
   margin-top: 30px;
   padding: 0;
@@ -2855,8 +3027,94 @@ function openSimulation() {
         </button>
     </div>
     </div>
+
+</section>
+<section id="group-work-section" class="utility-sub-section" style="
+    margin-top: 30px; 
+    padding: 20px; 
+    background: #fff; 
+    border: 1px solid #ccc; 
+    border-radius: 10px; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+    <h3 id="random-plan-title" style="margin-bottom:15px; color:#00796b;">グループワーク</h3>
+
+    <div style="background: #f1f8e9; padding: 10px; border-radius: 6px; border: 1px solid #c5e1a5;">
+        <label id="lbl-name-list" style="font-weight:bold; color:#33691e;">参加者名簿 (改行で区切って入力):</label>
+        
+        <textarea id="name-list-input" placeholder="例：
+佐藤
+鈴木
+高橋
+田中" style="width:100%; height:80px; box-sizing:border-box; border:1px solid #ccc; padding:5px; margin-bottom:10px;"></textarea>
+        
+        <div id="note-name-list" style="font-size:12px; color:#555; margin-bottom:10px;">
+            ※ここに名前リストを入力すると、抽選されます。
+        </div>
+
+        <h4 id="h-pick-winner" style="margin:10px 0 5px 0; color:#008c9e;">① 当選者を選ぶ (1名)</h4>
+        
+        <button id="btn-pick-winner" onclick="extractNameRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+            1名抽出
+        </button>
+
+        <h4 id="h-group-divide" style="margin:15px 0 5px 0; color:#008c9e;">② グループ分け</h4>
+        
+        <label>
+            <span id="lbl-group-num-text">グループ数:</span> 
+            <input type="number" id="group-num-input" value="2" min="2" style="width:50px; padding:4px;">
+        </label>
+        
+        <button id="btn-group-divide" onclick="groupNamesRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+            グループ分け実行
+        </button>
+
+        <div style="text-align:right; margin-top:5px;">
+            <button id="btn-clear-history" onclick="clearHistory()" style="background:#9e9e9e; color:white; border:none; padding:4px 8px; font-size:12px; border-radius:4px; cursor:pointer;">履歴をクリア</button>
+        </div>
+    </div>
+
+    <div id="history-container" style="margin-top:15px; border-top:2px solid #ddd; padding-top:10px;">
+        <p id="h-history-title" style="color:#666; font-size:13px; margin:0 0 5px 0;">▼ 抽選結果履歴 (新しい順)</p>
+        <div id="history-list" style="max-height: 300px; overflow-y: auto;">
+        </div>
+    </div>
 </section>
 
+
+<section id="program-timer-section" class="utility-sub-section" style="
+    margin-top: 30px; 
+    padding: 20px; 
+    background: #fff; 
+    border: 1px solid #ccc; 
+    border-radius: 10px; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+    <h3 id="program-timer-title" style="margin-bottom:8px; color:#00796b;">プログラムタイマー</h3>
+
+    <div id="steps-container" class="steps"></div>
+    <button id="add-step" type="button">＋ ステップ追加</button>
+
+    <div class="set-group" style="margin-top:10px; margin-bottom:15px;">
+        <label id="set-count-label" for="set-count">セット数：</label>
+        <input type="number" id="set-count" min="1">
+    </div>
+
+    <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <button id="start-timer" type="button">▶ スタート</button>
+        <button id="stop-timer" type="button">■ ストップ</button>
+        <button id="reset-timer" type="button">⟳ リセット</button>
+    </div>
+
+    <div id="timer-display" class="timer-display">
+        <h2 id="current-set">Set 1 / 3</h2>
+        <h1 id="time-left">00:00</h1>
+        <h3 id="step-info">Step 1</h3>
+    </div>
+</section>
+</section>
+
+<section id="screen-analysis" class="screen-content">
 <section id="pose-estimation-section" style="
   margin-top: 30px; 
   padding: 0; 
@@ -3443,7 +3701,10 @@ function openSimulation() {
     </div>
   </div>
 </section>
+</section>
 
+
+<section id="screen-course" class="screen-content">
 <div id="auth-container" class="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-inner">
     <h3 class="text-lg font-semibold text-gray-700 mb-2">講習会用ログイン</h3>
     <p class="text-sm text-gray-500 mb-3">パスワードが必要です。</p>
@@ -7891,6 +8152,33 @@ const posMap = {
     "r-odd":  {t:"75%", l:"65%"}  // 下 (奇数コート) ※Aの上と対角
 };
 
+// ==========================================
+// 1. ルール確認クイズ (試合前の予習)
+// ==========================================
+const ruleQuizData = [
+  {
+    title: "ルール確認 Q1: サービスの着地(奥)",
+    text: "ダブルスのロングサーブを打ちました。\nレシーバー側のコートの**一番奥のライン**（バックバウンダリーライン）の上に落ちました。\n判定は？",
+    options: ["イン (有効)", "アウト (フォルト)"],
+    correctIdx: 1, // アウト
+    explain: "正解は「アウト(フォルト)」です。❌\nダブルスのサーブは、**ロングサービスライン(奥から2本目の線)**までが有効です。\nシングルスとは違うので注意が必要です！"
+  },
+  {
+    title: "ルール確認 Q2: サービスの着地(手前)",
+    text: "サーブが、ネット近くの**ショートサービスライン**より手前に落ちました。\n判定は？",
+    options: ["イン (有効)", "アウト (フォルト)", "レット (やり直し)"],
+    correctIdx: 1, // アウト
+    explain: "正解は「アウト(フォルト)」です。❌\nサーブは必ずショートサービスライン(ネットから1.98m)を超えて奥のエリアに入らなければなりません。"
+  },
+  {
+    title: "ルール確認 Q3: サービスの高さ",
+    text: "サーブを打つ瞬間の打点が、ネット上部の白帯と同じぐらいの高さだった。\n判定は？",
+    options: ["有効", "フォルト", "相手の同意があれば有効"],
+    correctIdx: 1, // フォルト
+    explain: "正解は「フォルト」です。❌\n現行ルールでは、サーバーの身長に関わらず、打つ瞬間のシャトルの位置が床から**1.15mの高さ以下**でなければなりません。\n目安はシャトルの筒3本を重ねた高さより下で打つ。"
+  }
+];
+
 // シナリオデータ
 const scenarioData = [
   // --- Q1: 0-0 ---
@@ -7999,149 +8287,316 @@ const scenarioData = [
     pos: {A1:"l-even", A2:"l-odd", B1:"r-odd", B2:"r-even"},
     shuttlePos: "l-odd",
     options: [
-      "相互に握手して終了", // 正解
-      "サーブ権移動を確認",
-      "まだ終わっていない"
+      "相互に敬意を払い握手して終了", // 正解
+      "怖い顔で威圧する",
+      "無視してコートを去る"
     ],
     correctIdx: 0,
-    explain: "ゲームセット！🎉\nAチームの勝利です。お疲れ様でした！\n(※実際の試合では21点ですが、今回は短縮版でした)"
+    explain: "正解です！🙆‍♂️\n勝敗に関わらず、最後は互いの健闘を称え合い、感謝を込めて握手（挨拶）をします。\n「対戦相手がいてこそ試合ができる」というリスペクトの精神こそが、バドミントンというスポーツの価値を高める最も美しい瞬間です。"
   }
 ];
 
 let currentStepIndex = 0;
 
-// 初期化
-function initSimulation() {
-  currentStepIndex = 0;
-  renderStep(0);
-}
+// ==========================================
+// 🕹️ 2. ロジック (制御プログラム)
+// ==========================================
 
-// ステップ描画
-function renderStep(index) {
-  const data = scenarioData[index];
-  
-  // テキスト更新
-  document.getElementById("scenario-text").textContent = data.text;
-  document.getElementById("sim-score-a").textContent = data.score.a;
-  document.getElementById("sim-score-b").textContent = data.score.b;
-  document.getElementById("sim-explanation").style.display = "none";
-  
-  // 「次へ」ボタンを隠す
-  const nextBtn = document.getElementById("btn-next-step");
-  nextBtn.style.display = "none";
-  nextBtn.textContent = "次の問題へ ▶";
+let currentRuleQuizIndex = 0; // ✅ 名前を変更して重複を回避
 
-  // 選択肢ボタンの生成
-  const optContainer = document.getElementById("sim-options-container");
-  optContainer.innerHTML = ""; 
-
-  data.options.forEach((optText, i) => {
-    const btn = document.createElement("button");
-    btn.textContent = optText;
-    btn.style.cssText = "width:100%; padding:10px; border:1px solid #ccc; background:#fff; color:#333; border-radius:6px; cursor:pointer; text-align:left; font-size:14px; transition:background 0.2s; margin-bottom:5px;";
-    btn.onclick = () => checkSimulationAnswer(i, btn, data);
-    optContainer.appendChild(btn);
-  });
-
-  // プレイヤー配置（CSSアニメーション付きで移動）
-  moveSimPlayer("p-A1", posMap[data.pos.A1]);
-  moveSimPlayer("p-A2", posMap[data.pos.A2]);
-  moveSimPlayer("p-B1", posMap[data.pos.B1]);
-  moveSimPlayer("p-B2", posMap[data.pos.B2]);
-
-  // シャトルの位置（サーブ権のある場所）
-  const shuttleEl = document.getElementById("sim-shuttle");
-  if(data.shuttlePos) {
-      const sPos = posMap[data.shuttlePos];
-      // プレイヤーの少し横に配置
-      shuttleEl.style.display = "block";
-      shuttleEl.style.top = `calc(${sPos.t} - 5px)`;
-      shuttleEl.style.left = sPos.l;
-  } else {
-      shuttleEl.style.display = "none";
-  }
-  
-  // エリアハイライトリセット
-  document.querySelectorAll(".c-cell").forEach(el=>el.style.background="transparent");
-}
-
-function moveSimPlayer(id, coords) {
-  const el = document.getElementById(id);
-  el.style.position = "absolute";
-  el.style.transition = "all 0.6s cubic-bezier(0.22, 1, 0.36, 1)"; // 滑らかな移動
-  el.style.top = coords.t;
-  el.style.left = coords.l;
-  el.style.transform = "translate(-50%, -50%)";
-}
-
-// 正誤判定
-function checkSimulationAnswer(selectedIndex, btnElement, data) {
-  const isCorrect = (selectedIndex === data.correctIdx);
-  const allBtns = document.querySelectorAll("#sim-options-container button");
-
-  // ボタンを無効化
-  allBtns.forEach(b => b.disabled = true);
-
-  if (isCorrect) {
-    // 正解演出
-    btnElement.style.background = "#d4edda"; 
-    btnElement.style.borderColor = "#28a745";
-    btnElement.textContent += " ✅";
-    if(typeof playSportsDrum === 'function') playSportsDrum();
-
-    // 解説表示
-    document.getElementById("sim-explanation-text").textContent = data.explain;
-    document.getElementById("sim-explanation").style.display = "block";
-    document.getElementById("sim-explanation").style.borderLeftColor = "#4caf50";
-
-    // 次へボタン表示
-    const nextBtn = document.getElementById("btn-next-step");
-    nextBtn.style.display = "inline-block";
-
-  } else {
-    // 不正解演出
-    btnElement.style.background = "#ffebee"; 
-    btnElement.style.borderColor = "#d32f2f";
-    btnElement.textContent += " ❌";
-    if(typeof playBuzz === 'function') playBuzz(200, 150);
-
-    // 正解のボタンを教えてあげる
-    allBtns[data.correctIdx].style.background = "#d4edda";
-    allBtns[data.correctIdx].textContent += " (正解)";
+// --- クイズモードの制御 ---
+window.startQuizMode = function() {
+    document.getElementById("sim-start-screen").style.display = "none";
+    document.getElementById("sim-quiz-screen").style.display = "block";
     
-    // 解説表示
-    document.getElementById("sim-explanation-text").textContent = "残念！正解は...\n" + data.explain;
-    document.getElementById("sim-explanation").style.display = "block";
-    document.getElementById("sim-explanation").style.borderLeftColor = "#d32f2f"; 
+    currentRuleQuizIndex = 0; // ✅ 変数名変更
+    renderQuiz();
+};
 
-    // 次へボタン表示
-    const nextBtn = document.getElementById("btn-next-step");
-    nextBtn.style.display = "inline-block";
-  }
+function getBadmintonCourtSVG() {
+  // ViewBox: 幅1800, 高さ1000
+  const svgCode = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1000">
+      <defs>
+        <marker id="arrow-black" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L9,3 z" fill="#333" />
+        </marker>
+        <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L9,3 z" fill="#d32f2f" />
+        </marker>
+        <marker id="arrow-gray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L9,3 z" fill="#555" />
+        </marker>
+      </defs>
+
+      <rect x="0" y="0" width="1800" height="1000" fill="#ffffff"/>
+      
+      <g transform="translate(400, 120)">
+        
+        <text x="250" y="-50" font-size="40" font-weight="bold" fill="#1a237e" text-anchor="middle" font-family="'Noto Sans JP', sans-serif">
+          ① サービス時 (0-0 偶数側)
+        </text>
+
+        <rect x="0" y="0" width="500" height="760" fill="#e8f5e9" stroke="none"/>
+        
+        <rect x="250" y="480" width="250" height="220" fill="#ffeb3b" stroke="none"/>
+
+        <g stroke="#333" stroke-width="4" fill="none">
+          <rect x="0" y="0" width="500" height="760" /> 
+          <line x1="0" y1="60" x2="500" y2="60" stroke="#bbb" />
+          <line x1="0" y1="700" x2="500" y2="700" stroke="#d32f2f" stroke-width="6"/> <line x1="0" y1="280" x2="500" y2="280" stroke="#bbb" />
+          <line x1="0" y1="480" x2="500" y2="480" stroke="#333" /> <line x1="40" y1="0" x2="40" y2="760" stroke="#bbb" stroke-dasharray="5,5"/>
+          <line x1="460" y1="0" x2="460" y2="760" stroke="#bbb" stroke-dasharray="5,5"/>
+          <line x1="250" y1="60" x2="250" y2="280" stroke="#bbb"/>
+          <line x1="250" y1="480" x2="250" y2="700" stroke="#333"/>
+        </g>
+
+        <line x1="-20" y1="380" x2="520" y2="380" stroke="#1565c0" stroke-width="5" stroke-dasharray="10,5"/>
+
+        <g font-family="'Noto Sans JP', sans-serif" font-weight="bold" font-size="32">
+          
+          <text x="-40" y="490" fill="#333" text-anchor="end" alignment-baseline="middle">ショートサービス</text>
+          <line x1="-30" y1="480" x2="-5" y2="480" stroke="#333" stroke-width="3" marker-end="url(#arrow-black)"/>
+
+          <text x="-40" y="710" fill="#d32f2f" text-anchor="end" alignment-baseline="middle">ダブルスロングサービス</text>
+          <line x1="-30" y1="700" x2="-5" y2="700" stroke="#d32f2f" stroke-width="3" marker-end="url(#arrow-red)"/>
+          
+          <text x="250" y="810" fill="#333" text-anchor="middle">バックバウンダリーライン</text>
+        </g>
+      </g>
+
+
+      <g transform="translate(1150, 120)">
+        
+        <text x="250" y="-50" font-size="40" font-weight="bold" fill="#1a237e" text-anchor="middle" font-family="'Noto Sans JP', sans-serif">
+          ② ラリー中の有効エリア
+        </text>
+
+        <rect x="0" y="0" width="500" height="760" fill="#ffeb3b" stroke="none"/>
+        
+        <g stroke="#333" stroke-width="4" fill="none">
+          <rect x="0" y="0" width="500" height="760" stroke="#333" /> 
+          <line x1="0" y1="760" x2="500" y2="760" stroke="#d32f2f" stroke-width="6"/> <line x1="0" y1="60" x2="500" y2="60" stroke="#bbb"/>
+          <line x1="0" y1="700" x2="500" y2="700" stroke="#bbb"/>
+          <line x1="0" y1="280" x2="500" y2="280" stroke="#bbb"/>
+          <line x1="0" y1="480" x2="500" y2="480" stroke="#bbb"/>
+          <line x1="40" y1="0" x2="40" y2="760" />
+          <line x1="460" y1="0" x2="460" y2="760" />
+          <line x1="250" y1="0" x2="250" y2="280" stroke="#bbb"/>
+          <line x1="250" y1="480" x2="250" y2="760" stroke="#bbb"/>
+        </g>
+
+        <line x1="-20" y1="380" x2="520" y2="380" stroke="#1565c0" stroke-width="5" stroke-dasharray="10,5"/>
+
+        <g font-family="'Noto Sans JP', sans-serif" font-weight="bold" font-size="32">
+          
+          <text x="540" y="600" fill="#333" alignment-baseline="middle">ダブルスサイドライン</text>
+          <line x1="530" y1="600" x2="505" y2="600" stroke="#333" stroke-width="3" marker-end="url(#arrow-black)"/>
+
+          <text x="540" y="200" fill="#555" alignment-baseline="middle" font-size="28">シングルスサイドライン</text>
+          <line x1="530" y1="200" x2="465" y2="200" stroke="#555" stroke-width="3" marker-end="url(#arrow-gray)"/>
+          
+          <text x="250" y="810" fill="#d32f2f" text-anchor="middle">バックバウンダリーライン</text>
+        </g>
+      </g>
+
+    </svg>
+  `;
+  return svgCode;
 }
 
-// 次のステップへ
-function nextStep() {
-  if (currentStepIndex < scenarioData.length - 1) {
-    currentStepIndex++;
-    renderStep(currentStepIndex);
-  } else {
-    // 終了時
-    if(confirm("全問終了です！最初からやり直しますか？")) {
-        initSimulation();
+window.renderQuiz = function() {
+    // ✅ ruleQuizData と currentRuleQuizIndex を使用
+    const q = ruleQuizData[currentRuleQuizIndex];
+    
+    document.getElementById("quiz-progress").innerText = `(${currentRuleQuizIndex + 1}/${ruleQuizData.length})`;
+    document.getElementById("quiz-text").innerText = q.text;
+    
+const diagramContainer = document.getElementById("court-diagram-container");
+    // 問題タイトルに Q1, Q2, Q3 が含まれていたら図を表示
+    if (q.title.includes("Q1") || q.title.includes("Q2") || q.title.includes("Q3")) {
+        diagramContainer.innerHTML = getBadmintonCourtSVG(); // SVGを生成して挿入
+        diagramContainer.style.display = "block"; // 表示する
+    } else {
+        diagramContainer.innerHTML = ""; // 中身を空にする
+        diagramContainer.style.display = "none"; // 非表示にする
     }
-  }
-}
 
-function prevStep() {
-  if (currentStepIndex > 0) {
-    currentStepIndex--;
-    renderStep(currentStepIndex);
-  }
-}
+    const container = document.getElementById("quiz-options-container");
+    container.innerHTML = "";
+    q.options.forEach((opt, idx) => {
+        const btn = document.createElement("button");
+      btn.innerText = opt;
+      btn.style.padding = "12px";
+      btn.style.border = "1px solid #ccc";
+      btn.style.borderRadius = "4px";
+      btn.style.cursor = "pointer";
+      btn.style.background = "white";
+      btn.style.color = "#333"; // ✅ 【追加】 文字色を濃いグレー（ほぼ黒）に指定
+      btn.style.textAlign = "left";
+      btn.style.fontSize = "15px";
+      btn.onclick = () => checkQuizAnswer(idx, btn);
+      container.appendChild(btn);
+    });
+    
+    document.getElementById("quiz-explanation").style.display = "none";
+    document.getElementById("btn-next-quiz").style.display = "none";
+};
 
-// ページ読み込み時に実行
-document.addEventListener("DOMContentLoaded", initSimulation);
+window.checkQuizAnswer = function(selectedIdx, btnElement) {
+    // ✅ ruleQuizData と currentRuleQuizIndex を使用
+    const q = ruleQuizData[currentRuleQuizIndex];
+    const allBtns = document.getElementById("quiz-options-container").children;
+    
+    for(let btn of allBtns) btn.disabled = true;
+
+    if (selectedIdx === q.correctIdx) {
+        btnElement.style.background = "#c8e6c9"; 
+        btnElement.innerHTML += " ⭕ 正解！";
+    } else {
+        btnElement.style.background = "#ffcdd2";
+        btnElement.innerHTML += " ❌";
+        allBtns[q.correctIdx].style.background = "#c8e6c9";
+        allBtns[q.correctIdx].innerHTML += " (正解)";
+    }
+
+    document.getElementById("quiz-explanation-text").innerText = q.explain;
+    document.getElementById("quiz-explanation").style.display = "block";
+    
+    const nextBtn = document.getElementById("btn-next-quiz");
+    nextBtn.style.display = "inline-block";
+    
+    // ✅ ruleQuizData と currentRuleQuizIndex を使用
+    if (currentRuleQuizIndex === ruleQuizData.length - 1) {
+        nextBtn.innerText = "試合シミュレーションへ ▶";
+        nextBtn.onclick = startMatchMode;
+    } else {
+        nextBtn.innerText = "次へ ▶";
+        nextBtn.onclick = nextQuiz;
+    }
+};
+
+window.nextQuiz = function() {
+    currentRuleQuizIndex++; // ✅ 変数名変更
+    renderQuiz();
+};
+
+  window.startMatchMode = function() {
+    document.getElementById("sim-quiz-screen").style.display = "none";
+    document.getElementById("sim-game-screen").style.display = "block";
+    currentStepIndex = 0;
+    openSimulation();
+  };
+
+  window.openSimulation = function() {
+    renderStep();
+  };
+
+  window.renderStep = function() {
+    const step = scenarioData[currentStepIndex];
+    document.getElementById("scenario-title").innerText = `Q${currentStepIndex + 1}`;
+    document.getElementById("scenario-text").innerText = step.text;
+    document.getElementById("sim-score-a").innerText = step.score.a;
+    document.getElementById("sim-score-b").innerText = step.score.b;
+
+    movePlayer("p-A1", step.pos.A1);
+    movePlayer("p-A2", step.pos.A2);
+    movePlayer("p-B1", step.pos.B1);
+    movePlayer("p-B2", step.pos.B2);
+
+    const sPos = posMap[step.shuttlePos];
+    const shuttle = document.getElementById("sim-shuttle");
+    if(sPos) {
+      shuttle.style.top = sPos.t;
+      shuttle.style.left = sPos.l;
+      shuttle.style.display = "block";
+    } else {
+      shuttle.style.display = "none";
+    }
+
+    const container = document.getElementById("sim-options-container");
+    container.innerHTML = "";
+    
+    step.options.forEach((opt, idx) => {
+      const btn = document.createElement("button");
+      btn.innerText = opt;
+      btn.style.padding = "10px";
+      btn.style.border = "1px solid #ccc";
+      btn.style.borderRadius = "5px";
+      btn.style.cursor = "pointer";
+      btn.style.background = "#fff";
+      btn.style.color = "#333";
+      btn.style.fontSize = "14px";
+      btn.onclick = () => checkAnswer(idx, btn);
+      container.appendChild(btn);
+    });
+
+    document.getElementById("sim-explanation").style.display = "none";
+    document.getElementById("btn-next-step").style.display = "none";
+  };
+
+  window.movePlayer = function(id, posKey) {
+    const el = document.getElementById(id);
+    const coords = posMap[posKey];
+    if(coords) {
+      el.style.top = coords.t;
+      el.style.left = coords.l;
+      el.style.transform = "translate(-50%, -50%)"; 
+    }
+  };
+
+  window.checkAnswer = function(selectedIdx, btnElement) {
+    const step = scenarioData[currentStepIndex];
+    const allBtns = document.getElementById("sim-options-container").children;
+    
+    for(let btn of allBtns) btn.disabled = true;
+
+    if (selectedIdx === step.correctIdx) {
+      btnElement.style.background = "#c8e6c9";
+      btnElement.innerHTML += " ⭕";
+    } else {
+      btnElement.style.background = "#ffcdd2";
+      btnElement.innerHTML += " ❌";
+      allBtns[step.correctIdx].style.background = "#c8e6c9";
+    }
+
+    document.getElementById("sim-explanation-text").innerText = step.explain;
+    document.getElementById("sim-explanation").style.display = "block";
+
+    const nextBtn = document.getElementById("btn-next-step");
+    nextBtn.style.display = "block";
+    
+    if (currentStepIndex >= scenarioData.length - 1) {
+      nextBtn.innerText = "最初に戻る ↺";
+      nextBtn.onclick = resetSim;
+    } else {
+      nextBtn.innerText = "次へ進む ▶";
+      nextBtn.onclick = nextStep;
+    }
+  };
+
+  window.nextStep = function() {
+    currentStepIndex++;
+    renderStep();
+  };
+
+  window.prevStep = function() {
+    if(currentStepIndex > 0) {
+      currentStepIndex--;
+      renderStep();
+    }
+  };
+
+  window.resetSim = function() {
+    document.getElementById("sim-game-screen").style.display = "none";
+    document.getElementById("sim-start-screen").style.display = "block";
+  };
+
+  // 初期化関数 (必要なら)
+  window.initSimulation = function() {
+    currentStepIndex = 0;
+    renderStep();
+  };
 
 </script>
 
@@ -8204,6 +8659,7 @@ function initPose() {
     pose = new Pose({locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
     }});
+
     pose.setOptions({
         modelComplexity: 1,
         smoothLandmarks: true,
@@ -8213,6 +8669,22 @@ function initPose() {
         minTrackingConfidence: 0.5
     });
     pose.onResults(onPoseResults);
+
+pose.initialize().then(() => {
+        isPoseModelLoaded = true;
+        console.log("AI Pose Model (Pose Estimation) Loaded successfully.");
+        
+        // モデルロード完了後にボタンを活性化
+        const btnStart = document.getElementById("btn-record-start");
+        if(btnStart) {
+            btnStart.disabled = false; 
+            btnStart.style.background = '#e91e63';
+        }
+        
+    }).catch((error) => {
+        console.error("Pose Model Initialization Error:", error);
+        alert("AIモデルの初期化に失敗しました。トラッキング防止機能を無効にするか、ブラウザ設定を確認してください。");
+    });
 }
 
 // 2. 結果処理 (メインループ)
@@ -8696,6 +9168,12 @@ function stopTracking() {
 // 4. カメラ & ファイルアップロード
 async function startCamera() {
     initPose();
+
+if (!isPoseModelLoaded) {
+        alert("AIモデルを読み込み中です。しばらくお待ちください。");
+        return;
+    }
+
     stopTracking(); 
     resetGraphData(); 
     
