@@ -246,6 +246,87 @@
   font-weight: bold;
 }
 
+/* 翻訳ウィジェットのコンテナを前面に出す */
+    #google_translate_element {
+        position: relative;
+        z-index: 10000;
+    }
+
+    /* 翻訳ボタンのデザイン */
+    .goog-te-gadget-simple {
+        background-color: #fff !important;
+        border: 1px solid #ccc !important;
+        padding: 8px 12px !important;
+        border-radius: 4px !important;
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        display: inline-flex !important; /* 横並びにする */
+        align-items: center;
+        cursor: pointer !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    /* Googleロゴ画像「G」マークだけを消す */
+    .goog-te-gadget-simple img {
+        display: none !important;
+    }
+
+    /* 言語名のテキストを表示し、色を調整 */
+    .goog-te-gadget-simple .goog-te-menu-value {
+        color: #333 !important;
+        margin: 0 !important;
+    }
+    
+    /* 「言語を選択」の横の縦棒(|)を消す */
+    .goog-te-gadget-simple .goog-te-menu-value span[style*="border-left"] {
+        border-left: none !important;
+    }
+
+    /* 翻訳バーを消す */
+    .goog-te-banner-frame.skiptranslate {
+        display: none !important;
+    }
+    body {
+        top: 0px !important;
+    }
+    
+    /* プルダウンメニュー調整 */
+    .goog-te-menu-frame {
+        max-width: 100% !important;
+        z-index: 1000000 !important;
+    }
+
+/* ▼▼▼ スマホ表示時のメニュー崩れ修正用CSS ▼▼▼ */
+    @media screen and (max-width: 768px) {
+      /* メニューアイテム全体を縦並びにする */
+      .menu-item {
+        flex-direction: column !important; /* 強制的に縦積みに変更 */
+        align-items: stretch !important;
+      }
+
+      /* 内部の要素（ボタンエリア、画像、説明文）を横幅いっぱいにする */
+      .menu-item > div {
+        min-width: 0 !important; /* JSで設定された250px制限を解除 */
+        width: 100% !important;
+        padding-right: 0 !important;
+        margin-bottom: 10px; /* 要素ごとの間隔 */
+        flex: auto !important;
+      }
+
+      /* 画像がある場合の調整 */
+      .menu-item img {
+        display: block;
+        margin: 0 auto; /* 中央寄せ */
+        max-width: 100% !important;
+        height: auto !important;
+      }
+      
+      /* 説明文エリアの見た目調整 */
+      .menu-item > div:last-child {
+        margin-bottom: 0;
+      }
+    }
+
   </style>
 
   <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -274,14 +355,50 @@
 
 
 <script>
-// PWA用サービスワーカーの登録
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('./sw.js').then(function(registration) {
-      console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      console.log('ServiceWorker registration successful');
+
+      // 定期的に更新をチェック (例: 1時間ごと)
+      setInterval(() => {
+        registration.update();
+        console.log('Checking for updates...');
+      }, 60 * 60 * 1000);
+
+      // アプリに戻ってきた時に更新をチェック
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            registration.update();
+            console.log('App visible, checking for updates...');
+        }
+      });
+
+      // 更新が見つかったらユーザーに通知
+      registration.onupdatefound = function() {
+        const installingWorker = registration.installing;
+        installingWorker.onstatechange = function() {
+          if (installingWorker.state === 'installed') {
+            if (navigator.serviceWorker.controller) {
+              // 新しいバージョンあり
+              if (confirm("新しいバージョンが届いています！\n更新して最新機能を使いますか？\n\n(New version available. Update?)")) {
+                // 【修正点】ここではリロードせず、新しいSWにメッセージを送る
+                // これにより sw.js 側の skipWaiting が発動します
+                installingWorker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            }
+          }
+        };
+      };
+
     }, function(err) {
       console.log('ServiceWorker registration failed: ', err);
     });
+  });
+
+  // 【重要】新しいSWが制御を開始したタイミング（SKIP_WAITING後）でリロードする
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
   });
 }
 
@@ -2056,19 +2173,17 @@ async function downloadKnowledgePDF() {
       </a>
    </div>
    
-   <div style="margin-top: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
-       <div>
-           <span style="font-size: 12px; color: #666; margin-right: 5px;">Language:</span>
-           <div id="google_translate_element" style="display: inline-block;"></div>
-       </div>
+   <div style="margin-top: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; position: relative; z-index: 2000;">
+       
+       <div id="google_translate_element" style="display: inline-block;"></div>
        
        <button onclick="resetToJapanese()" class="notranslate" translate="no" style="
            background: #fff; 
            border: 1px solid #ccc; 
            color: #333; 
-           padding: 5px 15px; 
+           padding: 8px 15px; /* ここも少し大きく */
            border-radius: 20px; 
-           font-size: 12px; 
+           font-size: 13px; 
            cursor: pointer;
            display: flex;
            align-items: center;
@@ -2098,6 +2213,7 @@ function resetToJapanese() {
     window.location.reload();
 }
    </script>
+
    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit&hl=en"></script>
    </header>
 
@@ -13485,27 +13601,35 @@ async function forceUpdateApp() {
 
   if ('serviceWorker' in navigator) {
     try {
-      // 1. 全てのサービスワーカー登録を解除
+      // 1. 登録されているService Workerをすべて解除
       const registrations = await navigator.serviceWorker.getRegistrations();
       for (let registration of registrations) {
         await registration.unregister();
       }
-      
-      // 2. キャッシュストレージを全て削除
-      const keys = await caches.keys();
-      await Promise.all(keys.map(key => caches.delete(key)));
-      
-      alert("キャッシュを削除しました。\nOKを押すと最新版を読み込みます。");
-      
+
+      // 2. キャッシュストレージを削除 (念のため)
+      if ('caches' in window) {
+         const keys = await caches.keys();
+         for (let key of keys) {
+            await caches.delete(key);
+         }
+      }
+
+      // 3. リロードして最新を取り直す
+      alert("更新処理が完了しました。ページを再読み込みします。");
+      window.location.reload();
+
     } catch (error) {
-      console.error("更新エラー:", error);
-      alert("更新処理中にエラーが発生しましたが、リロードを試みます。");
+      console.error("Update failed:", error);
+      alert("更新に失敗しました。手動でリロードしてください。");
+      window.location.reload();
     }
+  } else {
+    // Service Worker非対応なら単にリロード
+    window.location.reload();
   }
-  
-  // 3. 画面を強制リロード (サーバーから最新を取得)
-  window.location.reload(true);
 }
+ 
 </script>
 </body>
 </html>
