@@ -2056,9 +2056,27 @@ async function downloadKnowledgePDF() {
       </a>
    </div>
    
-   <div style="margin-top: 15px; text-align: center;">
-       <span style="font-size: 12px; color: #666; margin-right: 5px;">Language:</span>
-       <div id="google_translate_element" style="display: inline-block;"></div>
+   <div style="margin-top: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+       <div>
+           <span style="font-size: 12px; color: #666; margin-right: 5px;">Language:</span>
+           <div id="google_translate_element" style="display: inline-block;"></div>
+       </div>
+       
+       <button onclick="resetToJapanese()" class="notranslate" translate="no" style="
+           background: #fff; 
+           border: 1px solid #ccc; 
+           color: #333; 
+           padding: 5px 15px; 
+           border-radius: 20px; 
+           font-size: 12px; 
+           cursor: pointer;
+           display: flex;
+           align-items: center;
+           gap: 5px;
+           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+       ">
+           🇯🇵 日本語に戻す (Reset)
+       </button>
    </div>
 
    <script type="text/javascript">
@@ -2070,6 +2088,15 @@ async function downloadKnowledgePDF() {
        autoDisplay: false
      }, 'google_translate_element');
    }
+
+function resetToJapanese() {
+    // Google翻訳のクッキーを削除
+    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=" + document.domain;
+    
+    // ページをリロードして原文に戻す
+    window.location.reload();
+}
    </script>
    <script type="text/javascript" src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit&hl=en"></script>
    </header>
@@ -2082,12 +2109,65 @@ async function downloadKnowledgePDF() {
     <button id="nav-beginner" onclick="showScreen('beginner', this)">4. 初心者指導</button>
     <button id="nav-learning" onclick="showScreen('learning', this)">5. 知識・スキル学習</button>
     <button id="nav-utility" onclick="showScreen('utility', this)">6. ユーティリティ</button>
-<button id="nav-studio" onclick="showScreen('studio', this)">7. 授業動画スタジオ</button>
-    <button id="nav-course" onclick="showScreen('course', this)">8. 講習会用 (Login)</button>
+<button id="nav-studio" onclick="showScreen('studio', this)">7. ビデオスタジオ</button>
+<button id="nav-library" onclick="showScreen('library', this); loadLibraryFromDB();">8. ライブラリ</button>
+    <button id="nav-course" onclick="showScreen('course', this)">9. 講習会用 (Login)</button>
 </nav>
 <div class="status-message" id="statusMessage" style="margin: 10px 0; font-weight: bold;">データ取得中...</div>
 
 <section id="screen-home" class="screen-content active">
+<div style="
+        margin-bottom: 25px;
+        padding: 20px;
+        background: linear-gradient(to bottom, #e3f2fd, #bbdefb);
+        border: 2px solid #2196f3; 
+        border-radius: 12px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        font-family: 'Noto Sans JP', sans-serif;
+    ">
+        <h3 style="margin: 0 0 15px 0; color: #0d47a1; display: flex; align-items: center; gap: 8px; font-size: 18px; border-bottom: 1px dashed #1976d2; padding-bottom: 10px;">
+            📱 【新機能】アプリとしてインストール可能になりました！
+        </h3>
+        
+        <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 15px;">
+            「ホーム画面に追加」を行うことで、ブラウザの枠が消え、全画面のアプリとして快適にご利用いただけるようになりました。<br>
+            <strong>⚠️ ただし、データの引き継ぎに関して重要な注意点があります。</strong>
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
+            <div style="background: rgba(255, 255, 255, 0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #757575;">
+                <div style="font-weight: bold; color: #424242; margin-bottom: 4px;">🅰️ 今まで使っていたアイコン (ブラウザ版)</div>
+                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #333;">
+                    <li><strong>画面：</strong> 上下にブラウザの枠（アドレスバーなど）が表示されます。</li>
+                    <li><strong>データ：</strong> <span style="color: #d32f2f; font-weight: bold;">これまでの保存データ（練習メニューや配置）はここに残っています。</span></li>
+                </ul>
+            </div>
+
+            <div style="background: rgba(255, 255, 255, 0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #00acc1;">
+                <div style="font-weight: bold; color: #006064; margin-bottom: 4px;">🅱️ 新しく追加するアイコン (アプリ版)</div>
+                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #333;">
+                    <li><strong>画面：</strong> 全画面で広く使えます（アプリモード）。</li>
+                    <li><strong>データ：</strong> <span style="color: #d32f2f; font-weight: bold;">空っぽの状態からスタートします。</span><br><span style="font-size: 11px; color: #666;">※スマホの仕様上、ブラウザのデータは引き継がれません。</span></li>
+                </ul>
+            </div>
+        </div>
+
+        <p style="font-size: 13px; color: #333; background: #fff; padding: 10px; border-radius: 6px;">
+            <strong>💡 おすすめの移行方法：</strong><br>
+            過去のデータを確認したい時は「🅰️ 古いアイコン」を使い、これからの新しい練習作成は「🅱️ 新しいアイコン」を使うように使い分けてください。<br>
+            （※メニューなどは「共有テキストをコピー」機能などを使い、手動で移すことは可能です）
+        </p>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <p style="font-weight: bold; color: #0d47a1; margin-bottom: 5px;">📥 インストール方法</p>
+            <p style="font-size: 12px; color: #555;">
+                <strong>iPhone (Safari):</strong> 画面下の共有ボタン <span style="font-size:16px;">🛫</span> → 「ホーム画面に追加」<br>
+                <strong>Android (Chrome):</strong> 右上のメニュー <span style="font-size:16px;">︙</span> → 「アプリをインストール」
+            </p>
+        </div>
+    </div>
+
+
     <h2 style="color: #1a237e; margin-top: 0;">Smart Coach Badminton へようこそ</h2>
     
     <div id="home-youtube-request-section" style="
@@ -2170,12 +2250,19 @@ async function downloadKnowledgePDF() {
     </div>
     
 <div class="category-card" onclick="showScreen('studio', document.getElementById('nav-studio'))">
-    <h4>7. 授業動画スタジオ</h4>
+    <h4>7. ビデオスタジオ</h4>
     <p style="margin: 0; font-size: 13px; color: #555;">教材や分析画面を操作しながら音声を吹き込み、授業動画を作成します。画面共有とカメラワイプを合成して録画できます。</p>
 </div>
 
+<div class="category-card" onclick="showScreen('library', document.getElementById('nav-library')); loadLibraryFromDB();">
+    <h4>8. 動画ライブラリ</h4>
+    <p style="margin: 0; font-size: 13px; color: #555;">
+        録画した授業動画などが自動的に保存されます。オフライン環境でも再生や削除、PCへの書き出しが可能です。
+    </p>
+</div>
+
     <div class="category-card" onclick="showScreen('course', document.getElementById('nav-course'))">
-        <h4>8. 講習会用</h4>
+        <h4>9. 講習会用</h4>
         <p style="margin: 0; font-size: 13px; color: #555;">指導者・講師向けの機能です。受講生への資料QRコード共有や、受講生からの感想・振り返り（掲示板）を一元管理できます。（受講生への資料共有、振り返り）</p>
     </div>
     
@@ -3947,6 +4034,28 @@ function openSimulation() {
   </div>
 </section>
 
+<section id="screen-library" class="screen-content">
+  <div style="background: #e8eaf6; padding: 15px 20px; border-bottom: 1px solid #c5cae9;">
+    <h2 style="color: #3f51b5; margin: 0; font-size: 22px;">
+      📚 動画ライブラリ (端末内保存)
+    </h2>
+    <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+      録画した動画はここに保存されます。インターネットがなくても再生可能です。<br>
+      ※ブラウザのキャッシュを削除するとデータも消えるのでご注意ください。
+    </p>
+  </div>
+
+  <div style="padding: 20px;">
+    <div style="text-align:right; font-size:12px; color:#666; margin-bottom:10px;">
+      保存件数: <span id="db-count">0</span> 件
+    </div>
+
+    <div id="library-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px;">
+      <p style="padding:20px; color:#999;">読み込み中、または保存された動画がありません。</p>
+    </div>
+  </div>
+</section>
+
 <section id="feedback-container" style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
     <h2> 振り返り</h2>
     <hr>
@@ -3966,6 +4075,8 @@ function openSimulation() {
         <p>感想を読み込み中です...</p>
     </div>
 </section>
+
+
 
     
  <script>
@@ -13161,20 +13272,33 @@ function toggleStudioRecording() {
 // 13. 保存
 function saveStudioVideo() {
     if (studioChunks.length === 0) return;
+    
+    // Blobの作成
     const blob = new Blob(studioChunks, { type: studioRecorder.mimeType });
+    
+    // ファイル名生成
+    const now = new Date();
+    const timestamp = `${now.getHours()}時${now.getMinutes()}分_${now.getSeconds()}秒`;
+    const ext = studioRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
+    const filename = `Lesson_${timestamp}.${ext}`;
+
+    // ① PCへのダウンロード（既存の処理）
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const now = new Date();
-    const timestamp = `${now.getHours()}${now.getMinutes()}_${now.getSeconds()}`;
-    const ext = studioRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
     a.href = url;
-    a.download = `Lesson_${timestamp}.${ext}`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => {
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+    setTimeout(() => { 
+        document.body.removeChild(a); 
+        // window.URL.revokeObjectURL(url); // ライブラリ表示用にURLは少し生かしておくか、DB保存は別ルートなのでOK
     }, 100);
+
+    // ② ★ここを追加: アプリ内ライブラリ(IndexedDB)へ保存
+    // ユーザーに確認してから保存する場合
+    if(confirm("動画をアプリ内の「ライブラリ」にも保存しますか？\n(次回オフラインでも見られます)")) {
+        saveVideoToDB(blob, filename);
+    }
 }
 
 // 14. 全画面
@@ -13189,6 +13313,147 @@ function toggleStudioFullScreen() {
         document.exitFullscreen();
     }
 }
+
+// ==========================================
+// 📚 IndexedDB マネージャー (動画保存用)
+// ==========================================
+const DB_NAME = "SmartCoachVideoDB";
+const DB_VERSION = 1;
+const STORE_NAME = "videos";
+
+let videoDB = null; // ★ 修正: db -> videoDB
+
+// 1. DBを開く（初期化）
+function openVideoDB() { // ★ 修正: openDB -> openVideoDB
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(STORE_NAME)) {
+                const store = db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true });
+                store.createIndex("created", "created", { unique: false });
+            }
+        };
+
+        request.onsuccess = (event) => {
+            videoDB = event.target.result; // ★ 修正
+            resolve(videoDB);
+        };
+
+        request.onerror = (event) => {
+            console.error("DB Open Error:", event.target.error);
+            reject(event.target.error);
+        };
+    });
+}
+
+// 2. 動画を保存する関数
+async function saveVideoToDB(blob, filename) {
+    if (!videoDB) await openVideoDB(); // ★ 修正
+    
+    const transaction = videoDB.transaction([STORE_NAME], "readwrite"); // ★ 修正
+    const store = transaction.objectStore(STORE_NAME);
+
+    const record = {
+        blob: blob,
+        filename: filename,
+        created: new Date(),
+        size: blob.size
+    };
+
+    const request = store.add(record);
+
+    request.onsuccess = () => {
+        console.log("動画をライブラリに保存しました！");
+        alert("📚 ライブラリに保存しました！");
+    };
+
+    request.onerror = (e) => {
+        console.error("保存失敗:", e.target.error);
+        alert("保存に失敗しました。容量不足の可能性があります。");
+    };
+}
+
+// 3. ライブラリ一覧を表示する関数
+async function loadLibraryFromDB() {
+    if (!videoDB) await openVideoDB(); // ★ 修正
+
+    const listDiv = document.getElementById("library-list");
+    const countSpan = document.getElementById("db-count");
+    if(listDiv) listDiv.innerHTML = '<p style="padding:10px;">読み込み中...</p>';
+
+    const transaction = videoDB.transaction([STORE_NAME], "readonly"); // ★ 修正
+    const store = transaction.objectStore(STORE_NAME);
+    const index = store.index("created");
+    
+    const request = index.openCursor(null, 'prev');
+    const items = [];
+
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            items.push(cursor.value);
+            cursor.continue();
+        } else {
+            renderLibraryItems(items);
+            if(countSpan) countSpan.textContent = items.length;
+        }
+    };
+}
+
+// 4. 画面描画
+function renderLibraryItems(items) {
+    const listDiv = document.getElementById("library-list");
+    if(!listDiv) return;
+    listDiv.innerHTML = "";
+
+    if (items.length === 0) {
+        listDiv.innerHTML = '<p style="padding:20px; color:#999;">保存された動画はありません。</p>';
+        return;
+    }
+
+    items.forEach(item => {
+        const url = URL.createObjectURL(item.blob);
+        const dateStr = item.created.toLocaleString();
+        const sizeMB = (item.size / (1024 * 1024)).toFixed(1);
+
+        const card = document.createElement("div");
+        card.style.cssText = "background:#fff; border:1px solid #ccc; border-radius:8px; overflow:hidden; box-shadow:0 2px 5px rgba(0,0,0,0.1);";
+        
+        card.innerHTML = `
+            <video src="${url}" controls style="width:100%; height:200px; background:#000; object-fit:contain;"></video>
+            <div style="padding:10px;">
+                <div style="font-weight:bold; font-size:14px; margin-bottom:5px; color:#333;">${item.filename}</div>
+                <div style="font-size:12px; color:#666; margin-bottom:10px;">📅 ${dateStr} (💾 ${sizeMB} MB)</div>
+                <div style="display:flex; justify-content:space-between;">
+                    <a href="${url}" download="${item.filename}" style="font-size:12px; color:#1565c0; text-decoration:none;">📥 保存(PCへ)</a>
+                    <button onclick="deleteVideoFromDB(${item.id})" style="background:#e53935; color:white; border:none; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer;">🗑️ 削除</button>
+                </div>
+            </div>
+        `;
+        listDiv.appendChild(card);
+    });
+}
+
+// 5. 削除機能
+async function deleteVideoFromDB(id) {
+    if (!confirm("この動画をライブラリから削除しますか？")) return;
+    if (!videoDB) await openVideoDB(); // ★ 修正
+
+    const transaction = videoDB.transaction([STORE_NAME], "readwrite"); // ★ 修正
+    const store = transaction.objectStore(STORE_NAME);
+    store.delete(id);
+
+    transaction.oncomplete = () => {
+        loadLibraryFromDB(); 
+    };
+}
+
+// アプリ起動時にDBを開いておく
+window.addEventListener("DOMContentLoaded", () => {
+    openVideoDB(); // ★ 修正
+});
 </script>
 </body>
 </html>
