@@ -17,8 +17,10 @@
   <meta property="og:image" content="https://coachmasuacademy-alt.github.io/my-website/icon.png">
 
   <meta name="google-site-verification" content="Uv91Wg1kjqKD8qo3dV3MgIcSqo0z7cS3aH9yzpriLYE" />
-<link rel="apple-touch-icon" href="icon.png?v=2">
-<link rel="icon" type="image/png" href="icon.png?v=2">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon2.png">
+<link rel="icon" type="image/png" href="icon2.png">
+<meta name="theme-color" content="#00acc1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
@@ -272,6 +274,17 @@
 
 
 <script>
+// PWA用サービスワーカーの登録
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').then(function(registration) {
+      console.log('ServiceWorker registration successful with scope: ', registration.scope);
+    }, function(err) {
+      console.log('ServiceWorker registration failed: ', err);
+    });
+  });
+}
+
 const firebaseConfig = {
     apiKey: "AIzaSyDSzYUAvn8sOse_twlArlMqQxh1Zug02GM",
     authDomain: "badmintoncoach3work2025.firebaseapp.com",
@@ -2069,7 +2082,8 @@ async function downloadKnowledgePDF() {
     <button id="nav-beginner" onclick="showScreen('beginner', this)">4. 初心者指導</button>
     <button id="nav-learning" onclick="showScreen('learning', this)">5. 知識・スキル学習</button>
     <button id="nav-utility" onclick="showScreen('utility', this)">6. ユーティリティ</button>
-    <button id="nav-course" onclick="showScreen('course', this)">7. 講習会用 (Login)</button>
+<button id="nav-studio" onclick="showScreen('studio', this)">7. 授業動画スタジオ</button>
+    <button id="nav-course" onclick="showScreen('course', this)">8. 講習会用 (Login)</button>
 </nav>
 <div class="status-message" id="statusMessage" style="margin: 10px 0; font-weight: bold;">データ取得中...</div>
 
@@ -2155,8 +2169,13 @@ async function downloadKnowledgePDF() {
         <p style="margin: 0; font-size: 13px; color: #555;">フィジカル強化のモチベーションを維持する「日本一周の旅」マップ、プログラムタイマー、公平な抽選・グループ分けツールなどの便利機能。（日本一周フィジカル強化の旅、グループワーク）</p>
     </div>
     
+<div class="category-card" onclick="showScreen('studio', document.getElementById('nav-studio'))">
+    <h4>7. 授業動画スタジオ</h4>
+    <p style="margin: 0; font-size: 13px; color: #555;">教材や分析画面を操作しながら音声を吹き込み、授業動画を作成します。画面共有とカメラワイプを合成して録画できます。</p>
+</div>
+
     <div class="category-card" onclick="showScreen('course', document.getElementById('nav-course'))">
-        <h4>7. 講習会用</h4>
+        <h4>8. 講習会用</h4>
         <p style="margin: 0; font-size: 13px; color: #555;">指導者・講師向けの機能です。受講生への資料QRコード共有や、受講生からの感想・振り返り（掲示板）を一元管理できます。（受講生への資料共有、振り返り）</p>
     </div>
     
@@ -2940,185 +2959,312 @@ function openSimulation() {
 </script>
 
 <section id="screen-utility" class="screen-content">
-<section id="daily-challenge-section" style="
-  margin-top: 30px;
-  padding: 0;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
-  <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
-    <h2 style="color: #1a237e; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
-       <span id="daily-title">日本一周フィジカル強化の旅</span>
-    </h2>
-    <p style="font-size: 13px; color: #666; margin: 5px 0 0 0;">
-      <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、地図を塗りつぶそう！</span>
-    </p>
-  </div>
-
-  <div style="padding: 20px; text-align: center;">
-    
-    <div style="margin-bottom: 20px;">
-      <div id="map-collapsible-area" style="background: #f0f4c3; padding: 15px; border-radius: 10px; border: 2px solid #dce775; display: block;">
-          
-          <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
-            <button onclick="switchMapMode('japan')" id="btn-map-japan" style="padding:6px 16px; border-radius:20px; border:none; background:#8bc34a; color:white; font-weight:bold; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                🇯🇵 日本一周
-            </button>
-            <button onclick="switchMapMode('world')" id="btn-map-world" disabled style="padding:6px 16px; border-radius:20px; border:none; background:#ccc; color:#666; font-weight:bold; cursor:not-allowed; box-shadow: none;">
-                🔒 世界一周 (日本クリアで解放)
-            </button>
-          </div>
-          
-          <div style="font-weight:bold; color:#33691e; margin-bottom:5px; text-align: center;">
-              現在地: <span id="current-location-name" style="font-size:18px; color:#d84315;">読み込み中...</span>
-          </div>
-          <div style="font-size:12px; color:#555; margin-bottom:10px; text-align: center;">
-              <span id="map-progress-text">-- / -- 制覇</span>
-          </div>
-
-          <div id="map-visual-container" style="width:100%; min-height:300px; margin:0 auto; background-color:#b3e5fc; border-radius:8px; border:2px solid #81d4fa; overflow:hidden;"></div>
-      </div>
-    </div>
-    <div style="margin-bottom: 15px;">
-      <label for="daily-count" style="font-weight:bold; color:#333;"><span id="lbl-daily-count">種目数:</span></label>
-      <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 4px;">
-      <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
-        background: #ff6f00; color: white; border: none; 
-        padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-left: 10px;
-      ">
-        🎰 チャレンジ生成
-      </button>
+  <section id="daily-challenge-section" style="
+    margin-top: 30px;
+    padding: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  ">
+    <div style="background: #fff3e0; padding: 15px 20px; border-bottom: 1px solid #ffe0b2;">
+      <h2 style="color: #1a237e; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
+         <span id="daily-title">日本一周フィジカル強化の旅</span>
+      </h2>
+      <p style="font-size: 13px; color: #666; margin: 5px 0 0 0;">
+        <span id="daily-desc">ランダムに選ばれた補強メニューをクリアして、地図を塗りつぶそう！</span>
+      </p>
     </div>
 
-    <div id="daily-menu-list" style="text-align: left; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; display: none;">
-    </div>
+    <div style="padding: 20px; text-align: center;">
+      <div style="margin-bottom: 20px;">
+        <div id="map-collapsible-area" style="background: #f0f4c3; padding: 15px; border-radius: 10px; border: 2px solid #dce775; display: block;">
+            <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
+              <button onclick="switchMapMode('japan')" id="btn-map-japan" style="padding:6px 16px; border-radius:20px; border:none; background:#8bc34a; color:white; font-weight:bold; cursor:pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                  🇯🇵 日本一周
+              </button>
+              <button onclick="switchMapMode('world')" id="btn-map-world" disabled style="padding:6px 16px; border-radius:20px; border:none; background:#ccc; color:#666; font-weight:bold; cursor:not-allowed; box-shadow: none;">
+                  🔒 世界一周 (日本クリアで解放)
+              </button>
+            </div>
+            
+            <div style="font-weight:bold; color:#33691e; margin-bottom:5px; text-align: center;">
+                現在地: <span id="current-location-name" style="font-size:18px; color:#d84315;">読み込み中...</span>
+            </div>
+            <div style="font-size:12px; color:#555; margin-bottom:10px; text-align: center;">
+                <span id="map-progress-text">-- / -- 制覇</span>
+            </div>
 
-    <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
-      background: #ccc; color: white; border: none; 
-      padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
-      cursor: not-allowed; transition: all 0.3s;
-    ">
-      ✅ チャレンジ達成！ (進む)
-    </button>
-    <div id="daily-message" style="margin-top:10px; font-weight:bold; color:#e65100; height:20px;"></div>
-
-    <hr style="border: 0; border-top: 1px dashed #ffe0b2; margin: 25px 0;">
-
-    <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;">
-      
-      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">🔥 連続達成</span></div>
-        <div style="font-size: 28px; font-weight: bold; color: #ff6f00;">
-          <span id="streak-count">0</span> <span style="font-size:14px;">Days</span>
+            <div id="map-visual-container" style="width:100%; min-height:300px; margin:0 auto; background-color:#b3e5fc; border-radius:8px; border:2px solid #81d4fa; overflow:hidden;"></div>
         </div>
       </div>
-
-      <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
-        <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">🎖️ 獲得バッジ</span></div>
-        <div style="font-size: 28px; font-weight: bold; color: #fbc02d;">
-          <span id="badge-count">0</span> <span style="font-size:14px;">個</span>
-        </div>
-      </div>
-    </div>
-
-    <div style="margin-top: 20px; text-align: right;">
-        <button onclick="resetDailyData()" style="
-            background: #b0bec5; color: white; border: none; 
-            padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
+      <div style="margin-bottom: 15px;">
+        <label for="daily-count" style="font-weight:bold; color:#333;"><span id="lbl-daily-count">種目数:</span></label>
+        <input type="number" id="daily-count" value="7" min="1" max="20" style="width: 50px; text-align: center; border: 1px solid #ccc; border-radius: 4px; padding: 4px;">
+        <button id="btn-daily-gen" onclick="generateDailyChallenge()" style="
+          background: #ff6f00; color: white; border: none; 
+          padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2); margin-left: 10px;
         ">
-            🗑️ 旅の記録をすべてリセット
+          🎰 チャレンジ生成
         </button>
+      </div>
+
+      <div id="daily-menu-list" style="text-align: left; background: #fafafa; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-bottom: 20px; display: none;">
+      </div>
+
+      <button id="btn-complete-challenge" onclick="completeDailyChallenge()" disabled style="
+        background: #ccc; color: white; border: none; 
+        padding: 12px 30px; border-radius: 30px; font-size: 16px; font-weight: bold;
+        cursor: not-allowed; transition: all 0.3s;
+      ">
+        ✅ チャレンジ達成！ (進む)
+      </button>
+      <div id="daily-message" style="margin-top:10px; font-weight:bold; color:#e65100; height:20px;"></div>
+
+      <hr style="border: 0; border-top: 1px dashed #ffe0b2; margin: 25px 0;">
+
+      <div style="display: flex; justify-content: center; flex-wrap: wrap; gap: 15px;">
+        <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
+          <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-streak">🔥 連続達成</span></div>
+          <div style="font-size: 28px; font-weight: bold; color: #ff6f00;">
+            <span id="streak-count">0</span> <span style="font-size:14px;">Days</span>
+          </div>
+        </div>
+
+        <div style="background: #fff; padding: 15px 20px; border-radius: 8px; flex: 1; min-width: 140px; max-width: 200px; box-shadow: 0 2px 6px rgba(0,0,0,0.05); border: 1px solid #eee; text-align: center;">
+          <div style="font-size: 12px; color: #666; margin-bottom: 5px;"><span id="lbl-badges">🎖️ 獲得バッジ</span></div>
+          <div style="font-size: 28px; font-weight: bold; color: #fbc02d;">
+            <span id="badge-count">0</span> <span style="font-size:14px;">個</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; text-align: right;">
+          <button onclick="resetDailyData()" style="
+              background: #b0bec5; color: white; border: none; 
+              padding: 5px 12px; border-radius: 4px; font-size: 11px; cursor: pointer;
+          ">
+              🗑️ 旅の記録をすべてリセット
+          </button>
+      </div>
     </div>
-  </div>
+  </section>
+
+  <section id="group-work-section" class="utility-sub-section" style="
+      margin-top: 30px; 
+      padding: 20px; 
+      background: #fff; 
+      border: 1px solid #ccc; 
+      border-radius: 10px; 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  ">
+      <h3 id="random-plan-title" style="margin-bottom:15px; color:#00796b;">グループワーク</h3>
+
+      <div style="background: #f1f8e9; padding: 10px; border-radius: 6px; border: 1px solid #c5e1a5;">
+          <label id="lbl-name-list" style="font-weight:bold; color:#33691e;">参加者名簿 (改行で区切って入力):</label>
+          <textarea id="name-list-input" placeholder="例：
+  佐藤
+  鈴木
+  高橋
+  田中" style="width:100%; height:80px; box-sizing:border-box; border:1px solid #ccc; padding:5px; margin-bottom:10px;"></textarea>
+          
+          <div id="note-name-list" style="font-size:12px; color:#555; margin-bottom:10px;">
+              ※ここに名前リストを入力すると、抽選されます。
+          </div>
+
+          <h4 id="h-pick-winner" style="margin:10px 0 5px 0; color:#008c9e;">① 当選者を選ぶ (1名)</h4>
+          <button id="btn-pick-winner" onclick="extractNameRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+              1名抽出
+          </button>
+
+          <h4 id="h-group-divide" style="margin:15px 0 5px 0; color:#008c9e;">② グループ分け</h4>
+          <label>
+              <span id="lbl-group-num-text">グループ数:</span> 
+              <input type="number" id="group-num-input" value="2" min="2" style="width:50px; padding:4px;">
+          </label>
+          <button id="btn-group-divide" onclick="groupNamesRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+              グループ分け実行
+          </button>
+
+          <div style="text-align:right; margin-top:5px;">
+              <button id="btn-clear-history" onclick="clearHistory()" style="background:#9e9e9e; color:white; border:none; padding:4px 8px; font-size:12px; border-radius:4px; cursor:pointer;">履歴をクリア</button>
+          </div>
+      </div>
+
+      <div id="history-container" style="margin-top:15px; border-top:2px solid #ddd; padding-top:10px;">
+          <p id="h-history-title" style="color:#666; font-size:13px; margin:0 0 5px 0;">▼ 抽選結果履歴 (新しい順)</p>
+          <div id="history-list" style="max-height: 300px; overflow-y: auto;">
+          </div>
+      </div>
+  </section>
+
+  <section id="program-timer-section" class="utility-sub-section" style="
+      margin-top: 30px; 
+      padding: 20px; 
+      background: #fff; 
+      border: 1px solid #ccc; 
+      border-radius: 10px; 
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+  ">
+      <h3 id="program-timer-title" style="margin-bottom:8px; color:#00796b;">プログラムタイマー</h3>
+
+      <div id="steps-container" class="steps"></div>
+      <button id="add-step" type="button">＋ ステップ追加</button>
+
+      <div class="set-group" style="margin-top:10px; margin-bottom:15px;">
+          <label id="set-count-label" for="set-count">セット数：</label>
+          <input type="number" id="set-count" min="1">
+      </div>
+
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
+          <button id="start-timer" type="button">▶ スタート</button>
+          <button id="stop-timer" type="button">■ ストップ</button>
+          <button id="reset-timer" type="button">⟳ リセット</button>
+      </div>
+
+      <div id="timer-display" class="timer-display">
+          <h2 id="current-set">Set 1 / 3</h2>
+          <h1 id="time-left">00:00</h1>
+          <h3 id="step-info">Step 1</h3>
+      </div>
+  </section>
 </section>
 
-<section id="group-work-section" class="utility-sub-section" style="
-    margin-top: 30px; 
-    padding: 20px; 
-    background: #fff; 
-    border: 1px solid #ccc; 
-    border-radius: 10px; 
+
+<section id="screen-studio" class="screen-content">
+  <section id="class-studio-section" style="
+    margin-top: 30px;
+    padding: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    overflow: hidden;
     box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
-    <h3 id="random-plan-title" style="margin-bottom:15px; color:#00796b;">グループワーク</h3>
+  ">
+    <div style="background: #f3e5f5; padding: 15px 20px; border-bottom: 1px solid #e1bee7;">
+      <h2 style="color: #4a148c; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
+         🎥 授業動画スタジオ
+      </h2>
+      <p style="font-size: 13px; color: #666; margin: 5px 0 0 0;">
+        教材や分析画面を操作しながら音声を吹き込み、授業動画を作成します。<br>
+        <strong>録画中でも共有画面の変更が可能です。</strong>
+      </p>
+    </div>
 
-    <div style="background: #f1f8e9; padding: 10px; border-radius: 6px; border: 1px solid #c5e1a5;">
-        <label id="lbl-name-list" style="font-weight:bold; color:#33691e;">参加者名簿 (改行で区切って入力):</label>
-        
-        <textarea id="name-list-input" placeholder="例：
-佐藤
-鈴木
-高橋
-田中" style="width:100%; height:80px; box-sizing:border-box; border:1px solid #ccc; padding:5px; margin-bottom:10px;"></textarea>
-        
-        <div id="note-name-list" style="font-size:12px; color:#555; margin-bottom:10px;">
-            ※ここに名前リストを入力すると、抽選されます。
-        </div>
-
-        <h4 id="h-pick-winner" style="margin:10px 0 5px 0; color:#008c9e;">① 当選者を選ぶ (1名)</h4>
-        
-        <button id="btn-pick-winner" onclick="extractNameRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
-            1名抽出
+    <div style="padding: 20px;">
+      
+      <div style="margin-bottom: 20px; text-align: center;">
+        <button onclick="startStudioScreenShare()" style="
+          background: linear-gradient(135deg, #7b1fa2, #ba68c8); 
+          color: white; border: none; padding: 15px 40px; 
+          border-radius: 30px; font-weight: bold; font-size: 16px;
+          cursor: pointer; display: inline-flex; align-items: center; gap: 10px;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform 0.2s;
+        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+          🚀 スタジオを開始する (画面選択)
         </button>
+        <p style="font-size:13px; color:#333; margin-top:10px; background:#e3f2fd; padding:10px; border-radius:6px; text-align:left;">
+          <strong>💡 画面全体を録画する場合のコツ:</strong><br>
+          「画面全体」を選ぶと、この画面自体が映り込んで「合わせ鏡（無限ミラー）」になります。<br>
+          録画を開始したら、操作パネルの <span style="background:#555; color:white; padding:2px 6px; border-radius:4px;">👁️ Preview</span> ボタンを押して<strong>プレビューを非表示(🙈)</strong>にすると、合わせ鏡を防いで綺麗に録画できます。
+        </p>
+      </div>
 
-        <h4 id="h-group-divide" style="margin:15px 0 5px 0; color:#008c9e;">② グループ分け</h4>
+      <div id="studio-container" style="
+        max-width: 800px; margin: 0 auto; 
+        background: #000; border-radius: 8px; 
+        overflow: hidden; position: relative; 
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        display: flex; flex-direction: column;
+      ">
         
-        <label>
-            <span id="lbl-group-num-text">グループ数:</span> 
-            <input type="number" id="group-num-input" value="2" min="2" style="width:50px; padding:4px;">
-        </label>
-        
-        <button id="btn-group-divide" onclick="groupNamesRandomly()" style="background:#008c9e; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
-            グループ分け実行
+        <div style="position: relative; flex: 1; background: #000; display: flex; align-items: center; justify-content: center; min-height: 400px;">
+          <video id="studio-preview" playsinline muted autoplay style="width: 100%; height: 100%; max-height: 80vh; object-fit: contain;"></video>
+          
+          <div id="studio-rec-indicator" style="display:none; position: absolute; top: 20px; right: 20px; background: rgba(255, 0, 0, 0.9); color: white; padding: 6px 15px; border-radius: 4px; font-weight: bold; font-size: 14px; animation: blink 1s infinite; z-index: 20;">
+            ● REC
+          </div>
+        </div>
+
+        <div id="studio-controls" style="
+          background: rgba(30, 30, 30, 0.95); 
+          padding: 10px 15px; 
+          display: flex; align-items: center; justify-content: space-between;
+          border-top: 1px solid #444;
+          flex-wrap: wrap; gap: 10px;
+        ">
+          
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <div style="text-align: center;">
+                <button id="btn-toggle-mic" onclick="toggleStudioMic()" disabled style="background:#444; color:white; border:none; padding:0; border-radius:50%; width:40px; height:40px; cursor:not-allowed; font-size: 18px; display:flex; align-items:center; justify-content:center; transition: background 0.2s;">
+                    🎤
+                </button>
+                <span style="font-size:9px; color:#aaa; display:block; margin-top:2px;">Mic</span>
+            </div>
+
+            <div style="text-align: center;">
+                <button id="btn-toggle-cam" onclick="toggleStudioCamera()" disabled style="background:#444; color:white; border:none; padding:0; border-radius:50%; width:40px; height:40px; cursor:not-allowed; font-size: 18px; display:flex; align-items:center; justify-content:center; transition: background 0.2s;">
+                    📷
+                </button>
+                <span style="font-size:9px; color:#aaa; display:block; margin-top:2px;">Cam</span>
+            </div>
+
+            <div style="text-align: center;">
+                <button id="btn-change-screen" onclick="changeStudioSource()" disabled style="background:#0277bd; color:white; border:none; padding:0; border-radius:50%; width:40px; height:40px; cursor:not-allowed; font-size: 18px; display:flex; align-items:center; justify-content:center; transition: background 0.2s;">
+                    🔄
+                </button>
+                <span style="font-size:9px; color:#aaa; display:block; margin-top:2px;">Change</span>
+            </div>
+
+            <div style="text-align: center;">
+                <button id="btn-toggle-preview" onclick="toggleStudioPreview()" style="background:#555; color:white; border:none; padding:0; border-radius:50%; width:40px; height:40px; cursor:pointer; font-size: 18px; display:flex; align-items:center; justify-content:center; transition: background 0.2s;">
+                    👁️
+                </button>
+                <span style="font-size:9px; color:#aaa; display:block; margin-top:2px;">Preview</span>
+            </div>
+          </div>
+
+          <div style="flex: 1; margin: 0 15px; display: flex; flex-direction: column; justify-content: center; min-width: 80px;">
+            <div style="display: flex; justify-content: space-between; color: #bbb; font-size: 10px; margin-bottom: 4px;">
+              <span>Mic Level</span>
+              <span id="mic-status-text">OFF</span>
+            </div>
+            <div style="background: #555; height: 6px; border-radius: 3px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+              <div id="audio-level-bar" style="width: 0%; height: 100%; background: linear-gradient(to right, #00e676, #ffeb3b, #ff1744); transition: width 0.05s;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 15px; align-items: center;">
+            <button onclick="toggleStudioFullScreen()" title="全画面表示" style="background:transparent; color:white; border:1px solid #777; padding:6px 10px; border-radius:6px; cursor:pointer; font-size: 16px;">
+              ⛶
+            </button>
+
+            <button id="btn-studio-record" onclick="toggleStudioRecording()" disabled style="
+              background: #ccc; color: white; border: none; 
+              width: 54px; height: 54px; border-radius: 50%; 
+              font-size: 20px; cursor: not-allowed; 
+              display: flex; align-items: center; justify-content: center;
+              box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+              transition: all 0.2s;
+            ">
+              ●
+            </button>
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 15px;">
+        <button onclick="stopStudioStream()" id="btn-studio-stop-stream" style="display:none; background:#546e7a; color:white; border:none; padding:10px 30px; border-radius:6px; cursor:pointer; font-weight:bold;">
+          ⏹ 終了する
         </button>
+      </div>
 
-        <div style="text-align:right; margin-top:5px;">
-            <button id="btn-clear-history" onclick="clearHistory()" style="background:#9e9e9e; color:white; border:none; padding:4px 8px; font-size:12px; border-radius:4px; cursor:pointer;">履歴をクリア</button>
-        </div>
+      <video id="hidden-source-video" playsinline muted autoplay style="position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; z-index:-1;"></video>
+      <canvas id="studio-mixing-canvas" style="position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; z-index:-1;"></canvas>
+
     </div>
-
-    <div id="history-container" style="margin-top:15px; border-top:2px solid #ddd; padding-top:10px;">
-        <p id="h-history-title" style="color:#666; font-size:13px; margin:0 0 5px 0;">▼ 抽選結果履歴 (新しい順)</p>
-        <div id="history-list" style="max-height: 300px; overflow-y: auto;">
-        </div>
-    </div>
-</section>
-
-
-<section id="program-timer-section" class="utility-sub-section" style="
-    margin-top: 30px; 
-    padding: 20px; 
-    background: #fff; 
-    border: 1px solid #ccc; 
-    border-radius: 10px; 
-    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
-    <h3 id="program-timer-title" style="margin-bottom:8px; color:#00796b;">プログラムタイマー</h3>
-
-    <div id="steps-container" class="steps"></div>
-    <button id="add-step" type="button">＋ ステップ追加</button>
-
-    <div class="set-group" style="margin-top:10px; margin-bottom:15px;">
-        <label id="set-count-label" for="set-count">セット数：</label>
-        <input type="number" id="set-count" min="1">
-    </div>
-
-    <div style="display:flex; gap:10px; margin-bottom:15px;">
-        <button id="start-timer" type="button">▶ スタート</button>
-        <button id="stop-timer" type="button">■ ストップ</button>
-        <button id="reset-timer" type="button">⟳ リセット</button>
-    </div>
-
-    <div id="timer-display" class="timer-display">
-        <h2 id="current-set">Set 1 / 3</h2>
-        <h1 id="time-left">00:00</h1>
-        <h3 id="step-info">Step 1</h3>
-    </div>
-</section>
+  </section>
 </section>
 
 <section id="screen-analysis" class="screen-content">
@@ -3231,9 +3377,9 @@ function openSimulation() {
       </button>
     </div>
 
-    <div style="position: relative; width: 100%; max-width: 640px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden;">
-      <video id="input_video" style="display: none;" playsinline></video>
-      <canvas id="output_canvas" width="640" height="480" style="width: 100%; display: block;"></canvas>
+    <div style="position: absolute; top: -9999px; left: -9999px; visibility: visible;">
+        <video id="hidden-source-video" playsinline muted autoplay></video>
+        <canvas id="studio-mixing-canvas"></canvas>
       </div>
 
 <div style="width: 100%; max-width: 640px; margin: 10px auto; background: #222; border-radius: 8px; padding: 10px; box-sizing: border-box;">
@@ -12546,6 +12692,503 @@ function updateOverlayOpacity(val) {
     }
 }
 
+// ==========================================
+// 🎥 授業動画スタジオ機能 (マイクミュート実装完了版)
+// ==========================================
+
+let studioRecorder = null;
+let studioChunks = [];
+let studioIsRecording = false;
+
+// ストリーム・映像管理
+let studioMixedStream = null; 
+let studioSourceStream = null; 
+let webcamStream = null;       
+
+// 内部処理用
+let studioDrawAnimId = null;
+let audioContext = null;
+let audioAnalyser = null;
+let audioAnimId = null;
+
+// ★追加: マイク音量制御用ノード
+let studioMicGainNode = null; 
+
+// フラグ
+let isWebcamVisible = true; 
+
+// DOM要素
+const studioPreview = document.getElementById('studio-preview');
+const hiddenSourceVideo = document.getElementById('hidden-source-video');
+const mixingCanvas = document.getElementById('studio-mixing-canvas');
+const mixingCtx = mixingCanvas ? mixingCanvas.getContext('2d') : null;
+
+// Webカメラ用隠しビデオ
+let hiddenWebcamVideo = document.getElementById('hidden-webcam-video');
+if (!hiddenWebcamVideo) {
+    hiddenWebcamVideo = document.createElement('video');
+    hiddenWebcamVideo.id = 'hidden-webcam-video';
+    hiddenWebcamVideo.style.display = 'none';
+    hiddenWebcamVideo.muted = true;
+    hiddenWebcamVideo.playsInline = true;
+    document.body.appendChild(hiddenWebcamVideo);
+}
+
+const btnStudioRec = document.getElementById('btn-studio-record');
+const studioIndicator = document.getElementById('studio-rec-indicator');
+const btnStopStream = document.getElementById('btn-studio-stop-stream');
+const levelBar = document.getElementById('audio-level-bar');
+const micStatusText = document.getElementById('mic-status-text');
+
+const btnToggleMic = document.getElementById('btn-toggle-mic');
+const btnToggleCam = document.getElementById('btn-toggle-cam');
+const btnChangeScreen = document.getElementById('btn-change-screen');
+
+// 1. スタジオ開始
+async function startStudioScreenShare() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        alert("お使いのブラウザは画面共有に対応していません。PCをご利用ください。");
+        return;
+    }
+
+    try {
+        // --- ① ユーザーメディア（マイク ＆ カメラ）の取得 ---
+        try {
+            const userStream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true },
+                video: { width: 320, height: 240, facingMode: "user" }
+            });
+            
+            // 映像
+            webcamStream = new MediaStream(userStream.getVideoTracks());
+            hiddenWebcamVideo.srcObject = webcamStream;
+            hiddenWebcamVideo.play().catch(e => console.log("Webcam play error:", e));
+
+            // 音声（マイク）
+            const micOnlyStream = new MediaStream(userStream.getAudioTracks());
+            
+            // マイク初期化
+            initAudioMeter(micOnlyStream);
+            
+            // ボタン有効化
+            btnToggleCam.disabled = false;
+            btnToggleCam.innerHTML = "📷";
+            btnToggleCam.style.background = "#555";
+            isWebcamVisible = true;
+
+        } catch (e) {
+            console.log("マイク/カメラなし、または拒否されました:", e);
+            btnToggleCam.disabled = true;
+            btnToggleCam.innerHTML = "🚫";
+            btnToggleMic.disabled = true;
+            btnToggleMic.innerHTML = "🚫";
+        }
+
+        // --- ② 画面共有 ---
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: "always", displaySurface: "browser" }, 
+            audio: true, 
+            systemAudio: "include"
+        });
+
+        const sysAudioTracks = displayStream.getAudioTracks();
+        if (sysAudioTracks.length === 0) {
+            alert("⚠️ PCの音が共有されていません！\nYouTubeの音を入れるには、画面選択時に\n「タブの音声を共有」に必ずチェックを入れてください。");
+        }
+
+        // ★★★ 修正箇所: 録画中だった場合のみ保存処理とアラートを出す ★★★
+        const screenTrack = displayStream.getVideoTracks()[0];
+        screenTrack.onended = () => {
+            if (studioIsRecording) {
+                // 録画中なら停止して保存
+                toggleStudioRecording();
+                alert("画面共有が終了したため、録画を保存しました。");
+            }
+            // 録画していなければ、何も言わずに終了処理だけ行う
+            stopStudioStream();
+        };
+
+        // --- ③ 映像の準備 ---
+        setSourceStream(displayStream);
+
+        // --- ④ 音声のミックス ---
+        const micTracks = audioContext ? [] : []; 
+        const mixedAudio = await mixAudioStreams(displayStream);
+        
+        // --- ⑤ 録画用ストリーム作成 ---
+        const canvasStream = mixingCanvas.captureStream(30);
+        let tracks = [...canvasStream.getVideoTracks()];
+        
+        if (mixedAudio.length > 0) {
+            tracks.push(mixedAudio[0]);
+        }
+
+        studioMixedStream = new MediaStream(tracks);
+
+        // --- ⑥ プレビュー開始 ---
+        setupStudioPreview();
+
+    } catch (err) {
+        console.error("Error:", err);
+        if (err.name !== 'NotAllowedError') alert("エラー: " + err.message);
+    }
+}
+
+// 2. 映像ソースセット
+function setSourceStream(stream) {
+    if (studioSourceStream) studioSourceStream.getTracks().forEach(t => t.stop());
+    studioSourceStream = stream;
+    hiddenSourceVideo.srcObject = stream;
+
+    hiddenSourceVideo.onloadedmetadata = () => {
+        hiddenSourceVideo.play().catch(e => console.log("自動再生エラー:", e));
+        if (hiddenSourceVideo.videoWidth > 0) {
+            mixingCanvas.width = hiddenSourceVideo.videoWidth;
+            mixingCanvas.height = hiddenSourceVideo.videoHeight;
+        }
+    };
+
+    if (studioDrawAnimId) clearInterval(studioDrawAnimId);
+    studioDrawAnimId = setInterval(drawVideoToCanvas, 33);
+}
+
+// 3. Canvas描画 (ワイプ合成)
+function drawVideoToCanvas() {
+    if (!studioSourceStream || !mixingCtx) return;
+
+    if (hiddenSourceVideo.videoWidth > 0 && 
+       (mixingCanvas.width !== hiddenSourceVideo.videoWidth || mixingCanvas.height !== hiddenSourceVideo.videoHeight)) {
+        mixingCanvas.width = hiddenSourceVideo.videoWidth;
+        mixingCanvas.height = hiddenSourceVideo.videoHeight;
+    }
+
+    // A. 背景
+    mixingCtx.drawImage(hiddenSourceVideo, 0, 0, mixingCanvas.width, mixingCanvas.height);
+
+    // B. ワイプ
+    if (isWebcamVisible && hiddenWebcamVideo && hiddenWebcamVideo.readyState >= 2) {
+        const cw = mixingCanvas.width;
+        const ch = mixingCanvas.height;
+        
+        const wipeW = cw * 0.2; 
+        const wipeH = (wipeW / 4) * 3; 
+        const margin = 20;
+
+        const x = cw - wipeW - margin;
+        const y = ch - wipeH - margin;
+
+        mixingCtx.save();
+        mixingCtx.beginPath();
+        const cx = x + wipeW / 2;
+        const cy = y + wipeH / 2;
+        const radius = Math.min(wipeW, wipeH) / 2;
+        mixingCtx.arc(cx, cy, radius, 0, Math.PI * 2);
+        mixingCtx.closePath();
+        mixingCtx.clip();
+
+        mixingCtx.drawImage(hiddenWebcamVideo, x, y, wipeW, wipeH);
+        
+        mixingCtx.strokeStyle = "white";
+        mixingCtx.lineWidth = 4;
+        mixingCtx.stroke();
+        mixingCtx.restore();
+    }
+}
+
+// 4. 音声ミックス (マイクミュート対応版)
+async function mixAudioStreams(displayStream) {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = audioContext || new AudioContext(); // 既存があれば使う
+    const dest = ctx.createMediaStreamDestination();
+
+    if (ctx.state === 'suspended') await ctx.resume();
+
+    // A. マイク音声接続
+    // initAudioMeterで保持したソースを利用
+    if (window.currentMicSource) {
+        const micGain = ctx.createGain();
+        micGain.gain.value = 1.5; // デフォルトON
+        window.currentMicSource.connect(micGain).connect(dest);
+        
+        // ★重要: グローバル変数に保存して、後で制御できるようにする
+        studioMicGainNode = micGain;
+    }
+
+    // B. システム音声接続
+    if (displayStream && displayStream.getAudioTracks().length > 0) {
+        const sysSrc = ctx.createMediaStreamSource(displayStream);
+        const sysGain = ctx.createGain();
+        sysGain.gain.value = 1.0; 
+        sysSrc.connect(sysGain).connect(dest);
+    }
+
+    return dest.stream.getAudioTracks();
+}
+
+// 5. 終了処理
+function stopStudioStream() {
+    if (studioSourceStream) { studioSourceStream.getTracks().forEach(t => t.stop()); studioSourceStream = null; }
+    if (studioMixedStream) { studioMixedStream.getTracks().forEach(t => t.stop()); studioMixedStream = null; }
+    if (webcamStream) { webcamStream.getTracks().forEach(t => t.stop()); webcamStream = null; }
+    
+    studioPreview.srcObject = null;
+    hiddenSourceVideo.srcObject = null;
+    hiddenWebcamVideo.srcObject = null;
+    
+    // AudioContextは閉じずに保持するが、アニメーションは止める
+    if (audioAnimId) cancelAnimationFrame(audioAnimId);
+    if (studioDrawAnimId) { clearInterval(studioDrawAnimId); studioDrawAnimId = null; }
+
+    // UIリセット
+    btnStudioRec.disabled = true; btnStudioRec.style.background = "#ccc"; btnStudioRec.innerHTML = "●";
+    btnToggleMic.disabled = true; btnToggleMic.style.background = "#444";
+    btnToggleCam.disabled = true; btnToggleCam.style.background = "#444";
+    btnChangeScreen.disabled = true; btnChangeScreen.style.background = "#444";
+
+    levelBar.style.width = "0%";
+    micStatusText.textContent = "OFF";
+    studioIndicator.style.display = "none";
+    btnStopStream.style.display = "none";
+    studioIsRecording = false;
+    studioMicGainNode = null; // リセット
+    
+    if (document.fullscreenElement) document.exitFullscreen();
+}
+
+// 6. プレビュー設定
+function setupStudioPreview() {
+    if (!studioMixedStream) return;
+    const previewVideo = document.getElementById('studio-preview');
+    if (previewVideo) {
+        previewVideo.srcObject = studioMixedStream;
+        previewVideo.muted = true; 
+    }
+    const buttonsToEnable = [
+        { id: 'btn-studio-record', color: '#d32f2f' },
+        { id: 'btn-change-screen', color: '#0277bd' },
+        { id: 'btn-toggle-preview',color: '#555' }
+    ];
+    buttonsToEnable.forEach(item => {
+        const btn = document.getElementById(item.id);
+        if (btn) {
+            btn.disabled = false;
+            btn.style.cursor = 'pointer';
+            btn.style.background = item.color;
+        }
+    });
+    const btnStop = document.getElementById('btn-studio-stop-stream');
+    if (btnStop) btnStop.style.display = "inline-block";
+    
+    const container = document.getElementById("studio-container");
+    if (container) container.scrollIntoView({ behavior: 'smooth' });
+}
+
+// 7. マイクメーター & ソース保持
+function initAudioMeter(stream) {
+    if (audioContext) audioContext.close();
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        audioAnalyser = audioContext.createAnalyser();
+        audioAnalyser.fftSize = 256;
+        
+        if (stream.getAudioTracks().length > 0) {
+            const audioSource = audioContext.createMediaStreamSource(stream);
+            // ★ソースをグローバル保存してmix関数で使う
+            window.currentMicSource = audioSource;
+            
+            audioSource.connect(audioAnalyser);
+            
+            const dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+            const updateMeter = () => {
+                if (!audioContext) return;
+                
+                // メーター更新
+                audioAnalyser.getByteFrequencyData(dataArray);
+                let values = 0;
+                for (let i = 0; i < dataArray.length; i++) values += dataArray[i];
+                const average = values / dataArray.length;
+                let percent = Math.min(100, average * 3.0); 
+                
+                // ミュート中はメーターも止める（視覚的にわかりやすく）
+                if (studioMicGainNode && studioMicGainNode.gain.value === 0) {
+                    percent = 0;
+                }
+
+                if (levelBar) {
+                    levelBar.style.width = percent + "%";
+                    if (percent > 80) levelBar.style.background = "#ff1744"; 
+                    else levelBar.style.background = "linear-gradient(to right, #00e676, #ffeb3b)";
+                }
+                audioAnimId = requestAnimationFrame(updateMeter);
+            };
+            updateMeter();
+            if(micStatusText) micStatusText.textContent = "ON";
+            
+            // マイクボタン有効化
+            btnToggleMic.disabled = false;
+            btnToggleMic.innerHTML = "🎤";
+            btnToggleMic.style.background = "#555";
+            btnToggleMic.style.cursor = "pointer";
+        }
+    } catch (e) { console.error("Audio Meter Init Error:", e); }
+}
+
+// 8. プレビュー切替
+function toggleStudioPreview() {
+    const preview = document.getElementById('studio-preview');
+    const btn = document.getElementById('btn-toggle-preview');
+    if (preview.style.opacity === '0') {
+        preview.style.opacity = '1';
+        btn.style.background = "#555";
+        btn.innerHTML = "👁️";
+    } else {
+        preview.style.opacity = '0';
+        btn.style.background = "#d32f2f";
+        btn.innerHTML = "🙈";
+    }
+}
+
+// 9. マイク切替 (音量ゲイン制御)
+function toggleStudioMic() {
+    // ノードが準備できていない場合は何もしない
+    if (!studioMicGainNode) return;
+
+    const btn = document.getElementById('btn-toggle-mic');
+    const status = document.getElementById('mic-status-text');
+
+    if (studioMicGainNode.gain.value > 0) {
+        // ミュートする
+        studioMicGainNode.gain.value = 0;
+        if(btn) {
+            btn.innerHTML = "🔇"; 
+            btn.style.background = "#d32f2f"; 
+            btn.style.color = "white"; 
+        }
+        if(status) status.textContent = "Muted";
+    } else {
+        // ミュート解除
+        studioMicGainNode.gain.value = 1.5;
+        if(btn) {
+            btn.innerHTML = "🎤"; 
+            btn.style.background = "#555"; 
+            btn.style.color = "white"; 
+        }
+        if(status) status.textContent = "ON";
+    }
+}
+
+// 10. カメラ切替 (ワイプ)
+function toggleStudioCamera() {
+    isWebcamVisible = !isWebcamVisible;
+    const btn = document.getElementById('btn-toggle-cam');
+    
+    if (isWebcamVisible) {
+        btn.innerHTML = "📷";
+        btn.style.background = "#555";
+    } else {
+        btn.innerHTML = "🚫";
+        btn.style.background = "#d32f2f";
+    }
+}
+
+// 11. 画面変更
+async function changeStudioSource() {
+    const wasFullScreen = !!document.fullscreenElement;
+    try {
+        const newDisplayStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: "always" },
+            audio: false
+        });
+        setSourceStream(newDisplayStream);
+        if (wasFullScreen) {
+            const container = document.getElementById('studio-container');
+            if (container) {
+                setTimeout(() => {
+                    container.requestFullscreen().catch(e => console.log("全画面復帰失敗:", e));
+                }, 500);
+            }
+        }
+    } catch (err) { console.log("画面変更キャンセル:", err); }
+}
+
+// 12. 録画開始/停止
+function toggleStudioRecording() {
+    if (!studioMixedStream) return;
+    const btn = document.getElementById('btn-studio-record');
+    const indicator = document.getElementById('studio-rec-indicator');
+
+    if (!studioIsRecording) {
+        studioChunks = [];
+        const mimeTypes = ["video/mp4", "video/webm;codecs=vp9", "video/webm"];
+        const selectedType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
+
+        try {
+            studioRecorder = new MediaRecorder(studioMixedStream, { mimeType: selectedType });
+        } catch (e) {
+            alert("録画の開始に失敗しました。");
+            return;
+        }
+
+        studioRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) studioChunks.push(e.data);
+        };
+
+        studioRecorder.onstop = saveStudioVideo;
+        studioRecorder.start();
+        studioIsRecording = true;
+
+        if(indicator) indicator.style.display = "block";
+        if(btn) {
+            btn.innerHTML = "■"; 
+            btn.style.borderRadius = "8px";
+            btn.style.background = "#fff"; 
+            btn.style.color = "#d32f2f";
+        }
+    } else {
+        studioRecorder.stop();
+        studioIsRecording = false;
+
+        if(indicator) indicator.style.display = "none";
+        if(btn) {
+            btn.innerHTML = "●"; 
+            btn.style.borderRadius = "50%";
+            btn.style.background = "#d32f2f"; 
+            btn.style.color = "#fff";
+        }
+    }
+}
+
+// 13. 保存
+function saveStudioVideo() {
+    if (studioChunks.length === 0) return;
+    const blob = new Blob(studioChunks, { type: studioRecorder.mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const now = new Date();
+    const timestamp = `${now.getHours()}${now.getMinutes()}_${now.getSeconds()}`;
+    const ext = studioRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
+    a.href = url;
+    a.download = `Lesson_${timestamp}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 100);
+}
+
+// 14. 全画面
+function toggleStudioFullScreen() {
+    const container = document.getElementById('studio-container');
+    if (!container) return;
+    if (!document.fullscreenElement) {
+        container.requestFullscreen().catch(err => {
+            alert(`全画面エラー: ${err.message}`);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
 </script>
 </body>
 </html>
