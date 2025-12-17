@@ -3217,6 +3217,26 @@ function openSimulation() {
           <h3 id="step-info">Step 1</h3>
       </div>
   </section>
+<div style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 10px; text-align: center;">
+    <h3 style="color: #555; margin-top: 0;">🔧 アプリのメンテナンス</h3>
+    <p style="font-size: 13px; color: #666;">
+      「画面が古いまま更新されない」「動きがおかしい」という場合に押してください。<br>
+      保存されたキャッシュを削除して、最新の状態にリロードします。
+    </p>
+    <button onclick="forceUpdateApp()" style="
+        background: #d32f2f; 
+        color: white; 
+        border: none; 
+        padding: 12px 30px; 
+        border-radius: 30px; 
+        font-weight: bold; 
+        cursor: pointer; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    ">
+      🔄 アプリを強制更新する
+    </button>
+  </div>
+  </section>
 </section>
 
 
@@ -13454,6 +13474,38 @@ async function deleteVideoFromDB(id) {
 window.addEventListener("DOMContentLoaded", () => {
     openVideoDB(); // ★ 修正
 });
+
+// ==========================================
+// 🔄 アプリ強制更新機能
+// ==========================================
+async function forceUpdateApp() {
+  if (!confirm("アプリを強制的に更新しますか？\n（現在開いているページがリロードされます）")) {
+    return;
+  }
+
+  if ('serviceWorker' in navigator) {
+    try {
+      // 1. 全てのサービスワーカー登録を解除
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (let registration of registrations) {
+        await registration.unregister();
+      }
+      
+      // 2. キャッシュストレージを全て削除
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+      
+      alert("キャッシュを削除しました。\nOKを押すと最新版を読み込みます。");
+      
+    } catch (error) {
+      console.error("更新エラー:", error);
+      alert("更新処理中にエラーが発生しましたが、リロードを試みます。");
+    }
+  }
+  
+  // 3. 画面を強制リロード (サーバーから最新を取得)
+  window.location.reload(true);
+}
 </script>
 </body>
 </html>
