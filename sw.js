@@ -2,8 +2,8 @@
 // Service Worker (データの保存と更新管理)
 // ==========================================
 
-// ⚠️ アプリを更新する時は、必ずここのバージョン番号を上げてください (v1 -> v2 -> v3...)
-const CACHE_NAME = 'smart-coach-v4';
+//⚠️ アプリを更新する時は、必ずここのバージョン番号を上げてください (v1 -> v2 -> v3...)
+const CACHE_NAME = 'smart-coach-v5';
 
 // キャッシュするファイル（オフラインで動くために必要なもの）
 const urlsToCache = [
@@ -11,14 +11,15 @@ const urlsToCache = [
   './index.html',
   './manifest.json',
   './icon2.png',
-  './custom_fonts.js' // 必要な外部ファイルがあれば追加
+  './custom_fonts.js'
 ];
 
 // 1. インストール時（ファイルを保存する）
 self.addEventListener('install', function(event) {
-  // 新しいSWをすぐに有効化させる
-  self.skipWaiting();
-  
+  // ⚠️ 修正点: ここでの self.skipWaiting() は削除しました。
+  // 理由: ここで実行すると、ユーザーの確認を待たずに勝手に更新されてしまうためです。
+  // 更新のタイミングは 'message' イベント（HTMLからの指示）に任せます。
+
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(function(cache) {
@@ -28,7 +29,7 @@ self.addEventListener('install', function(event) {
   );
 });
 
-// 2. 有効化時（古いキャッシュを削除して更新する）★重要
+// 2. 有効化時（古いキャッシュを削除して、制御を開始する）
 self.addEventListener('activate', function(event) {
   event.waitUntil(
     caches.keys().then(function(cacheNames) {
@@ -43,24 +44,25 @@ self.addEventListener('activate', function(event) {
       );
     })
   );
-  // 全ページを新しいSWの制御下に置く
+  // 新しいSWが有効になったら、ページをすぐに制御下に置く
   return self.clients.claim();
 });
 
 // 3. 通信時（ネットワーク優先 ＆ キャッシュ更新）
 self.addEventListener('fetch', function(event) {
-  // http/https 以外のリクエスト（chrome-extension等）は無視
+  // http/https 以外のリクエストは無視
   if (!event.request.url.startsWith('http')) return;
 
   event.respondWith(
     fetch(event.request)
       .then(function(response) {
         // ネットワークから成功したら、そのレスポンスを返す
-        // 同時に、次回オフライン用にキャッシュを「最新版」に上書きする
-        if (!response || response.status !== 200 || response.type !== 'basic') {
+        // CDNなどの外部リソース(cors)もキャッシュする場合は条件を調整してください
+        if (!response || response.status !== 200 || response.type === 'error') {
           return response;
         }
 
+        // レスポンスのクローンを作成してキャッシュに保存
         var responseToCache = response.clone();
         caches.open(CACHE_NAME)
           .then(function(cache) {
@@ -76,4 +78,10 @@ self.addEventListener('fetch', function(event) {
   );
 });
 
-
+// 4. メッセージ受信時（HTML側からの「更新して！」という命令を受ける）
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    // ユーザーが「OK」を押したタイミングで初めて待機をスキップして更新する
+    self.skipWaiting();
+  }
+});
