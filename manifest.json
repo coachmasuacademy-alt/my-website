@@ -1,0 +1,21 @@
+{
+  "name": "Smart Coach Badminton",
+  "short_name": "SmartCoach",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00acc1",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon2.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon2.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
