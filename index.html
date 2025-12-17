@@ -247,42 +247,46 @@
 }
 
 /* 翻訳ウィジェットのコンテナを前面に出す */
-    #google_translate_element {
+   #google_translate_element {
         position: relative;
-        z-index: 10000;
+        z-index: 2000;
+        min-width: 120px; /* スマホでも潰れないように幅を確保 */
+        display: inline-block;
     }
 
-    /* 翻訳ボタンのデザイン */
+    /* 2. 翻訳ボタン自体のデザイン */
     .goog-te-gadget-simple {
         background-color: #fff !important;
         border: 1px solid #ccc !important;
-        padding: 8px 12px !important;
-        border-radius: 4px !important;
+        padding: 10px 15px !important; /* タップしやすいように広げる */
+        border-radius: 30px !important;
         font-size: 14px !important;
         line-height: 1.5 !important;
-        display: inline-flex !important; /* 横並びにする */
-        align-items: center;
+        display: inline-flex !important; /* 中身を横並びにする */
+        align-items: center !important;
         cursor: pointer !important;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        width: auto !important; /* 幅を自動調整 */
     }
 
-    /* Googleロゴ画像「G」マークだけを消す */
+    /* 3. 「言語を選択」などの文字を【強制的に表示】させる */
+    .goog-te-gadget-simple span {
+        display: inline-block !important; /* 非表示設定を上書きして表示 */
+        color: #333 !important;
+        font-weight: bold !important;
+    }
+    
+    /* 4. 不要なGoogleロゴ画像（Gマーク）だけを消す */
     .goog-te-gadget-simple img {
         display: none !important;
     }
-
-    /* 言語名のテキストを表示し、色を調整 */
-    .goog-te-gadget-simple .goog-te-menu-value {
-        color: #333 !important;
-        margin: 0 !important;
-    }
     
-    /* 「言語を選択」の横の縦棒(|)を消す */
+    /* 5. 翻訳ボタンの中の「|（縦棒）」を消す */
     .goog-te-gadget-simple .goog-te-menu-value span[style*="border-left"] {
         border-left: none !important;
     }
 
-    /* 翻訳バーを消す */
+    /* 6. 翻訳後にページ上部に出る「Google翻訳バー」を消す */
     .goog-te-banner-frame.skiptranslate {
         display: none !important;
     }
@@ -290,10 +294,12 @@
         top: 0px !important;
     }
     
-    /* プルダウンメニュー調整 */
+    /* 7. 言語選択プルダウンメニューをスマホでも大きく見やすく */
     .goog-te-menu-frame {
         max-width: 100% !important;
-        z-index: 1000000 !important;
+        width: 100% !important;
+        z-index: 10000000 !important; /* 確実に最前面へ */
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2) !important;
     }
 
 /* ▼▼▼ スマホ表示時のメニュー崩れ修正用CSS ▼▼▼ */
