@@ -3261,6 +3261,105 @@ function openSimulation() {
     </div>
   </section>
 
+<section id="wrist-drill-section" style="
+    margin-top: 30px;
+    padding: 0;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+    <div style="background: #e0f2f1; padding: 15px 20px; border-bottom: 1px solid #b2dfdb;">
+        <h2 style="color: #00695c; margin: 0; font-size: 20px; display:flex; align-items:center; gap:10px;">
+            リスト強化カレンダー
+        </h2>
+        <p style="font-size: 13px; color: #00796b; margin: 5px 0 0 0;">
+            「リストパワードリル」を継続して、ショットの鋭さを手に入れましょう。
+        </p>
+    </div>
+
+    <div style="padding: 20px;">
+        
+        <div style="
+    margin-bottom: 25px; 
+    background: #f1f8e9; 
+    border: 1px solid #c5e1a5; 
+    border-radius: 8px; 
+    padding: 15px; 
+    display: flex; 
+    gap: 15px; 
+    align-items: flex-start;
+">
+    <div id="wrist-thumb-area" style="flex: 0 0 130px; cursor: pointer; position: relative;" 
+         onclick="window.open('https://youtu.be/NSLZMGqPgB0', '_blank')">
+        
+        <img id="wrist-img" src="https://img.youtube.com/vi/NSLZMGqPgB0/mqdefault.jpg" 
+             alt="動画サムネイル" 
+             style="width: 100%; height: auto; border-radius: 6px; border: 1px solid #ccc; background: #000; display: block;">
+        
+        <div style="
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: bold;
+        ">
+            ▶ 再生
+        </div>
+    </div>
+    
+    <div style="flex: 1;">
+        <h4 id="wrist-title" style="margin: 0 0 5px 0; color: #2e7d32; font-size: 16px;">
+            📋 リストパワードリル
+        </h4>
+        <p id="wrist-desc" style="margin: 0 0 10px 0; font-size: 13px; color: #555; line-height: 1.5; white-space: pre-wrap;">
+    ＜回数目安：10回×11方向＞リストパワードリルは、ラケットにラケットカバーや軽いウェイトを装着して振ることで、手首（リスト）の筋力と安定性を強化するトレーニングです。
+    ラケットを多様な方向に振ることが重要で、これによりショットのコントロール力やスイングのスピードを高め、実際の試合での対応力を向上させることができます。
+</p>
+        <a id="wrist-link" href="https://youtu.be/NSLZMGqPgB0" target="_blank" style="font-size: 13px; color: #1565c0; text-decoration: none; font-weight: bold; display: inline-flex; align-items: center; gap: 4px;">
+            📺 YouTubeで動画を見る ↗
+        </a>
+    </div>
+</div>
+</div>
+
+        <div style="text-align: center; margin-bottom: 20px;">
+            <button id="btn-wrist-done" onclick="markWristDrillDone()" style="
+                background: #00897b; color: white; border: none;
+                padding: 12px 40px; border-radius: 30px;
+                font-size: 16px; font-weight: bold; cursor: pointer;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+                transition: transform 0.1s;
+                display: inline-flex; align-items: center; gap: 8px;
+            " onmousedown="this.style.transform='scale(0.95)'" onmouseup="this.style.transform='scale(1)'">
+                <span>✅</span> 今日実施した！
+            </button>
+            <p id="wrist-status-msg" style="margin-top: 10px; color: #00695c; font-weight: bold; height: 20px;"></p>
+        </div>
+
+        <div style="background: #e0f7fa; padding: 15px; border-radius: 8px; max-width: 400px; margin: 0 auto; border: 1px solid #b2ebf2;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <button onclick="changeWristMonth(-1)" style="background:none; border:none; cursor:pointer; font-size:18px; color:#006064;">◀</button>
+                <span id="wrist-cal-title" style="font-weight:bold; font-size:16px; color:#006064;">2025年 1月</span>
+                <button onclick="changeWristMonth(1)" style="background:none; border:none; cursor:pointer; font-size:18px; color:#006064;">▶</button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px;">
+                <span style="color:#d32f2f;">日</span>
+                <span>月</span><span>火</span><span>水</span><span>木</span><span>金</span>
+                <span style="color:#1976d2;">土</span>
+            </div>
+
+            <div id="wrist-cal-grid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;">
+                </div>
+        </div>
+        
+        <div style="text-align: right; margin-top: 10px;">
+             <div style="font-size: 12px; color: #666;">
+                今月の実施回数: <span id="wrist-monthly-count" style="font-weight:bold; font-size:16px; color:#00897b;">0</span> 回
+            </div>
+        </div>
+    </div>
+</section>
+
   <section id="group-work-section" class="utility-sub-section" style="
       margin-top: 30px; 
       padding: 20px; 
@@ -3927,13 +4026,10 @@ function openSimulation() {
 </button>
 
 <button id="btn-fw-record-start" onclick="fwStartRecording()" style="background:#e91e63; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
-  ● 録画開始
+  ● 録画＆計測開始
 </button>
 <button id="btn-fw-record-stop" onclick="fwStopRecording()" style="background:#880e4f; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; display:none;">
-  ■ 録画停止＆保存
-</button>
-<button onclick="fwToggleCSVRecording()" id="btn-fw-rec-data" style="background:#424242; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
-  🔴 データ記録
+  ■ 停止＆保存 (動画/データ)
 </button>
 
       <button onclick="fwDownloadCSV()" id="btn-fw-download-csv" disabled style="background:#ccc; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:not-allowed;">
@@ -8255,15 +8351,18 @@ async function generateDailyChallenge() {
         return;
     }
 
-    // 「補強」メニューの抽出
+    // 「補強」メニューの抽出（★修正：リストパワードリルを除外）
     const strengthMenus = sheetData.filter(m => {
         const cat = (m.カテゴリ || m.category || "").toString();
-        return cat.includes("補強");
+        const name = (m.メニュー名 || m.name || "").toString();
+        
+        // カテゴリに「補強」を含み、かつ メニュー名に「リストパワードリル」を含まないもの
+        return cat.includes("補強") && !name.includes("リストパワードリル");
     });
 
     if (strengthMenus.length === 0) {
         const existingCats = [...new Set(sheetData.map(m => m.カテゴリ || m.category))].join(", ");
-        alert(`❌ 「補強」カテゴリのメニューが見つかりませんでした。\n現在読み込まれているカテゴリ: ${existingCats}`);
+        alert(`❌ 条件に合う「補強」メニューが見つかりませんでした。\n（リストパワードリル以外の補強メニューがない可能性があります）`);
         return;
     }
 
@@ -8280,7 +8379,7 @@ async function generateDailyChallenge() {
     const listContainer = document.getElementById("daily-menu-list");
     if (!listContainer) return;
     
-    // ★修正: 閉じるボタンを先頭に追加して初期化
+    // 閉じるボタンを先頭に追加して初期化
     listContainer.innerHTML = `
         <div style="text-align: right; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
             <button id="btn-close-daily-list" style="background: #757575; color: white; border: none; border-radius: 4px; padding: 5px 15px; cursor: pointer; font-size: 12px;">
@@ -8289,7 +8388,7 @@ async function generateDailyChallenge() {
         </div>
     `;
 
-    // ★修正: 閉じるボタンの動作設定
+    // 閉じるボタンの動作設定
     document.getElementById("btn-close-daily-list").addEventListener("click", () => {
         listContainer.style.display = "none";
     });
@@ -14111,16 +14210,28 @@ async function saveVideoToDB(blob, filename) {
 let fwMediaRecorder = null;
 let fwRecordedChunks = [];
 
-// 1. 録画開始
+// 1. 録画＆データ記録開始
 function fwStartRecording() {
     const canvas = document.getElementById('fw_canvas');
     if (!canvas) return;
 
-    // キャンバスの映像を取得 (30fps)
+    // --- A. データ記録の開始処理 ---
+    fwIsRecordingCSV = true;
+    fwRecordedData = [];
+    fwRecStartTime = Date.now();
+    
+    // CSVダウンロードボタンを無効化（記録中はDL不可）
+    const btnDl = document.getElementById("btn-fw-download-csv");
+    if(btnDl) { 
+        btnDl.disabled = true; 
+        btnDl.style.background = "#ccc"; 
+        btnDl.style.cursor = "not-allowed";
+    }
+
+    // --- B. 動画録画の開始処理 ---
     const stream = canvas.captureStream(30);
     fwRecordedChunks = [];
 
-    // 録画形式の決定
     const mimeTypes = ["video/mp4", "video/webkit", "video/webm;codecs=vp9", "video/webm"];
     const selectedType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
 
@@ -14128,6 +14239,7 @@ function fwStartRecording() {
         fwMediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
     } catch (e) {
         alert("録画の開始に失敗しました。");
+        fwIsRecordingCSV = false; // 失敗したらデータ記録も戻す
         return;
     }
 
@@ -14138,42 +14250,56 @@ function fwStartRecording() {
     fwMediaRecorder.onstop = fwSaveVideo;
     fwMediaRecorder.start();
 
-    // ボタンの表示切り替え
+    // ボタン表示切り替え
     document.getElementById("btn-fw-record-start").style.display = "none";
     document.getElementById("btn-fw-record-stop").style.display = "inline-block";
 }
 
-// 2. 録画停止
+// 2. 録画＆データ記録停止
 function fwStopRecording() {
+    // --- A. 動画停止 ---
     if (fwMediaRecorder && fwMediaRecorder.state !== "inactive") {
         fwMediaRecorder.stop();
-        
-        // ボタンを元に戻す
-        document.getElementById("btn-fw-record-start").style.display = "inline-block";
-        document.getElementById("btn-fw-record-stop").style.display = "none";
+    }
+
+    // --- B. データ記録停止 ---
+    fwIsRecordingCSV = false;
+
+    // ボタンを元に戻す
+    document.getElementById("btn-fw-record-start").style.display = "inline-block";
+    document.getElementById("btn-fw-record-stop").style.display = "none";
+
+    // CSVダウンロードボタンを有効化
+    const btnDl = document.getElementById("btn-fw-download-csv");
+    if (fwRecordedData.length > 0 && btnDl) {
+        btnDl.disabled = false;
+        btnDl.style.background = "#1565c0";
+        btnDl.style.cursor = "pointer";
+        // ユーザーへの案内
+        setTimeout(() => {
+            alert("録画と計測が完了しました。\n\n1. 動画の保存画面が開きます。\n2. データのCSV保存は、青くなった「CSV保存」ボタンから行ってください。");
+        }, 500);
     }
 }
 
-// 3. 保存処理（共有＆ライブラリ）
+// 3. 保存処理（動画）
 function fwSaveVideo() {
     if (fwRecordedChunks.length === 0) {
-        alert("録画データがありません。");
+        // データがない場合（即停止など）
         return;
     }
 
-    // ファイル名作成 (例: GameAnalysis_12時30分.webm)
     const now = new Date();
     const timestamp = `${now.getHours()}時${now.getMinutes()}分_${now.getSeconds()}秒`;
     const ext = fwMediaRecorder.mimeType.includes("mp4") ? "mp4" : "webm";
     const filename = `GameAnalysis_${timestamp}.${ext}`;
 
-    // 動画データ作成
     const blob = new Blob(fwRecordedChunks, { type: fwMediaRecorder.mimeType });
 
-    // ① スマホの共有メニューを開く（写真アルバムへ保存など）
+    // ① シェア/保存
     shareVideoFile(blob, filename);
 
-    // ② アプリ内ライブラリへ保存確認
+    // ② ライブラリ保存確認
     if(confirm("動画をアプリ内の「ライブラリ」にも保存しますか？")) {
         saveVideoToDB(blob, filename);
     }
@@ -14872,6 +14998,258 @@ function downloadThumbnail() {
     link.href = thumbCanvas.toDataURL("image/jpeg", 0.9);
     link.download = `thumbnail_${Date.now()}.jpg`;
     link.click();
+}
+
+// ==========================================
+// 💪 リストパワードリル・セクション統合機能
+//    (カレンダー管理 + シートデータ連携)
+// ==========================================
+
+// --- カレンダー用変数 ---
+const WRIST_STORAGE_KEY = "smartCoachWristData";
+let wristCurrentDate = new Date(); // 表示中の年月
+let wristDoneDates = [];           // 実施済み日付リスト
+
+// --- データ連携用変数 ---
+let currentWristVideoUrl = "";     // 動画URL保持用
+
+// 1. 初期化 (ページ読み込み時)
+document.addEventListener("DOMContentLoaded", () => {
+    // カレンダーの準備
+    loadWristData();
+    renderWristCalendar();
+
+    // シートデータの反映 (少し待ってから実行)
+    setTimeout(updateWristContentFromSheet, 1000);
+});
+
+// ==========================================
+// A. シートデータ連携機能 (動画・説明の更新)
+// ==========================================
+
+// シートデータから「リストパワードリル」を探して表示更新
+function updateWristContentFromSheet() {
+    // データがまだなければ何もしない
+    if (typeof sheetData === 'undefined' || !sheetData.length) return;
+
+    // 1. 「補強」カテゴリの中から「リストパワードリル」を含むメニューを探す
+    const targetMenu = sheetData.find(m => 
+        (m.カテゴリ === "補強" || m.category === "Strength") &&
+        (m.メニュー名 && m.メニュー名.includes("リストパワードリル"))
+    );
+
+    // デフォルト値 (★ここを指定URLに書き換えました)
+    let displayData = {
+        name: "リストパワードリル",
+        desc: "手首の回内・回外運動を集中的に強化します。\n目安: 1日 左右各30回 × 3セット\n※ラケットカバーを付けると効果的です。",
+        url: "https://youtu.be/NSLZMGqPgB0", // 指定動画URL
+        img: ""
+    };
+
+    // シートにデータがあれば上書き
+    if (targetMenu) {
+        displayData.name = targetMenu.メニュー名;
+        displayData.desc = targetMenu.説明 || displayData.desc;
+        displayData.url = targetMenu["YouTube URL"] || displayData.url;
+        displayData.img = targetMenu["画像URL"] || "";
+    }
+
+    // URLから動画IDを抽出してサムネイルを作る
+    let videoId = "";
+    if (displayData.url) {
+        const match = displayData.url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|v\/|embed\/|shorts\/))([^#\?&]+)/);
+        if (match && match[1]) {
+            videoId = match[1];
+        }
+    }
+
+    // 画像がない場合、YouTubeサムネイルを自動生成
+    if (!displayData.img && videoId) {
+        displayData.img = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+    }
+
+    // グローバル変数にURLを保存（クリックイベント用）
+    currentWristVideoUrl = displayData.url;
+
+    // --- DOM要素の更新 ---
+    const elTitle = document.getElementById("wrist-title");
+    const elDesc = document.getElementById("wrist-desc");
+    const elImg = document.getElementById("wrist-img");
+    const elLink = document.getElementById("wrist-link");
+
+    if (elTitle) elTitle.textContent = "📋 " + displayData.name;
+    if (elDesc) elDesc.textContent = displayData.desc;
+    
+    if (elImg) {
+        // 画像があれば表示、なければプレースホルダー
+        elImg.src = displayData.img || "https://via.placeholder.com/130x80?text=No+Video";
+    }
+    
+    if (elLink) {
+        elLink.href = displayData.url;
+        // URLがない場合はリンクを隠す
+        elLink.style.display = displayData.url ? "inline-flex" : "none";
+    }
+}
+
+// サムネイルクリック時の動作
+function openWristVideo() {
+    if (currentWristVideoUrl) {
+        window.open(currentWristVideoUrl, '_blank');
+    } else {
+        alert("動画URLが設定されていません。\nシートに「YouTube URL」を入力してください。");
+    }
+}
+
+// ==========================================
+// B. カレンダー管理機能
+// ==========================================
+
+// データ読み込み
+function loadWristData() {
+    const json = localStorage.getItem(WRIST_STORAGE_KEY);
+    wristDoneDates = json ? JSON.parse(json) : [];
+}
+
+// データ保存
+function saveWristData() {
+    localStorage.setItem(WRIST_STORAGE_KEY, JSON.stringify(wristDoneDates));
+}
+
+// 「今日実施した」ボタン処理
+function markWristDrillDone() {
+    const today = new Date();
+    const dateStr = getWristDateStr(today);
+
+    // すでに記録済みかチェック
+    if (!wristDoneDates.includes(dateStr)) {
+        wristDoneDates.push(dateStr);
+        saveWristData();
+        
+        // 演出
+        if(typeof playSportsDrum === 'function') playSportsDrum();
+        
+        const msgEl = document.getElementById("wrist-status-msg");
+        if(msgEl) msgEl.textContent = "🎉 記録しました！ナイスファイト！";
+        setTimeout(() => { if(msgEl) msgEl.textContent = ""; }, 3000);
+
+        // カレンダー再描画
+        renderWristCalendar();
+    } else {
+        alert("本日はすでに記録済みです！");
+    }
+}
+
+// カレンダー描画ロジック (Tealカラー統一版)
+function renderWristCalendar() {
+    const grid = document.getElementById("wrist-cal-grid");
+    const title = document.getElementById("wrist-cal-title");
+    const countEl = document.getElementById("wrist-monthly-count");
+    
+    if(!grid || !title) return;
+
+    // 表示中の年月
+    const year = wristCurrentDate.getFullYear();
+    const month = wristCurrentDate.getMonth();
+
+    title.textContent = `${year}年 ${month + 1}月`;
+    grid.innerHTML = "";
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDate = new Date(year, month + 1, 0).getDate();
+    const todayStr = getWristDateStr(new Date());
+    let monthlyCount = 0;
+
+    // 空白セル
+    for (let i = 0; i < firstDay; i++) {
+        const cell = document.createElement("div");
+        grid.appendChild(cell);
+    }
+
+    // 日付セル生成
+    for (let d = 1; d <= lastDate; d++) {
+        const cell = document.createElement("div");
+        const dateObj = new Date(year, month, d);
+        const dateStr = getWristDateStr(dateObj);
+        
+        cell.textContent = d;
+        cell.style.cssText = `
+            height: 40px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            border-radius: 50%; 
+            font-size: 14px;
+            position: relative;
+            background: #fff;
+            border: 1px solid #e0f2f1;
+            color: #333;
+            transition: all 0.2s;
+        `;
+
+        // 今日の枠線 (Teal色)
+        if (dateStr === todayStr) {
+            cell.style.border = "2px solid #00897b";
+            cell.style.fontWeight = "bold";
+        }
+
+        // 実施済み (Teal背景)
+        if (wristDoneDates.includes(dateStr)) {
+            cell.style.background = "#b2dfdb"; // 薄い青緑
+            cell.style.color = "#004d40";      // 濃い青緑文字
+            cell.style.fontWeight = "bold";
+            cell.innerHTML = `${d}<span style="position:absolute; bottom:2px; font-size:10px;">💪</span>`; // アイコン
+            monthlyCount++;
+        }
+
+        cell.onclick = () => toggleWristDate(dateStr);
+        cell.style.cursor = "pointer";
+
+        grid.appendChild(cell);
+    }
+    
+    if(countEl) countEl.textContent = monthlyCount;
+    
+    // ボタンの色更新
+    const btn = document.getElementById("btn-wrist-done");
+    if(btn) {
+        if(wristDoneDates.includes(todayStr)) {
+            btn.textContent = "本日完了済み ✅";
+            btn.style.background = "#90a4ae"; // グレー
+            btn.disabled = true;
+        } else {
+            // HTMLタグを含めると上書きされる可能性があるためテキストのみ変更またはinnerHTML使用
+            btn.innerHTML = "<span>✅</span> 今日実施した！";
+            btn.style.background = "#00897b"; // Teal
+            btn.disabled = false;
+        }
+    }
+}
+
+// 日付の修正機能（クリックでON/OFF）
+function toggleWristDate(dateStr) {
+    if (confirm(`${dateStr} の記録を変更しますか？`)) {
+        if (wristDoneDates.includes(dateStr)) {
+            // 削除
+            wristDoneDates = wristDoneDates.filter(d => d !== dateStr);
+        } else {
+            // 追加
+            wristDoneDates.push(dateStr);
+        }
+        saveWristData();
+        renderWristCalendar();
+    }
+}
+
+// 月の移動
+function changeWristMonth(diff) {
+    wristCurrentDate.setMonth(wristCurrentDate.getMonth() + diff);
+    renderWristCalendar();
+}
+
+// ヘルパー：日付文字列生成
+function getWristDateStr(date) {
+    return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 }
 </script>
 </body>
