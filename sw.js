@@ -3,7 +3,7 @@
 // ==========================================
 
 //⚠️ アプリを更新する時は、必ずここのバージョン番号を上げてください (v1 -> v2 -> v3...)
-const CACHE_NAME = 'smart-coach-v7';
+const CACHE_NAME = 'smart-coach-v8';
 
 // キャッシュするファイル（オフラインで動くために必要なもの）
 const urlsToCache = [
@@ -85,5 +85,6 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
 
 
