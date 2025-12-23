@@ -9997,18 +9997,13 @@ function stopTracking() {
 
 // 4. カメラ & ファイルアップロード
 async function startCamera() {
-    // もしボタンを押した時点でまだ準備中なら待つ（念のため）
-    if (isPoseModelLoading) {
+    // プリロード判定（前回の回答を適用している場合）
+    if (typeof isPoseModelLoading !== 'undefined' && isPoseModelLoading) {
         alert("AIモデルを準備中です。あと数秒お待ちください。");
         return;
     }
-    
-    // まだ初期化されていなければ初期化（通常はプリロード済み）
-    if (!pose) {
-        await initPose();
-    }
+    if (!pose) await initPose();
 
-    // ここから下は既存のコードと同じでOK
     stopTracking(); 
     resetGraphData(); 
     
@@ -10016,18 +10011,28 @@ async function startCamera() {
     recordingStartTime = Date.now();
     maxTorqueValues = { r_elbow: 0, r_shoulder: 0, r_knee: 0, l_elbow: 0, l_shoulder: 0, l_knee: 0, trunk: 0 };
 
+    // ▼▼▼ ここを修正：画質の上限(max)を設定して重くなるのを防ぐ ▼▼▼
     const constraints = {
         video: {
             facingMode: currentFacingMode,
-            width: { ideal: 640 }, height: { ideal: 480 },
-            frameRate: { ideal: 30, max: 30 }
+            width: { ideal: 640, max: 1280 },  // 最大でもHD画質まで
+            height: { ideal: 480, max: 720 },  // 縦横比によっては逆になることもあるので両方制限
+            frameRate: { ideal: 30, max: 30 }  // 30fpsに固定
         },
         audio: false
     };
+    // ▲▲▲ 修正ここまで ▲▲▲
+
     try {
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         videoElement.srcObject = stream;
         videoElement.style.display = "none"; 
+        
+        // ストリームの実際のサイズを確認（デバッグ用）
+        const track = stream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        console.log(`Camera Resolution: ${settings.width}x${settings.height}`);
+
         videoElement.onloadedmetadata = () => {
             videoElement.play();
             isCameraRunning = true;
@@ -10037,7 +10042,7 @@ async function startCamera() {
         if(btnStart) btnStart.style.display = "inline-block";
     } catch (err) {
         console.error("Camera Error:", err);
-        alert("カメラの起動に失敗しました。");
+        alert("カメラの起動に失敗しました。\n他のアプリでカメラを使用していないか確認してください。");
     }
 }
 
