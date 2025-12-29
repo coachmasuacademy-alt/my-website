@@ -3191,7 +3191,16 @@ function openSimulation() {
       </p>
     </div>
 
+    <div style="background: #fff9c4; padding: 10px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #fbc02d;">
+        <label style="font-size: 12px; font-weight: bold; color: #f57f17;">👤 旅人:</label>
+        <select id="daily-user-select" onchange="switchDailyUser()" style="flex: 1; padding: 5px; border-radius: 4px; border: 1px solid #fbc02d;">
+            </select>
+        <button onclick="addDailyUser()" style="background: #fbc02d; color: #333; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-weight: bold;">＋追加</button>
+        <button onclick="renameDailyUser()" style="background: #ffa000; color: white; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer;">名前変更</button>
+        <button onclick="deleteDailyUser()" style="background: #ef5350; color: white; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer;">削除</button>
+    </div>
     <div style="padding: 20px; text-align: center;">
+
       <div style="margin-bottom: 20px;">
         <div id="map-collapsible-area" style="background: #f0f4c3; padding: 15px; border-radius: 10px; border: 2px solid #dce775; display: block;">
             <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
@@ -3284,6 +3293,14 @@ function openSimulation() {
         </p>
     </div>
 
+    <div style="background: #b2dfdb; padding: 10px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #00695c;">
+        <label style="font-size: 12px; font-weight: bold; color: #004d40;">👤 記録する人:</label>
+        <select id="wrist-user-select" onchange="switchWristUser()" style="flex: 1; padding: 5px; border-radius: 4px; border: 1px solid #00695c;">
+            </select>
+       <button onclick="addWristUser()" style="background: #00695c; color: white; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer;">＋追加</button>
+        <button onclick="renameWristUser()" style="background: #ffa000; color: white; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer;">名前変更</button>
+        <button onclick="deleteWristUser()" style="background: #ef5350; color: white; border: none; border-radius: 4px; padding: 5px 10px; font-size: 12px; cursor: pointer;">削除</button>
+    </div>
     <div style="padding: 20px;">
         
         <div style="
@@ -8192,103 +8209,176 @@ window.displayPreMadeQR = function() {
 };
 
 // ==========================================
-// 🏆 日替わり補強チャレンジ機能
+// 🏆 日替わり補強チャレンジ & 🗺️ マップ機能 (複数人対応版)
 // ==========================================
 
-// ローカルストレージキー
 const STORAGE_KEY_DAILY = "smartCoachDailyData";
 
-// --- 1. データ管理関数 ---
+// 全体データ構造: { currentUser: "メインユーザー", records: { "メインユーザー": { ... }, "弟": { ... } } }
+let dailyUserData = {
+    currentUser: "メインユーザー",
+    records: { "メインユーザー": createDefaultDailyData() }
+};
 
-// 初期データの読み込み
-function loadDailyData() {
-    const json = localStorage.getItem(STORAGE_KEY_DAILY);
-    return json ? JSON.parse(json) : { 
-        streak: 0, 
-        lastDate: "", 
-        totalBadges: 0, 
-        weeklyBadges: 0 
+// 状態変数 (現在表示中のユーザーの進捗を保持)
+let currentMapMode = "japan";
+let mapProgress = { japan: 0, world: 0, japanCompleted: false };
+
+// デフォルトの個人データを作成するヘルパー
+function createDefaultDailyData() {
+    return {
+        streak: 0,
+        lastDate: "",
+        totalBadges: 0,
+        weeklyBadges: 0,
+        mapJapanIdx: 0,
+        mapWorldIdx: 0,
+        currentMapMode: "japan",
+        japanCompleted: false
     };
 }
 
-// データ保存
-function saveDailyData(data) {
-    localStorage.setItem(STORAGE_KEY_DAILY, JSON.stringify(data));
-    updateDailyUI();
+// ------------------------------------------------
+// A. ユーザー管理機能
+// ------------------------------------------------
+
+// 初期化時に実行
+function initDailyUser() {
+    // データロード（移行処理含む）
+    const json = localStorage.getItem(STORAGE_KEY_DAILY);
+    if (json) {
+        const parsed = JSON.parse(json);
+        // 旧形式（recordsがない）場合の移行
+        if (!parsed.records) {
+            console.log("旅データを新形式に移行します...");
+            dailyUserData = {
+                currentUser: "メインユーザー",
+                records: { "メインユーザー": parsed }
+            };
+            saveGlobalDailyData();
+        } else {
+            dailyUserData = parsed;
+            // データ不整合防止
+            if(!dailyUserData.records) dailyUserData.records = { "メインユーザー": createDefaultDailyData() };
+            if(!dailyUserData.currentUser) dailyUserData.currentUser = Object.keys(dailyUserData.records)[0];
+        }
+    } else {
+        saveGlobalDailyData(); // 初期データを保存
+    }
+
+    // 現在のユーザーデータを変数に反映
+    syncCurrentUserData();
+    updateDailyUserSelectUI();
 }
 
-// --- 2. 画面表示更新 ---
+// 選択中のユーザーデータをグローバル変数(mapProgress等)に同期させる
+function syncCurrentUserData() {
+    const currentData = getCurrentUserDailyData();
+    mapProgress.japan = currentData.mapJapanIdx || 0;
+    mapProgress.world = currentData.mapWorldIdx || 0;
+    mapProgress.japanCompleted = currentData.japanCompleted || false;
+    currentMapMode = currentData.currentMapMode || "japan";
+}
 
-function updateDailyUI() {
-    const data = loadDailyData();
+function updateDailyUserSelectUI() {
+    const select = document.getElementById("daily-user-select");
+    if (!select) return;
+
+    select.innerHTML = "";
+    Object.keys(dailyUserData.records).forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        if (name === dailyUserData.currentUser) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+function switchDailyUser() {
+    const select = document.getElementById("daily-user-select");
+    dailyUserData.currentUser = select.value;
+    saveGlobalDailyData();
     
-    // ▼ 言語設定を取得
-    const t = translations[currentLang] || translations.ja;
+    // 変数同期
+    syncCurrentUserData();
 
-    const streakEl = document.getElementById("streak-count");
-    const badgeEl = document.getElementById("badge-count");
-    const weeklyEl = document.getElementById("weekly-count");
+    // 画面の更新
+    updateDailyUI();
+    renderMap();
+    updateMapUnlockState();
+}
 
-    // 要素が存在する場合のみ更新（エラー防止）
-    if(streakEl) streakEl.textContent = data.streak;
-    if(badgeEl) badgeEl.textContent = data.totalBadges;
-    if(weeklyEl) weeklyEl.textContent = data.weeklyBadges;
-
-    // 今日の分が終わっているかチェック
-    const today = new Date().toLocaleDateString("ja-JP");
-    const btn = document.getElementById("btn-complete-challenge");
-    const msg = document.getElementById("daily-message");
-
-    if (!btn) return; // ボタンがない場合は終了
-
-    if (data.lastDate === today) {
-        // ▼▼▼ 修正箇所：翻訳データ(t)を使う ▼▼▼
-        btn.textContent = t.dailyDoneBtn; // "本日は達成済みです" or "Done Today"
-        btn.disabled = true;
-        btn.style.background = "#81c784"; // 薄い緑
-        if(msg) msg.textContent = t.dailyMsgDone; // 応援メッセージ
-    } else {
-        // ▼▼▼ 修正箇所：未達成時のテキストも翻訳データを使う ▼▼▼
-        btn.textContent = t.dailyCompleteBtn; // "✅ チャレンジ達成！" or "Challenge Complete!"
-        
-        // リストが表示されている時だけ有効化
-        const listEl = document.getElementById("daily-menu-list");
-        if (listEl && listEl.style.display === "block") {
-            btn.disabled = false;
-            btn.style.background = "#ff6f00"; // オレンジ
-            btn.style.cursor = "pointer";
-        } else {
-             btn.disabled = true;
-             btn.style.background = "#ccc";
+function addDailyUser() {
+    const name = prompt("新しい旅人の名前を入力してください（例：弟、妹）");
+    if (name && name.trim() !== "") {
+        if (dailyUserData.records[name]) {
+            alert("その名前は既に存在します。");
+            return;
         }
-        if(msg) msg.textContent = "";
+        // 新規ユーザー作成
+        dailyUserData.records[name] = createDefaultDailyData();
+        dailyUserData.currentUser = name;
+        saveGlobalDailyData();
+        
+        updateDailyUserSelectUI();
+        switchDailyUser(); // 切り替え処理を呼んで画面更新
+        alert(`「${name}」の旅を新しく始めます！🎌`);
     }
 }
 
-// ==========================================
-// 🏆 日替わり補強チャレンジ機能（修正・統合版）
-// ==========================================
+function deleteDailyUser() {
+    const target = dailyUserData.currentUser;
+    const users = Object.keys(dailyUserData.records);
 
-// --- 1. データ管理関数 ---
-function loadDailyData() {
-    const json = localStorage.getItem("smartCoachDailyData");
-    return json ? JSON.parse(json) : { 
-        streak: 0, 
-        lastDate: "", 
-        totalBadges: 0, 
-        weeklyBadges: 0 
-    };
+    if (users.length <= 1) {
+        alert("最後の1人は削除できません。");
+        return;
+    }
+
+    if (confirm(`現在選択中の「${target}」の旅の記録（バッジ・地図進捗）を全て削除しますか？\nこの操作は取り消せません。`)) {
+        delete dailyUserData.records[target];
+        dailyUserData.currentUser = Object.keys(dailyUserData.records)[0];
+        saveGlobalDailyData();
+        
+        updateDailyUserSelectUI();
+        switchDailyUser(); // 切り替え処理を呼んで画面更新
+    }
 }
 
-function saveDailyData(data) {
-    localStorage.setItem("smartCoachDailyData", JSON.stringify(data));
+// 全体データを保存する
+function saveGlobalDailyData() {
+    localStorage.setItem(STORAGE_KEY_DAILY, JSON.stringify(dailyUserData));
+}
+
+// 現在のユーザーのデータを取得する
+function getCurrentUserDailyData() {
+    const user = dailyUserData.currentUser;
+    if (!dailyUserData.records[user]) {
+        dailyUserData.records[user] = createDefaultDailyData();
+    }
+    return dailyUserData.records[user];
+}
+
+// ------------------------------------------------
+// B. データ管理 & UI更新
+// ------------------------------------------------
+
+// 既存コードとの互換性のため、現在ユーザーのデータを返す
+function loadDailyData() {
+    return getCurrentUserDailyData();
+}
+
+// 引数で渡されたデータ（個人データ）を全体データにマージして保存
+function saveDailyData(individualData) {
+    dailyUserData.records[dailyUserData.currentUser] = individualData;
+    saveGlobalDailyData();
     updateDailyUI();
 }
 
-// --- 2. 画面表示更新 ---
 function updateDailyUI() {
-    const data = loadDailyData();
-    // 言語設定を取得（もし変数がなければ日本語をデフォルトに）
+    const data = getCurrentUserDailyData();
+    
+    // 言語設定を取得
     const t = (typeof translations !== 'undefined' && typeof currentLang !== 'undefined') 
               ? (translations[currentLang] || translations.ja) 
               : { dailyDoneBtn: "本日は達成済みです", dailyCompleteBtn: "✅ チャレンジ達成！", dailyMsgDone: "お疲れ様でした！" };
@@ -8315,6 +8405,7 @@ function updateDailyUI() {
     } else {
         btn.textContent = t.dailyCompleteBtn;
         const listEl = document.getElementById("daily-menu-list");
+        // リストが表示されている時だけ有効化
         if (listEl && listEl.style.display === "block") {
             btn.disabled = false;
             btn.style.background = "#ff6f00";
@@ -8327,37 +8418,221 @@ function updateDailyUI() {
     }
 }
 
-// ==========================================
-// 🗺️ マップ開閉機能
-// ==========================================
+// マップ用データの保存処理（個人データに反映）
+function saveMapData() {
+    let data = loadDailyData(); 
+    data.mapJapanIdx = mapProgress.japan;
+    data.mapWorldIdx = mapProgress.world;
+    data.currentMapMode = currentMapMode;
+    data.japanCompleted = mapProgress.japanCompleted;
+    saveDailyData(data); // ここで全体保存される
+}
+
+// ------------------------------------------------
+// C. マップ描画機能 (Google Charts)
+// ------------------------------------------------
+
+let chart; 
+let isChartLoaded = false; 
+
+if (typeof google !== 'undefined' && google.charts) {
+    google.charts.load('current', { 'packages': ['geochart'] });
+    google.charts.setOnLoadCallback(() => {
+        isChartLoaded = true;
+        renderMap();
+    });
+}
+
+// ルートデータ (日本)
+const JAPAN_ROUTE = [
+    {name:"北海道", code:"JP-01"}, {name:"青森", code:"JP-02"}, {name:"岩手", code:"JP-03"}, {name:"宮城", code:"JP-04"},
+    {name:"秋田", code:"JP-05"}, {name:"山形", code:"JP-06"}, {name:"福島", code:"JP-07"}, {name:"茨城", code:"JP-08"},
+    {name:"栃木", code:"JP-09"}, {name:"群馬", code:"JP-10"}, {name:"埼玉", code:"JP-11"}, {name:"千葉", code:"JP-12"},
+    {name:"東京", code:"JP-13"}, {name:"神奈川", code:"JP-14"}, {name:"新潟", code:"JP-15"}, {name:"富山", code:"JP-16"},
+    {name:"石川", code:"JP-17"}, {name:"福井", code:"JP-18"}, {name:"山梨", code:"JP-19"}, {name:"長野", code:"JP-20"},
+    {name:"岐阜", code:"JP-21"}, {name:"静岡", code:"JP-22"}, {name:"愛知", code:"JP-23"}, {name:"三重", code:"JP-24"},
+    {name:"滋賀", code:"JP-25"}, {name:"京都", code:"JP-26"}, {name:"大阪", code:"JP-27"}, {name:"兵庫", code:"JP-28"},
+    {name:"奈良", code:"JP-29"}, {name:"和歌山", code:"JP-30"}, {name:"鳥取", code:"JP-31"}, {name:"島根", code:"JP-32"},
+    {name:"岡山", code:"JP-33"}, {name:"広島", code:"JP-34"}, {name:"山口", code:"JP-35"}, {name:"徳島", code:"JP-36"},
+    {name:"香川", code:"JP-37"}, {name:"愛媛", code:"JP-38"}, {name:"高知", code:"JP-39"}, {name:"福岡", code:"JP-40"},
+    {name:"佐賀", code:"JP-41"}, {name:"長崎", code:"JP-42"}, {name:"熊本", code:"JP-43"}, {name:"大分", code:"JP-44"},
+    {name:"宮崎", code:"JP-45"}, {name:"鹿児島", code:"JP-46"}, {name:"沖縄", code:"JP-47"}
+];
+
+// ルートデータ (世界)
+const WORLD_ROUTE = [
+    {name:"日本", code:"JP"}, {name:"韓国", code:"KR"}, {name:"中国", code:"CN"}, {name:"モンゴル", code:"MN"}, {name:"北朝鮮", code:"KP"},
+    {name:"ベトナム", code:"VN"}, {name:"ラオス", code:"LA"}, {name:"カンボジア", code:"KH"}, {name:"タイ", code:"TH"}, {name:"ミャンマー", code:"MM"},
+    {name:"マレーシア", code:"MY"}, {name:"シンガポール", code:"SG"}, {name:"ブルネイ", code:"BN"}, {name:"フィリピン", code:"PH"}, {name:"インドネシア", code:"ID"}, {name:"東ティモール", code:"TL"},
+    {name:"インド", code:"IN"}, {name:"バングラデシュ", code:"BD"}, {name:"ブータン", code:"BT"}, {name:"ネパール", code:"NP"}, {name:"スリランカ", code:"LK"}, {name:"モルディブ", code:"MV"}, {name:"パキスタン", code:"PK"},
+    {name:"オーストラリア", code:"AU"}, {name:"ニュージーランド", code:"NZ"}, {name:"パプアニューギニア", code:"PG"}, {name:"ソロモン諸島", code:"SB"}, {name:"バヌアツ", code:"VU"}, {name:"フィジー", code:"FJ"}, {name:"サモア", code:"WS"}, {name:"トンガ", code:"TO"}, {name:"ツバル", code:"TV"}, {name:"キリバス", code:"KI"}, {name:"マーシャル諸島", code:"MH"}, {name:"ミクロネシア", code:"FM"}, {name:"パラオ", code:"PW"}, {name:"ナウル", code:"NR"},
+    {name:"アフガニスタン", code:"AF"}, {name:"タジキスタン", code:"TJ"}, {name:"キルギス", code:"KG"}, {name:"カザフスタン", code:"KZ"}, {name:"ウズベキスタン", code:"UZ"}, {name:"トルクメニスタン", code:"TM"}, {name:"イラン", code:"IR"},
+    {name:"イラク", code:"IQ"}, {name:"クウェート", code:"KW"}, {name:"バーレーン", code:"BH"}, {name:"カタール", code:"QA"}, {name:"UAE", code:"AE"}, {name:"オマーン", code:"OM"}, {name:"イエメン", code:"YE"}, {name:"サウジアラビア", code:"SA"}, {name:"ヨルダン", code:"JO"}, {name:"イスラエル", code:"IL"}, {name:"レバノン", code:"LB"}, {name:"シリア", code:"SY"}, {name:"トルコ", code:"TR"},
+    {name:"アゼルバイジャン", code:"AZ"}, {name:"ジョージア", code:"GE"}, {name:"アルメニア", code:"AM"},
+    {name:"ロシア", code:"RU"}, {name:"ウクライナ", code:"UA"}, {name:"ベラルーシ", code:"BY"}, {name:"モルドバ", code:"MD"}, {name:"ルーマニア", code:"RO"}, {name:"ブルガリア", code:"BG"},
+    {name:"フィンランド", code:"FI"}, {name:"スウェーデン", code:"SE"}, {name:"ノルウェー", code:"NO"}, {name:"アイスランド", code:"IS"}, {name:"デンマーク", code:"DK"}, {name:"エストニア", code:"EE"}, {name:"ラトビア", code:"LV"}, {name:"リトアニア", code:"LT"},
+    {name:"ポーランド", code:"PL"}, {name:"チェコ", code:"CZ"}, {name:"スロバキア", code:"SK"}, {name:"ハンガリー", code:"HU"}, {name:"オーストリア", code:"AT"}, {name:"ドイツ", code:"DE"}, {name:"スイス", code:"CH"}, {name:"リヒテンシュタイン", code:"LI"},
+    {name:"オランダ", code:"NL"}, {name:"ベルギー", code:"BE"}, {name:"ルクセンブルク", code:"LU"}, {name:"イギリス", code:"GB"}, {name:"アイルランド", code:"IE"}, {name:"フランス", code:"FR"}, {name:"モナコ", code:"MC"},
+    {name:"スペイン", code:"ES"}, {name:"ポルトガル", code:"PT"}, {name:"アンドラ", code:"AD"}, {name:"イタリア", code:"IT"}, {name:"バチカン", code:"VA"}, {name:"サンマリノ", code:"SM"}, {name:"マルタ", code:"MT"},
+    {name:"ギリシャ", code:"GR"}, {name:"キプロス", code:"CY"}, {name:"アルバニア", code:"AL"}, {name:"北マケドニア", code:"MK"}, {name:"セルビア", code:"RS"}, {name:"モンテネグロ", code:"ME"}, {name:"ボスニア・ヘルツェゴビナ", code:"BA"}, {name:"クロアチア", code:"HR"}, {name:"スロベニア", code:"SI"},
+    {name:"エジプト", code:"EG"}, {name:"リビア", code:"LY"}, {name:"チュニジア", code:"TN"}, {name:"アルジェリア", code:"DZ"}, {name:"モロッコ", code:"MA"}, {name:"モーリタニア", code:"MR"}, {name:"マリ", code:"ML"}, {name:"ニジェール", code:"NE"}, {name:"チャド", code:"TD"}, {name:"スーダン", code:"SD"},
+    {name:"セネガル", code:"SN"}, {name:"ガンビア", code:"GM"}, {name:"ギニアビサウ", code:"GW"}, {name:"ギニア", code:"GN"}, {name:"シエラレオネ", code:"SL"}, {name:"リベリア", code:"LR"}, {name:"コートジボワール", code:"CI"}, {name:"ガーナ", code:"GH"}, {name:"トーゴ", code:"TG"}, {name:"ベナン", code:"BJ"}, {name:"ナイジェリア", code:"NG"}, {name:"ブルキナファソ", code:"BF"}, {name:"カーボベルデ", code:"CV"},
+    {name:"カメルーン", code:"CM"}, {name:"中央アフリカ", code:"CF"}, {name:"南スーダン", code:"SS"}, {name:"エチオピア", code:"ET"}, {name:"エリトリア", code:"ER"}, {name:"ジブチ", code:"DJ"}, {name:"ソマリア", code:"SO"}, {name:"ケニア", code:"KE"}, {name:"ウガンダ", code:"UG"}, {name:"ルワンダ", code:"RW"}, {name:"ブルンジ", code:"BI"}, {name:"タンザニア", code:"TZ"},
+    {name:"赤道ギニア", code:"GQ"}, {name:"ガボン", code:"GA"}, {name:"コンゴ共和国", code:"CG"}, {name:"コンゴ民主共和国", code:"CD"}, {name:"サントメ・プリンシペ", code:"ST"},
+    {name:"アンゴラ", code:"AO"}, {name:"ザンビア", code:"ZM"}, {name:"マラウイ", code:"MW"}, {name:"モザンビーク", code:"MZ"}, {name:"マダガスカル", code:"MG"}, {name:"コモロ", code:"KM"}, {name:"モーリシャス", code:"MU"}, {name:"セーシェル", code:"SC"},
+    {name:"ジンバブエ", code:"ZW"}, {name:"ボツワナ", code:"BW"}, {name:"ナミビア", code:"NA"}, {name:"南アフリカ", code:"ZA"}, {name:"レソト", code:"LS"}, {name:"エスワティニ", code:"SZ"},
+    {name:"ブラジル", code:"BR"}, {name:"ウルグアイ", code:"UY"}, {name:"アルゼンチン", code:"AR"}, {name:"チリ", code:"CL"}, {name:"パラグアイ", code:"PY"}, {name:"ボリビア", code:"BO"}, {name:"ペルー", code:"PE"}, {name:"エクアドル", code:"EC"}, {name:"コロンビア", code:"CO"}, {name:"ベネズエラ", code:"VE"}, {name:"ガイアナ", code:"GY"}, {name:"スリナム", code:"SR"},
+    {name:"パナマ", code:"PA"}, {name:"コスタリカ", code:"CR"}, {name:"ニカラグア", code:"NI"}, {name:"ホンジュラス", code:"HN"}, {name:"エルサルバドル", code:"SV"}, {name:"グアテマラ", code:"GT"}, {name:"ベリーズ", code:"BZ"}, {name:"メキシコ", code:"MX"},
+    {name:"キューバ", code:"CU"}, {name:"ジャマイカ", code:"JM"}, {name:"ハイチ", code:"HT"}, {name:"ドミニカ共和国", code:"DO"}, {name:"バハマ", code:"BS"}, {name:"セントクリストファー・ネイビス", code:"KN"}, {name:"アンティグア・バーブーダ", code:"AG"}, {name:"ドミニカ国", code:"DM"}, {name:"セントルシア", code:"LC"}, {name:"セントビンセント・グレナディーン", code:"VC"}, {name:"バルバドス", code:"BB"}, {name:"グレナダ", code:"GD"}, {name:"トリニダード・トバゴ", code:"TT"},
+    {name:"アメリカ", code:"US"}, {name:"カナダ", code:"CA"}
+];
+
+function updateMapUnlockState() {
+    const btnWorld = document.getElementById("btn-map-world");
+    if (!btnWorld) return;
+
+    if (mapProgress.japanCompleted) {
+        btnWorld.disabled = false;
+        btnWorld.innerHTML = "🌏 世界一周";
+        btnWorld.style.background = (currentMapMode === "world") ? "#0288d1" : "#b0bec5"; 
+        btnWorld.style.color = "white";
+        btnWorld.style.cursor = "pointer";
+        btnWorld.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
+    } else {
+        btnWorld.disabled = true;
+        btnWorld.innerHTML = "🔒 世界一周 (日本クリアで解放)";
+        btnWorld.style.background = "#e0e0e0";
+        btnWorld.style.color = "#999";
+        btnWorld.style.cursor = "not-allowed";
+        btnWorld.style.boxShadow = "none";
+    }
+    
+    const btnJapan = document.getElementById("btn-map-japan");
+    if (btnJapan) {
+        btnJapan.style.background = (currentMapMode === "japan") ? "#8bc34a" : "#b0bec5";
+    }
+}
+
+function renderMap() {
+    if (!isChartLoaded) return;
+
+    const container = document.getElementById('map-visual-container');
+    if (!container) return;
+    if (container.offsetWidth === 0 || container.offsetHeight === 0 || container.offsetParent === null) return;
+
+    const isJapan = (currentMapMode === "japan");
+    const route = isJapan ? JAPAN_ROUTE : WORLD_ROUTE;
+    const currentIdx = isJapan ? mapProgress.japan : mapProgress.world;
+
+    const dataArray = [['Code', 'Status', {role: 'tooltip'}]];
+    
+    route.forEach((item, index) => {
+        let status = 0; 
+        if (index < currentIdx) status = 1; 
+        if (index === currentIdx) status = 2; 
+        dataArray.push([item.code, status, item.name]);
+    });
+
+    const data = google.visualization.arrayToDataTable(dataArray);
+
+    const options = {
+        colorAxis: { values: [0, 1, 2], colors: ['#e0e0e0', '#ffcc80', '#d50000'] },
+        backgroundColor: '#b3e5fc',
+        datalessRegionColor: '#f5f5f5',
+        defaultColor: '#f5f5f5',
+        legend: 'none',
+        tooltip: { isHtml: true, showColorCode: false },
+        margin: { top: 0, bottom: 0, left: 0, right: 0 } 
+    };
+
+    if (isJapan) {
+        options.region = 'JP'; 
+        options.resolution = 'provinces'; 
+    } else {
+        options.region = 'world'; 
+        options.resolution = 'countries'; 
+    }
+
+    chart = new google.visualization.GeoChart(container);
+    chart.draw(data, options);
+
+    const currentItem = route[currentIdx];
+    const currentName = currentItem ? currentItem.name : "GOAL!";
+    
+    const nameEl = document.getElementById("current-location-name");
+    if(nameEl) nameEl.textContent = currentName;
+
+    const progEl = document.getElementById("map-progress-text");
+    if(progEl) progEl.textContent = `${Math.min(currentIdx + 1, route.length)} / ${route.length} ${isJapan ? '都道府県' : 'Countries'}`;
+
+    if (typeof updateMapUnlockState === "function") {
+        updateMapUnlockState();
+    }
+}
+
+function switchMapMode(mode) {
+    currentMapMode = mode;
+    saveMapData();
+    renderMap();
+}
+
+function advanceMapProgress() {
+    const route = currentMapMode === "japan" ? JAPAN_ROUTE : WORLD_ROUTE;
+    const key = currentMapMode === "japan" ? "japan" : "world";
+    
+    if (mapProgress[key] < route.length - 1) {
+        mapProgress[key]++;
+    } else {
+        if (currentMapMode === "japan") {
+            if (!mapProgress.japanCompleted) {
+                alert("🎉 日本一周達成おめでとうございます！\n\n🔓 新たな挑戦「世界一周モード」が解放されました！");
+                mapProgress.japanCompleted = true; 
+            } else {
+                alert("🎉 日本一周達成！おめでとうございます！");
+            }
+            mapProgress.japan = 0; 
+        } else {
+            alert("🎉 世界一周達成！Amazing! 素晴らしい偉業です！");
+            mapProgress.world = 0; 
+        }
+    }
+    
+    saveMapData(); 
+    renderMap();   
+}
+
 function toggleMapDisplay() {
     const mapArea = document.getElementById("map-collapsible-area");
     const icon = document.getElementById("map-toggle-icon");
-    
     if (!mapArea) return;
 
     if (mapArea.style.display === "none") {
-        // 開く
         mapArea.style.display = "block";
         if (icon) icon.textContent = "▲";
-        
-        // ★重要: Google Chartsは非表示状態で描画するとサイズがおかしくなるため、
-        // 表示したタイミングで再描画(renderMap)を呼び出します。
         if (typeof renderMap === "function" && isChartLoaded) {
             renderMap();
         }
     } else {
-        // 閉じる
         mapArea.style.display = "none";
         if (icon) icon.textContent = "▼";
     }
 }
 
+window.addEventListener('resize', () => {
+    if(isChartLoaded) renderMap();
+});
 
-// --- 3. チャレンジ生成処理 ---
+// ------------------------------------------------
+// D. チャレンジ生成・達成処理
+// ------------------------------------------------
+
+// 初期化（ページロード時）
+document.addEventListener("DOMContentLoaded", () => {
+    initDailyUser();
+    renderMap();
+});
+
 async function generateDailyChallenge() {
-    console.log("🔥 チャレンジ生成ボタンが押されました");
-
     // データロード確認
     if (typeof sheetData === 'undefined' || !sheetData || sheetData.length === 0) {
         const statusEl = document.getElementById("statusMessage");
@@ -8375,35 +8650,28 @@ async function generateDailyChallenge() {
         return;
     }
 
-    // 「補強」メニューの抽出（★修正：リストパワードリルを除外）
+    // 「補強」メニューの抽出（リストパワードリルを除外）
     const strengthMenus = sheetData.filter(m => {
         const cat = (m.カテゴリ || m.category || "").toString();
         const name = (m.メニュー名 || m.name || "").toString();
-        
-        // カテゴリに「補強」を含み、かつ メニュー名に「リストパワードリル」を含まないもの
         return cat.includes("補強") && !name.includes("リストパワードリル");
     });
 
     if (strengthMenus.length === 0) {
-        const existingCats = [...new Set(sheetData.map(m => m.カテゴリ || m.category))].join(", ");
-        alert(`❌ 条件に合う「補強」メニューが見つかりませんでした。\n（リストパワードリル以外の補強メニューがない可能性があります）`);
+        alert(`❌ 条件に合う「補強」メニューが見つかりませんでした。`);
         return;
     }
 
-    // 指定された数を取得
     const countInput = document.getElementById("daily-count");
     let count = parseInt(countInput.value) || 7;
     if (count > strengthMenus.length) count = strengthMenus.length;
 
-    // ランダム抽出
     const shuffled = strengthMenus.sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, count);
 
-    // リスト描画
     const listContainer = document.getElementById("daily-menu-list");
     if (!listContainer) return;
     
-    // 閉じるボタンを先頭に追加して初期化
     listContainer.innerHTML = `
         <div style="text-align: right; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
             <button id="btn-close-daily-list" style="background: #757575; color: white; border: none; border-radius: 4px; padding: 5px 15px; cursor: pointer; font-size: 12px;">
@@ -8412,7 +8680,6 @@ async function generateDailyChallenge() {
         </div>
     `;
 
-    // 閉じるボタンの動作設定
     document.getElementById("btn-close-daily-list").addEventListener("click", () => {
         listContainer.style.display = "none";
     });
@@ -8457,7 +8724,6 @@ async function generateDailyChallenge() {
 
     listContainer.style.display = "block";
     
-    // ボタンの有効化
     const btn = document.getElementById("btn-complete-challenge");
     if(btn) {
         btn.disabled = false;
@@ -8467,342 +8733,11 @@ async function generateDailyChallenge() {
     }
 }
 
-// --- 4. チャレンジ達成処理 ---
-function completeDailyChallenge() {
-    if(typeof playSportsDrum === 'function') playSportsDrum();
-
-    const currentData = loadDailyData();
-    const today = new Date().toLocaleDateString("ja-JP");
-    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("ja-JP");
-
-    if (currentData.lastDate === today) return;
-
-    if (currentData.lastDate === yesterday) {
-        currentData.streak++;
-    } else {
-        currentData.streak = 1;
-    }
-
-    currentData.lastDate = today;
-    currentData.totalBadges++;
-
-    let alertMsg = "🎖️ バッジを獲得しました！";
-
-    if (currentData.streak > 0 && currentData.streak % 7 === 0) {
-        currentData.weeklyBadges++;
-        alertMsg += "\n🏆 1週間継続達成！スペシャルバッジ獲得！";
-        if(typeof playBuzz === 'function') playBuzz(500, 600);
-    }
-
-    saveDailyData(currentData);
-    alert(alertMsg);
-}
-
-// --- 5. 初期化イベント ---
-document.addEventListener("DOMContentLoaded", () => {
-    updateDailyUI();
-});
-
-// ==========================================
-// 🗑️ データリセット機能
-// ==========================================
-function resetDailyData() {
-    // 誤操作防止の確認アラート
-    if (!confirm("⚠️ 【警告】\nこれまでの日本一周・世界一周の進捗、獲得したバッジ、連続達成記録がすべて消去されます。\n\n本当にリセットして最初からやり直しますか？")) {
-        return;
-    }
-
-    // 1. ローカルストレージのデータを削除
-    localStorage.removeItem("smartCoachDailyData");
-
-    // 2. 変数を初期状態に戻す
-    mapProgress = { japan: 0, world: 0, japanCompleted: false };
-    currentMapMode = "japan";
-
-    // 3. 画面表示を更新（初期化）
-    updateDailyUI();  // バッジやボタン状態の更新
-    renderMap();      // 地図の更新（スタート地点へ）
-    
-    // 4. マップのロック状態も更新（世界一周ボタンをロック）
-    if (typeof updateMapUnlockState === "function") {
-        updateMapUnlockState();
-    }
-
-    // 5. 完了メッセージ
-    const msgEl = document.getElementById("daily-message");
-    if(msgEl) msgEl.textContent = ""; // メッセージクリア
-    
-    alert("データをリセットしました。\n新たな旅を始めましょう！🎌");
-}
-
-// ==========================================
-// 🗺️ 日本一周＆世界一周 マップ機能 (Google Charts版)
-// ==========================================
-
-// --- 設定 ---
-let chart; // Google Chartインスタンス
-let isChartLoaded = false; // ライブラリ読み込み完了フラグ
-
-// Google Charts ライブラリのロード
-if (typeof google !== 'undefined' && google.charts) {
-    google.charts.load('current', {
-        'packages': ['geochart']
-    });
-    google.charts.setOnLoadCallback(() => {
-        isChartLoaded = true;
-        renderMap(); // 準備ができたら描画
-    });
-}
-
-// 📍 日本一周ルート (JIS X 0401 都道府県コード順: 北から南へ)
-// Google Chartsでは "JP-01" のようなISO 3166-2コードを使用します
-const JAPAN_ROUTE = [
-    {name:"北海道", code:"JP-01"}, {name:"青森", code:"JP-02"}, {name:"岩手", code:"JP-03"}, {name:"宮城", code:"JP-04"},
-    {name:"秋田", code:"JP-05"}, {name:"山形", code:"JP-06"}, {name:"福島", code:"JP-07"}, {name:"茨城", code:"JP-08"},
-    {name:"栃木", code:"JP-09"}, {name:"群馬", code:"JP-10"}, {name:"埼玉", code:"JP-11"}, {name:"千葉", code:"JP-12"},
-    {name:"東京", code:"JP-13"}, {name:"神奈川", code:"JP-14"}, {name:"新潟", code:"JP-15"}, {name:"富山", code:"JP-16"},
-    {name:"石川", code:"JP-17"}, {name:"福井", code:"JP-18"}, {name:"山梨", code:"JP-19"}, {name:"長野", code:"JP-20"},
-    {name:"岐阜", code:"JP-21"}, {name:"静岡", code:"JP-22"}, {name:"愛知", code:"JP-23"}, {name:"三重", code:"JP-24"},
-    {name:"滋賀", code:"JP-25"}, {name:"京都", code:"JP-26"}, {name:"大阪", code:"JP-27"}, {name:"兵庫", code:"JP-28"},
-    {name:"奈良", code:"JP-29"}, {name:"和歌山", code:"JP-30"}, {name:"鳥取", code:"JP-31"}, {name:"島根", code:"JP-32"},
-    {name:"岡山", code:"JP-33"}, {name:"広島", code:"JP-34"}, {name:"山口", code:"JP-35"}, {name:"徳島", code:"JP-36"},
-    {name:"香川", code:"JP-37"}, {name:"愛媛", code:"JP-38"}, {name:"高知", code:"JP-39"}, {name:"福岡", code:"JP-40"},
-    {name:"佐賀", code:"JP-41"}, {name:"長崎", code:"JP-42"}, {name:"熊本", code:"JP-43"}, {name:"大分", code:"JP-44"},
-    {name:"宮崎", code:"JP-45"}, {name:"鹿児島", code:"JP-46"}, {name:"沖縄", code:"JP-47"}
-];
-
-// 📍 世界一周ルート (国連加盟国193カ国ベース + バチカン等)
-// 日本発 → アジア → オセアニア → ヨーロッパ → アフリカ → 南北アメリカ (ISO 3166-1 alpha-2)
-const WORLD_ROUTE = [
-    // 東アジア
-    {name:"日本", code:"JP"}, {name:"韓国", code:"KR"}, {name:"中国", code:"CN"}, {name:"モンゴル", code:"MN"}, {name:"北朝鮮", code:"KP"},
-    // 東南アジア
-    {name:"ベトナム", code:"VN"}, {name:"ラオス", code:"LA"}, {name:"カンボジア", code:"KH"}, {name:"タイ", code:"TH"}, {name:"ミャンマー", code:"MM"},
-    {name:"マレーシア", code:"MY"}, {name:"シンガポール", code:"SG"}, {name:"ブルネイ", code:"BN"}, {name:"フィリピン", code:"PH"}, {name:"インドネシア", code:"ID"}, {name:"東ティモール", code:"TL"},
-    // 南アジア
-    {name:"インド", code:"IN"}, {name:"バングラデシュ", code:"BD"}, {name:"ブータン", code:"BT"}, {name:"ネパール", code:"NP"}, {name:"スリランカ", code:"LK"}, {name:"モルディブ", code:"MV"}, {name:"パキスタン", code:"PK"},
-    // オセアニア
-    {name:"オーストラリア", code:"AU"}, {name:"ニュージーランド", code:"NZ"}, {name:"パプアニューギニア", code:"PG"}, {name:"ソロモン諸島", code:"SB"}, {name:"バヌアツ", code:"VU"}, {name:"フィジー", code:"FJ"}, {name:"サモア", code:"WS"}, {name:"トンガ", code:"TO"}, {name:"ツバル", code:"TV"}, {name:"キリバス", code:"KI"}, {name:"マーシャル諸島", code:"MH"}, {name:"ミクロネシア", code:"FM"}, {name:"パラオ", code:"PW"}, {name:"ナウル", code:"NR"},
-    // 中央アジア・西アジア
-    {name:"アフガニスタン", code:"AF"}, {name:"タジキスタン", code:"TJ"}, {name:"キルギス", code:"KG"}, {name:"カザフスタン", code:"KZ"}, {name:"ウズベキスタン", code:"UZ"}, {name:"トルクメニスタン", code:"TM"}, {name:"イラン", code:"IR"},
-    // 中東
-    {name:"イラク", code:"IQ"}, {name:"クウェート", code:"KW"}, {name:"バーレーン", code:"BH"}, {name:"カタール", code:"QA"}, {name:"UAE", code:"AE"}, {name:"オマーン", code:"OM"}, {name:"イエメン", code:"YE"}, {name:"サウジアラビア", code:"SA"}, {name:"ヨルダン", code:"JO"}, {name:"イスラエル", code:"IL"}, {name:"レバノン", code:"LB"}, {name:"シリア", code:"SY"}, {name:"トルコ", code:"TR"},
-    // コーカサス
-    {name:"アゼルバイジャン", code:"AZ"}, {name:"ジョージア", code:"GE"}, {name:"アルメニア", code:"AM"},
-    // ヨーロッパ（東・北）
-    {name:"ロシア", code:"RU"}, {name:"ウクライナ", code:"UA"}, {name:"ベラルーシ", code:"BY"}, {name:"モルドバ", code:"MD"}, {name:"ルーマニア", code:"RO"}, {name:"ブルガリア", code:"BG"},
-    {name:"フィンランド", code:"FI"}, {name:"スウェーデン", code:"SE"}, {name:"ノルウェー", code:"NO"}, {name:"アイスランド", code:"IS"}, {name:"デンマーク", code:"DK"}, {name:"エストニア", code:"EE"}, {name:"ラトビア", code:"LV"}, {name:"リトアニア", code:"LT"},
-    // ヨーロッパ（中・西・南）
-    {name:"ポーランド", code:"PL"}, {name:"チェコ", code:"CZ"}, {name:"スロバキア", code:"SK"}, {name:"ハンガリー", code:"HU"}, {name:"オーストリア", code:"AT"}, {name:"ドイツ", code:"DE"}, {name:"スイス", code:"CH"}, {name:"リヒテンシュタイン", code:"LI"},
-    {name:"オランダ", code:"NL"}, {name:"ベルギー", code:"BE"}, {name:"ルクセンブルク", code:"LU"}, {name:"イギリス", code:"GB"}, {name:"アイルランド", code:"IE"}, {name:"フランス", code:"FR"}, {name:"モナコ", code:"MC"},
-    {name:"スペイン", code:"ES"}, {name:"ポルトガル", code:"PT"}, {name:"アンドラ", code:"AD"}, {name:"イタリア", code:"IT"}, {name:"バチカン", code:"VA"}, {name:"サンマリノ", code:"SM"}, {name:"マルタ", code:"MT"},
-    {name:"ギリシャ", code:"GR"}, {name:"キプロス", code:"CY"}, {name:"アルバニア", code:"AL"}, {name:"北マケドニア", code:"MK"}, {name:"セルビア", code:"RS"}, {name:"モンテネグロ", code:"ME"}, {name:"ボスニア・ヘルツェゴビナ", code:"BA"}, {name:"クロアチア", code:"HR"}, {name:"スロベニア", code:"SI"},
-    // アフリカ（北・西）
-    {name:"エジプト", code:"EG"}, {name:"リビア", code:"LY"}, {name:"チュニジア", code:"TN"}, {name:"アルジェリア", code:"DZ"}, {name:"モロッコ", code:"MA"}, {name:"モーリタニア", code:"MR"}, {name:"マリ", code:"ML"}, {name:"ニジェール", code:"NE"}, {name:"チャド", code:"TD"}, {name:"スーダン", code:"SD"},
-    {name:"セネガル", code:"SN"}, {name:"ガンビア", code:"GM"}, {name:"ギニアビサウ", code:"GW"}, {name:"ギニア", code:"GN"}, {name:"シエラレオネ", code:"SL"}, {name:"リベリア", code:"LR"}, {name:"コートジボワール", code:"CI"}, {name:"ガーナ", code:"GH"}, {name:"トーゴ", code:"TG"}, {name:"ベナン", code:"BJ"}, {name:"ナイジェリア", code:"NG"}, {name:"ブルキナファソ", code:"BF"}, {name:"カーボベルデ", code:"CV"},
-    // アフリカ（中央・東・南）
-    {name:"カメルーン", code:"CM"}, {name:"中央アフリカ", code:"CF"}, {name:"南スーダン", code:"SS"}, {name:"エチオピア", code:"ET"}, {name:"エリトリア", code:"ER"}, {name:"ジブチ", code:"DJ"}, {name:"ソマリア", code:"SO"}, {name:"ケニア", code:"KE"}, {name:"ウガンダ", code:"UG"}, {name:"ルワンダ", code:"RW"}, {name:"ブルンジ", code:"BI"}, {name:"タンザニア", code:"TZ"},
-    {name:"赤道ギニア", code:"GQ"}, {name:"ガボン", code:"GA"}, {name:"コンゴ共和国", code:"CG"}, {name:"コンゴ民主共和国", code:"CD"}, {name:"サントメ・プリンシペ", code:"ST"},
-    {name:"アンゴラ", code:"AO"}, {name:"ザンビア", code:"ZM"}, {name:"マラウイ", code:"MW"}, {name:"モザンビーク", code:"MZ"}, {name:"マダガスカル", code:"MG"}, {name:"コモロ", code:"KM"}, {name:"モーリシャス", code:"MU"}, {name:"セーシェル", code:"SC"},
-    {name:"ジンバブエ", code:"ZW"}, {name:"ボツワナ", code:"BW"}, {name:"ナミビア", code:"NA"}, {name:"南アフリカ", code:"ZA"}, {name:"レソト", code:"LS"}, {name:"エスワティニ", code:"SZ"},
-    // 南米
-    {name:"ブラジル", code:"BR"}, {name:"ウルグアイ", code:"UY"}, {name:"アルゼンチン", code:"AR"}, {name:"チリ", code:"CL"}, {name:"パラグアイ", code:"PY"}, {name:"ボリビア", code:"BO"}, {name:"ペルー", code:"PE"}, {name:"エクアドル", code:"EC"}, {name:"コロンビア", code:"CO"}, {name:"ベネズエラ", code:"VE"}, {name:"ガイアナ", code:"GY"}, {name:"スリナム", code:"SR"},
-    // 中米・カリブ
-    {name:"パナマ", code:"PA"}, {name:"コスタリカ", code:"CR"}, {name:"ニカラグア", code:"NI"}, {name:"ホンジュラス", code:"HN"}, {name:"エルサルバドル", code:"SV"}, {name:"グアテマラ", code:"GT"}, {name:"ベリーズ", code:"BZ"}, {name:"メキシコ", code:"MX"},
-    {name:"キューバ", code:"CU"}, {name:"ジャマイカ", code:"JM"}, {name:"ハイチ", code:"HT"}, {name:"ドミニカ共和国", code:"DO"}, {name:"バハマ", code:"BS"}, {name:"セントクリストファー・ネイビス", code:"KN"}, {name:"アンティグア・バーブーダ", code:"AG"}, {name:"ドミニカ国", code:"DM"}, {name:"セントルシア", code:"LC"}, {name:"セントビンセント・グレナディーン", code:"VC"}, {name:"バルバドス", code:"BB"}, {name:"グレナダ", code:"GD"}, {name:"トリニダード・トバゴ", code:"TT"},
-    // 北米
-    {name:"アメリカ", code:"US"}, {name:"カナダ", code:"CA"}
-];
-
-// 状態変数
-let currentMapMode = "japan";
-let mapProgress = { japan: 0, world: 0 }; 
-
-// --- データ保存・読み込み ---
-function loadMapData() {
-    const json = localStorage.getItem("smartCoachDailyData");
-    const data = json ? JSON.parse(json) : {};
-    mapProgress.japan = data.mapJapanIdx || 0;
-    mapProgress.world = data.mapWorldIdx || 0;
-    currentMapMode = data.currentMapMode || "japan";
-    
-    // ★追加: クリアフラグの読み込み
-    // まだデータがない場合は false
-    mapProgress.japanCompleted = data.japanCompleted || false;
-
-    // ボタンの状態を更新
-    updateMapUnlockState();
-
-    return data;
-}
-
-// --- ★新規: ロック解除状態の更新 ---
-function updateMapUnlockState() {
-    const btnWorld = document.getElementById("btn-map-world");
-    if (!btnWorld) return;
-
-    if (mapProgress.japanCompleted) {
-        // 解放済み
-        btnWorld.disabled = false;
-        btnWorld.innerHTML = "🌏 世界一周";
-        btnWorld.style.background = (currentMapMode === "world") ? "#0288d1" : "#b0bec5"; // 選択状態によって色を変える
-        btnWorld.style.color = "white";
-        btnWorld.style.cursor = "pointer";
-        btnWorld.style.boxShadow = "0 2px 4px rgba(0,0,0,0.2)";
-    } else {
-        // ロック中
-        btnWorld.disabled = true;
-        btnWorld.innerHTML = "🔒 世界一周 (日本クリアで解放)";
-        btnWorld.style.background = "#e0e0e0";
-        btnWorld.style.color = "#999";
-        btnWorld.style.cursor = "not-allowed";
-        btnWorld.style.boxShadow = "none";
-    }
-    
-    // 日本ボタンのスタイルも更新（選択状態の反映）
-    const btnJapan = document.getElementById("btn-map-japan");
-    if (btnJapan) {
-        btnJapan.style.background = (currentMapMode === "japan") ? "#8bc34a" : "#b0bec5";
-    }
-}
-
-function saveMapData() {
-    let data = loadDailyData(); 
-    data.mapJapanIdx = mapProgress.japan;
-    data.mapWorldIdx = mapProgress.world;
-    data.currentMapMode = currentMapMode;
-    // ★追加: クリアフラグの保存
-    data.japanCompleted = mapProgress.japanCompleted;
-    saveDailyData(data);
-}
-
-// --- マップ描画 (Google Charts使用) ---
-function renderMap() {
-    // ライブラリの準備がまだなら何もしない
-    if (!isChartLoaded) return;
-
-    const container = document.getElementById('map-visual-container');
-    if (!container) return;
-
-    // ▼▼▼ 修正: 無限ループ防止 ▼▼▼
-    // コンテナが見えていない（幅が0、または親が非表示）場合は、
-    // 無理に描画せず、ここで処理を終了します。（再試行はしません）
-    if (container.offsetWidth === 0 || container.offsetHeight === 0 || container.offsetParent === null) {
-        // console.log("マップは現在非表示です。描画をスキップしました。"); // ログも出さない
-        return;
-    }
-    // ▲▲▲ 修正ここまで ▲▲▲
-
-    const isJapan = (currentMapMode === "japan");
-    const route = isJapan ? JAPAN_ROUTE : WORLD_ROUTE;
-    const currentIdx = isJapan ? mapProgress.japan : mapProgress.world;
-
-    // データテーブルの作成
-    const dataArray = [['Code', 'Status', {role: 'tooltip'}]];
-    
-    route.forEach((item, index) => {
-        let status = 0; // 未到達
-        if (index < currentIdx) status = 1; // 通過済み
-        if (index === currentIdx) status = 2; // 現在地
-        
-        // [国コード, ステータス値, 表示名(ツールチップ)]
-        dataArray.push([item.code, status, item.name]);
-    });
-
-    const data = google.visualization.arrayToDataTable(dataArray);
-
-    // オプション設定
-    const options = {
-        colorAxis: { values: [0, 1, 2], colors: ['#e0e0e0', '#ffcc80', '#d50000'] },
-        backgroundColor: '#b3e5fc',
-        datalessRegionColor: '#f5f5f5',
-        defaultColor: '#f5f5f5',
-        legend: 'none',
-        tooltip: { isHtml: true, showColorCode: false },
-        margin: { top: 0, bottom: 0, left: 0, right: 0 } 
-    };
-
-    if (isJapan) {
-        options.region = 'JP'; 
-        options.resolution = 'provinces'; 
-    } else {
-        options.region = 'world'; 
-        options.resolution = 'countries'; 
-    }
-
-    chart = new google.visualization.GeoChart(container);
-    chart.draw(data, options);
-
-    // テキスト情報の更新
-    const currentItem = route[currentIdx];
-    const currentName = currentItem ? currentItem.name : "GOAL!";
-    
-    const nameEl = document.getElementById("current-location-name");
-    if(nameEl) nameEl.textContent = currentName;
-
-    const progEl = document.getElementById("map-progress-text");
-    if(progEl) progEl.textContent = `${Math.min(currentIdx + 1, route.length)} / ${route.length} ${isJapan ? '都道府県' : 'Countries'}`;
-
-    if (typeof updateMapUnlockState === "function") {
-        updateMapUnlockState();
-    }
-}
-
-// --- モード切替 ---
-function switchMapMode(mode) {
-    currentMapMode = mode;
-    saveMapData();
-    renderMap();
-}
-
-// --- 進捗更新 ---
-function advanceMapProgress() {
-    const route = currentMapMode === "japan" ? JAPAN_ROUTE : WORLD_ROUTE;
-    const key = currentMapMode === "japan" ? "japan" : "world";
-    
-    // まだゴールしていない場合
-    if (mapProgress[key] < route.length - 1) {
-        mapProgress[key]++;
-        
-    } else {
-        // ゴール到達時
-        if (currentMapMode === "japan") {
-            // 日本一周クリア時の特別処理
-            if (!mapProgress.japanCompleted) {
-                alert("🎉 日本一周達成おめでとうございます！\n\n🔓 新たな挑戦「世界一周モード」が解放されました！");
-                mapProgress.japanCompleted = true; // フラグON
-            } else {
-                alert("🎉 日本一周達成！おめでとうございます！");
-            }
-            mapProgress.japan = 0; // ループ
-        } else {
-            // 世界一周クリア時
-            alert("🎉 世界一周達成！Amazing! 素晴らしい偉業です！");
-            mapProgress.world = 0; // ループ
-        }
-    }
-    
-    saveMapData(); // 保存（フラグ含む）
-    renderMap();   // 再描画
-}
-
-// --- イベントリスナー ---
-// 画面リサイズ時に再描画（レスポンシブ対応）
-window.addEventListener('resize', () => {
-    if(isChartLoaded) renderMap();
-});
-
-// 初期化
-document.addEventListener("DOMContentLoaded", () => {
-    loadMapData(); 
-    // Google ChartsのロードコールバックでrenderMapが呼ばれます
-});
-
-// チャレンジ達成時の上書き
+// 達成処理（マップ進行と連動）
 window.completeDailyChallenge = function() {
     if(typeof playSportsDrum === 'function') playSportsDrum();
 
-    const currentData = loadDailyData(); 
+    const currentData = loadDailyData(); // 現在のユーザーデータを取得
     const today = new Date().toLocaleDateString("ja-JP");
     const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("ja-JP");
 
@@ -8817,81 +8752,53 @@ window.completeDailyChallenge = function() {
     currentData.lastDate = today;
     currentData.totalBadges++;
 
-    let alertMsg = "🎖️ バッジを獲得しました！";
+    let alertMsg = `🎖️ バッジを獲得しました！(${dailyUserData.currentUser}さん)`;
+
     if (currentData.streak > 0 && currentData.streak % 7 === 0) {
         currentData.weeklyBadges++;
         alertMsg += "\n🏆 1週間継続達成！スペシャルバッジ獲得！";
         if(typeof playBuzz === 'function') playBuzz(500, 600);
     }
 
-    // 進行処理
+    // まずデータ保存
     saveDailyData(currentData);
-    advanceMapProgress();
-    updateDailyUI();
     
-    const msgEl = document.getElementById("daily-message");
-    if(msgEl) msgEl.textContent = "🎉 エリア制覇！次の目的地へ進みます！";
-};
-
-// ==========================================
-// 🔄 既存関数の修正・上書き
-// ==========================================
-
-// 初期化時にマップデータを読み込む
-const originalDOMReady = window.onload; // もしあれば
-document.addEventListener("DOMContentLoaded", () => {
-    // 既存の処理...
-    updateDailyUI();
-    
-    // ★マップ初期化
-    loadMapData(); 
-    renderMap();
-});
-
-// チャレンジ達成時の処理をオーバーライド（マップ進行を追加）
-// ※既存の completeDailyChallenge 関数を完全に置き換えます
-window.completeDailyChallenge = function() {
-    if(typeof playSportsDrum === 'function') playSportsDrum();
-
-    const currentData = loadDailyData(); // Mapデータもここで読み込まれる
-    const today = new Date().toLocaleDateString("ja-JP");
-    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString("ja-JP");
-
-    if (currentData.lastDate === today) return;
-
-    if (currentData.lastDate === yesterday) {
-        currentData.streak++;
-    } else {
-        currentData.streak = 1;
-    }
-
-    currentData.lastDate = today;
-    currentData.totalBadges++;
-
-    let alertMsg = "🎖️ バッジを獲得しました！";
-
-    if (currentData.streak > 0 && currentData.streak % 7 === 0) {
-        currentData.weeklyBadges++;
-        alertMsg += "\n🏆 1週間継続達成！スペシャルバッジ獲得！";
-        if(typeof playBuzz === 'function') playBuzz(500, 600);
-    }
-
-    // ★ マップを進める
-    // currentDataオブジェクトを更新してから保存する流れにするため、
-    // advanceMapProgressのロジックをここに統合するか、保存後に呼ぶ
-    saveDailyData(currentData); // まずバッジ等を保存
-
-    // マップ進行（内部で再保存・描画）
+    // マップを進める（内部で再保存・描画）
     advanceMapProgress();
     
     // UI更新
     updateDailyUI();
     
-    // メッセージ表示
     const msgEl = document.getElementById("daily-message");
-    if(msgEl) msgEl.textContent = "🎉 次の目的地へ進みました！";
+    if(msgEl) msgEl.textContent = "🎉 エリア制覇！次の目的地へ進みます！";
+    alert(alertMsg);
 };
 
+function resetDailyData() {
+    if (!confirm(`⚠️ 【警告】\n現在選択中のユーザー「${dailyUserData.currentUser}」の\n日本一周・世界一周の進捗、バッジ、記録がすべて消去されます。\n\n本当にリセットして最初からやり直しますか？`)) {
+        return;
+    }
+
+    // 現在のユーザーデータを初期化
+    const resetData = createDefaultDailyData();
+    saveDailyData(resetData);
+
+    // 変数を初期状態に戻す
+    mapProgress = { japan: 0, world: 0, japanCompleted: false };
+    currentMapMode = "japan";
+
+    updateDailyUI();
+    renderMap();
+    
+    if (typeof updateMapUnlockState === "function") {
+        updateMapUnlockState();
+    }
+
+    const msgEl = document.getElementById("daily-message");
+    if(msgEl) msgEl.textContent = "";
+    
+    alert("データをリセットしました。\n新たな旅を始めましょう！🎌");
+}
 
 
 // ==========================================
@@ -15106,15 +15013,23 @@ function downloadThumbnail() {
 // --- カレンダー用変数 ---
 const WRIST_STORAGE_KEY = "smartCoachWristData";
 let wristCurrentDate = new Date(); // 表示中の年月
-let wristDoneDates = [];           // 実施済み日付リスト
+
+// データ構造: { currentUser: "名前", records: { "名前": ["2025-1-1", ...], "弟": [] } }
+let wristData = {
+    currentUser: "メインユーザー",
+    records: { "メインユーザー": [] }
+};
 
 // --- データ連携用変数 ---
 let currentWristVideoUrl = "";     // 動画URL保持用
 
 // 1. 初期化 (ページ読み込み時)
 document.addEventListener("DOMContentLoaded", () => {
-    // カレンダーの準備
+    // データの読み込み
     loadWristData();
+    
+    // UIの初期化
+    updateWristUserSelectUI();
     renderWristCalendar();
 
     // シートデータの反映 (少し待ってから実行)
@@ -15122,10 +15037,79 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ==========================================
-// A. シートデータ連携機能 (動画・説明の更新)
+// A. ユーザー管理機能 (新規追加)
 // ==========================================
 
-// シートデータから「リストパワードリル」を探して表示更新
+function updateWristUserSelectUI() {
+    const select = document.getElementById("wrist-user-select");
+    if (!select) return;
+
+    select.innerHTML = "";
+    Object.keys(wristData.records).forEach(name => {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        if (name === wristData.currentUser) opt.selected = true;
+        select.appendChild(opt);
+    });
+}
+
+function switchWristUser() {
+    const select = document.getElementById("wrist-user-select");
+    wristData.currentUser = select.value;
+    saveWristData();
+    renderWristCalendar(); // カレンダー再描画
+}
+
+function addWristUser() {
+    const name = prompt("新しいユーザー名を入力してください（例：弟、妹）");
+    if (name && name.trim() !== "") {
+        if (wristData.records[name]) {
+            alert("その名前は既に存在します。");
+            return;
+        }
+        // 新規ユーザー追加
+        wristData.records[name] = [];
+        wristData.currentUser = name;
+        saveWristData();
+        updateWristUserSelectUI();
+        renderWristCalendar();
+        alert(`「${name}」を追加しました。`);
+    }
+}
+
+function deleteWristUser() {
+    const target = wristData.currentUser;
+    const users = Object.keys(wristData.records);
+
+    if (users.length <= 1) {
+        alert("最後の1人は削除できません。");
+        return;
+    }
+
+    if (confirm(`現在選択中のユーザー「${target}」の記録を削除しますか？\nこの操作は取り消せません。`)) {
+        delete wristData.records[target];
+        // 別のユーザーに切り替え
+        wristData.currentUser = Object.keys(wristData.records)[0];
+        saveWristData();
+        updateWristUserSelectUI();
+        renderWristCalendar();
+    }
+}
+
+// 現在のユーザーの実施日リストを取得するヘルパー
+function getCurrentUserDates() {
+    const user = wristData.currentUser;
+    if (!wristData.records[user]) {
+        wristData.records[user] = []; // 安全策
+    }
+    return wristData.records[user];
+}
+
+// ==========================================
+// B. シートデータ連携機能 (動画・説明の更新)
+// ==========================================
+
 function updateWristContentFromSheet() {
     // データがまだなければ何もしない
     if (typeof sheetData === 'undefined' || !sheetData.length) return;
@@ -15136,11 +15120,11 @@ function updateWristContentFromSheet() {
         (m.メニュー名 && m.メニュー名.includes("リストパワードリル"))
     );
 
-    // デフォルト値 (★ここを指定URLに書き換えました)
+    // デフォルト値
     let displayData = {
         name: "リストパワードリル",
         desc: "手首の回内・回外運動を集中的に強化します。\n目安: 1日 左右各30回 × 3セット\n※ラケットカバーを付けると効果的です。",
-        url: "https://youtu.be/NSLZMGqPgB0", // 指定動画URL
+        url: "https://youtu.be/NSLZMGqPgB0",
         img: ""
     };
 
@@ -15166,7 +15150,6 @@ function updateWristContentFromSheet() {
         displayData.img = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
     }
 
-    // グローバル変数にURLを保存（クリックイベント用）
     currentWristVideoUrl = displayData.url;
 
     // --- DOM要素の更新 ---
@@ -15179,13 +15162,11 @@ function updateWristContentFromSheet() {
     if (elDesc) elDesc.textContent = displayData.desc;
     
     if (elImg) {
-        // 画像があれば表示、なければプレースホルダー
         elImg.src = displayData.img || "https://via.placeholder.com/130x80?text=No+Video";
     }
     
     if (elLink) {
         elLink.href = displayData.url;
-        // URLがない場合はリンクを隠す
         elLink.style.display = displayData.url ? "inline-flex" : "none";
     }
 }
@@ -15200,51 +15181,82 @@ function openWristVideo() {
 }
 
 // ==========================================
-// B. カレンダー管理機能
+// C. カレンダー管理機能 (LocalStorage)
 // ==========================================
 
-// データ読み込み
+// データ読み込み（旧形式からの移行対応）
 function loadWristData() {
     const json = localStorage.getItem(WRIST_STORAGE_KEY);
-    wristDoneDates = json ? JSON.parse(json) : [];
+    
+    if (json) {
+        const parsed = JSON.parse(json);
+        
+        // ★重要: 古い形式（ただの配列）だった場合の移行処理
+        if (Array.isArray(parsed)) {
+            console.log("旧データを新形式に移行します...");
+            wristData = {
+                currentUser: "メインユーザー",
+                records: {
+                    "メインユーザー": parsed // 旧データをメインユーザーに割り当て
+                }
+            };
+            saveWristData(); // 新形式で保存し直す
+        } else {
+            // 新形式ならそのまま読み込み
+            wristData = parsed;
+            // データ不整合防止
+            if (!wristData.records) wristData.records = { "Main": [] };
+            if (!wristData.currentUser) wristData.currentUser = Object.keys(wristData.records)[0];
+        }
+    } else {
+        // データなし（初期状態）
+        wristData = {
+            currentUser: "メインユーザー",
+            records: { "メインユーザー": [] }
+        };
+    }
 }
 
 // データ保存
 function saveWristData() {
-    localStorage.setItem(WRIST_STORAGE_KEY, JSON.stringify(wristDoneDates));
+    localStorage.setItem(WRIST_STORAGE_KEY, JSON.stringify(wristData));
 }
 
 // 「今日実施した」ボタン処理
 function markWristDrillDone() {
     const today = new Date();
     const dateStr = getWristDateStr(today);
+    const doneDates = getCurrentUserDates();
 
     // すでに記録済みかチェック
-    if (!wristDoneDates.includes(dateStr)) {
-        wristDoneDates.push(dateStr);
+    if (!doneDates.includes(dateStr)) {
+        doneDates.push(dateStr);
         saveWristData();
         
         // 演出
         if(typeof playSportsDrum === 'function') playSportsDrum();
         
         const msgEl = document.getElementById("wrist-status-msg");
-        if(msgEl) msgEl.textContent = "🎉 記録しました！ナイスファイト！";
+        if(msgEl) msgEl.textContent = `🎉 ${wristData.currentUser}さんの記録完了！`;
         setTimeout(() => { if(msgEl) msgEl.textContent = ""; }, 3000);
 
         // カレンダー再描画
         renderWristCalendar();
     } else {
-        alert("本日はすでに記録済みです！");
+        alert(`${wristData.currentUser}さんは、本日はすでに記録済みです！`);
     }
 }
 
-// カレンダー描画ロジック (Tealカラー統一版)
+// カレンダー描画ロジック
 function renderWristCalendar() {
     const grid = document.getElementById("wrist-cal-grid");
     const title = document.getElementById("wrist-cal-title");
     const countEl = document.getElementById("wrist-monthly-count");
     
     if(!grid || !title) return;
+
+    // 現在選択中のユーザーの記録を使用
+    const doneDates = getCurrentUserDates();
 
     // 表示中の年月
     const year = wristCurrentDate.getFullYear();
@@ -15292,7 +15304,7 @@ function renderWristCalendar() {
         }
 
         // 実施済み (Teal背景)
-        if (wristDoneDates.includes(dateStr)) {
+        if (doneDates.includes(dateStr)) {
             cell.style.background = "#b2dfdb"; // 薄い青緑
             cell.style.color = "#004d40";      // 濃い青緑文字
             cell.style.fontWeight = "bold";
@@ -15311,13 +15323,12 @@ function renderWristCalendar() {
     // ボタンの色更新
     const btn = document.getElementById("btn-wrist-done");
     if(btn) {
-        if(wristDoneDates.includes(todayStr)) {
-            btn.textContent = "本日完了済み ✅";
+        if(doneDates.includes(todayStr)) {
+            btn.textContent = `${wristData.currentUser}: 本日完了 ✅`;
             btn.style.background = "#90a4ae"; // グレー
             btn.disabled = true;
         } else {
-            // HTMLタグを含めると上書きされる可能性があるためテキストのみ変更またはinnerHTML使用
-            btn.innerHTML = "<span>✅</span> 今日実施した！";
+            btn.innerHTML = `<span>✅</span> ${wristData.currentUser}: 今日実施した！`;
             btn.style.background = "#00897b"; // Teal
             btn.disabled = false;
         }
@@ -15326,13 +15337,15 @@ function renderWristCalendar() {
 
 // 日付の修正機能（クリックでON/OFF）
 function toggleWristDate(dateStr) {
-    if (confirm(`${dateStr} の記録を変更しますか？`)) {
-        if (wristDoneDates.includes(dateStr)) {
+    const doneDates = getCurrentUserDates();
+    if (confirm(`ユーザー「${wristData.currentUser}」の\n${dateStr} の記録を変更しますか？`)) {
+        if (doneDates.includes(dateStr)) {
             // 削除
-            wristDoneDates = wristDoneDates.filter(d => d !== dateStr);
+            const idx = doneDates.indexOf(dateStr);
+            if (idx > -1) doneDates.splice(idx, 1);
         } else {
             // 追加
-            wristDoneDates.push(dateStr);
+            doneDates.push(dateStr);
         }
         saveWristData();
         renderWristCalendar();
@@ -15348,6 +15361,74 @@ function changeWristMonth(diff) {
 // ヘルパー：日付文字列生成
 function getWristDateStr(date) {
     return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+// ==========================================
+// ✏️ ユーザー名変更機能 (新規追加)
+// ==========================================
+
+// 1. リストパワードリルの名前変更
+function renameWristUser() {
+    const currentName = wristData.currentUser;
+    // 現在の名前を初期値にしてプロンプトを表示
+    const newName = prompt(`「${currentName}」の新しい名前を入力してください:`, currentName);
+
+    // キャンセルや空欄、変更なしの場合は何もしない
+    if (!newName || newName.trim() === "" || newName === currentName) return;
+
+    // 重複チェック
+    if (wristData.records[newName]) {
+        alert("その名前は既に使用されています。別の名前を入力してください。");
+        return;
+    }
+
+    if (confirm(`「${currentName}」を「${newName}」に変更しますか？`)) {
+        // データの引継ぎ（新しい名前のキーにデータをコピー）
+        wristData.records[newName] = wristData.records[currentName];
+        // 古い名前のキーを削除
+        delete wristData.records[currentName];
+        // 現在のユーザーを更新
+        wristData.currentUser = newName;
+
+        // 保存と画面更新
+        saveWristData();
+        updateWristUserSelectUI();
+        // カレンダーなどはデータ参照が変わるだけなので再描画不要ですが、念のため
+        renderWristCalendar(); 
+        
+        alert("名前を変更しました。");
+    }
+}
+
+// 2. 日本一周の旅の名前変更
+function renameDailyUser() {
+    const currentName = dailyUserData.currentUser;
+    const newName = prompt(`「${currentName}」の新しい名前を入力してください:`, currentName);
+
+    if (!newName || newName.trim() === "" || newName === currentName) return;
+
+    if (dailyUserData.records[newName]) {
+        alert("その名前は既に使用されています。別の名前を入力してください。");
+        return;
+    }
+
+    if (confirm(`「${currentName}」を「${newName}」に変更しますか？`)) {
+        // データの引継ぎ
+        dailyUserData.records[newName] = dailyUserData.records[currentName];
+        // 古いキーを削除
+        delete dailyUserData.records[currentName];
+        // 現在のユーザー更新
+        dailyUserData.currentUser = newName;
+
+        // 保存と画面更新
+        saveGlobalDailyData();
+        updateDailyUserSelectUI();
+        
+        // UIメッセージ等の更新
+        updateDailyUI();
+        
+        alert("名前を変更しました。");
+    }
 }
 </script>
 </body>
