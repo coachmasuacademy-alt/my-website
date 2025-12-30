@@ -2536,14 +2536,14 @@ function resetToJapanese() {
   box-sizing:border-box;
 ">
   <h3 style="margin-bottom:8px; color:#00796b;">課題・目的の入力</h3>
-  <textarea id="free-text" 
-    placeholder="例）スマッシュ後のリカバリーが遅い。前後の動き出しを速くしたい。" 
-    style="width:100%; height:50px; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:none; box-sizing:border-box;">
-  </textarea>
-  <button id="ai-suggest-btn" onclick="analyzeAndSuggest()" 
-    style="margin-top:10px; background:#00796b; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; min-width: 180px;">
-    おすすめメニューを提案
-  </button>
+  <textarea id="free-text" disabled
+  placeholder="※この機能は運営管理アプリからの連携時のみ使用可能です。" 
+  style="width:100%; height:50px; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:none; box-sizing:border-box; background-color: #f0f0f0;">
+</textarea>
+<button id="ai-suggest-btn" onclick="analyzeAndSuggest()" disabled
+  style="display: none; margin-top:10px; background:#00796b; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; min-width: 180px;">
+  おすすめメニューを提案
+</button>
 
   <div id="ai-suggested" style="margin-top:12px; font-size:14px; line-height:1.5;">
     </div>
@@ -16147,6 +16147,54 @@ document.addEventListener("DOMContentLoaded", () => {
                 analyzeAndSuggest();
             }
         }, 1000);
+    }
+});
+
+// ▼▼▼ 外部連携機能（URLパラメータの受け取り） ▼▼▼
+document.addEventListener("DOMContentLoaded", () => {
+    // URLからパラメータを取得
+    const params = new URLSearchParams(window.location.search);
+    const taskText = params.get("task");
+    // ★追加: 管理モード判定用のパラメータ（例: ?mode=admin）
+    const mode = params.get("mode");
+
+    // 対象の要素を取得
+    const textArea = document.getElementById("free-text");
+    const aiBtn = document.getElementById("ai-suggest-btn");
+
+    // 【判定ロジック】
+    // task（課題内容）が指定されている、または mode=admin が指定されている場合のみ機能を開放
+    if (taskText || mode === "admin") {
+        
+        // 1. 入力欄とボタンの制限を解除（有効化・表示）
+        if (textArea) {
+            textArea.disabled = false;
+            textArea.style.backgroundColor = "#fff"; // 背景を白に戻す
+            textArea.placeholder = "例）スマッシュ後のリカバリーが遅い。前後の動き出しを速くしたい。";
+        }
+        if (aiBtn) {
+            aiBtn.disabled = false;
+            aiBtn.style.display = "inline-block"; // ボタンを表示
+        }
+
+        // 2. taskパラメータがある場合は、値をセットして自動実行（既存の機能）
+        if (taskText) {
+            // 1. トレーニング画面を表示
+            const navTraining = document.getElementById("nav-training");
+            if (navTraining) showScreen('training', navTraining);
+
+            // 2. 課題を入力欄にセット
+            if (textArea) {
+                textArea.value = decodeURIComponent(taskText);
+            }
+
+            // 3. AI提案ボタンを自動クリック（少し待ってから実行）
+            setTimeout(() => {
+                if (typeof analyzeAndSuggest === 'function') {
+                    analyzeAndSuggest();
+                }
+            }, 1000);
+        }
     }
 });
 </script>
