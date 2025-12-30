@@ -434,7 +434,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbw5dsDBYvacMIqgCUjOF3unkyaNIyqRrQrHJh-1wK5OLuS4N8pWXDNlqnBOFoxD1psFPQ/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbzUs6VMFx_z7QMGnsDLinls16zxnyCTcdMjm3U13BmsSzc5JTWthqeUcNnkiL8vuqusfQ/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -2523,7 +2523,6 @@ function resetToJapanese() {
 </section>
 
 <section id="screen-training" class="screen-content">
-<!-- 🧠 課題・目的の入力欄（AI提案） -->
 <section id="ai-section" style="
   background:#fff;
   padding:15px;
@@ -2536,24 +2535,25 @@ function resetToJapanese() {
   box-sizing:border-box;
 ">
   <h3 style="margin-bottom:8px; color:#00796b;">課題・目的の入力</h3>
-  <textarea id="free-text" disabled
-  placeholder="※この機能は運営管理アプリからの連携時のみ使用可能です。" 
-  style="width:100%; height:50px; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:none; box-sizing:border-box; background-color: #f0f0f0;">
+  
+  <textarea id="free-text"
+  placeholder="例）スマッシュの威力を上げたい。後半バテない体力をつけたい。"
+  style="width:100%; height:50px; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:none; box-sizing:border-box; background-color: #fff;">
 </textarea>
-<button id="ai-suggest-btn" onclick="analyzeAndSuggest()" disabled
-  style="display: none; margin-top:10px; background:#00796b; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; min-width: 180px;">
+
+<button id="ai-suggest-btn" onclick="analyzeAndSuggest()"
+  style="display: inline-block; margin-top:10px; background:#00796b; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; min-width: 180px;">
   おすすめメニューを提案
 </button>
 
   <div id="ai-suggested" style="margin-top:12px; font-size:14px; line-height:1.5;">
     </div>
 
-  <button id="add-ai-menus-btn" onclick="addSuggestedMenus()" 
+  <button id="add-ai-menus-btn" onclick="addSuggestedMenus()"
     style="display:none; margin-top:15px; background:#e65100; color:white; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-weight:bold;">
     ✅ 提案メニューを一括でリストに追加
   </button>
 </section>
-
 
 <!-- トレーニングプログラム作成 -->
 <div id="create-menu-box" style="margin-top: 15px; padding:10px; background:#fff; border:1px solid #ccc; border-radius:6px;">
@@ -5895,7 +5895,7 @@ if (pdfBtn) {
 var suggestedMenusData = [];
 
 // もしSHEET_URLが定義されていない場合の予備
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxNUGti2mki0Jw0Rfsu0Y1VowtXuZP57ADs2rrgydCI84yUdrhTifTce_TvsTzARptKBg/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzUs6VMFx_z7QMGnsDLinls16zxnyCTcdMjm3U13BmsSzc5JTWthqeUcNnkiL8vuqusfQ/exec";
 
 // ✅ 1. Gemini API呼び出し関数 (エラーハンドリング強化版)
 window.analyzeAndSuggest = async function() {
@@ -16125,21 +16125,23 @@ function downloadCollage() {
 }
 
 // ▼▼▼ 外部連携機能（URLパラメータの受け取り） ▼▼▼
+// ▼▼▼ 外部連携機能（URLパラメータの受け取り） ▼▼▼
 document.addEventListener("DOMContentLoaded", () => {
-    // URLからパラメータを取得 (?task=課題内容 という形式を想定)
+    // URLからパラメータを取得
     const params = new URLSearchParams(window.location.search);
     const taskText = params.get("task");
 
-    if (taskText) {
+    // 対象の要素を取得
+    const textArea = document.getElementById("free-text");
+    
+    // URLパラメータ（?task=...）がある場合のみ、値を自動セットして画面遷移
+    if (taskText && textArea) {
         // 1. トレーニング画面を表示
         const navTraining = document.getElementById("nav-training");
         if (navTraining) showScreen('training', navTraining);
 
         // 2. 課題を入力欄にセット
-        const textArea = document.getElementById("free-text");
-        if (textArea) {
-            textArea.value = decodeURIComponent(taskText);
-        }
+        textArea.value = decodeURIComponent(taskText);
 
         // 3. AI提案ボタンを自動クリック（少し待ってから実行）
         setTimeout(() => {
@@ -16148,6 +16150,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }, 1000);
     }
+    // ※制限ロジックを削除したので、通常アクセスでも入力欄はHTML側の設定通り「有効」になります。
 });
 
 // ▼▼▼ 外部連携機能（URLパラメータの受け取り） ▼▼▼
