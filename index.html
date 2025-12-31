@@ -4444,7 +4444,6 @@ function openSimulation() {
 }
 </style>
 
-
 <section id="shuttle-analysis-section" style="
   margin-top: 30px; 
   padding: 0; 
@@ -4456,7 +4455,7 @@ function openSimulation() {
 ">
   <div style="background: #e0f7fa; padding: 15px 20px; border-bottom: 1px solid #b2ebf2;">
     <h3 style="margin:0; color:#006064; display:flex; align-items:center; gap:8px; font-size: 20px;">
-      🏸 ストローク位置分析 (Ver.9)
+      🏸 ストローク位置分析 <span style="font-size:15px; color:#d32f2f; font-weight:bold;">(※作成中)</span>
     </h3>
     <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
       AIがスイングを検知し、その瞬間の「足の位置」をコート図にプロットします。<br>
@@ -4555,13 +4554,13 @@ function openSimulation() {
         </div>
         <div id="shuttle-stats-box" style="margin-top:10px; background:#fff; padding:10px; border-radius:6px; border:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
           <div style="font-size:14px;">
-             <strong>📊 ストローク数:</strong>
-             <span id="shuttle-total-count" style="font-size:20px; font-weight:bold; color:#d32f2f; margin-left:5px;">0</span> 本
+              <strong>📊 ストローク数:</strong>
+              <span id="shuttle-total-count" style="font-size:20px; font-weight:bold; color:#d32f2f; margin-left:5px;">0</span> 本
           </div>
           <div style="display:flex; gap:5px;">
-             <button onclick="undoLastShot()" style="background:#757575; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">↩ 1つ戻る</button>
-             <button onclick="clearShuttleData()" style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">🗑️ 全消去</button>
-             <button onclick="downloadShuttleReport()" style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">📄 保存</button>
+              <button onclick="undoLastShot()" style="background:#757575; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">↩ 1つ戻る</button>
+              <button onclick="clearShuttleData()" style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">🗑️ 全消去</button>
+              <button onclick="downloadShuttleReport()" style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">📄 保存</button>
           </div>
         </div>
 
@@ -4570,6 +4569,73 @@ function openSimulation() {
     </div>
   </div>
 </section>
+
+<section id="video-tagging-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+  <div style="background: #fff8e1; padding: 15px 20px; border-bottom: 1px solid #ffecb3;">
+    <h3 style="margin:0; color:#ff6f00; display:flex; align-items:center; gap:8px; font-size: 20px;">
+      🏷️ 動画タギング＆ハイライト再生
+    </h3>
+    <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+      動画の重要なシーンをタグ付けし、その前後数秒のみを連続再生（ハイライト）します。
+    </p>
+  </div>
+
+  <div style="padding: 20px;">
+    <div style="margin-bottom: 15px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+      <label style="font-weight:bold; display:block; margin-bottom:5px; color:#333;">1. 動画を選択</label>
+      <input type="file" accept="video/*" onchange="vtLoadVideo(this)" style="width:100%;">
+    </div>
+
+    <div id="vt-container" style="display:none;">
+      <div style="position:relative; width:100%; max-width:640px; margin:0 auto; background:#000; border-radius:8px; overflow:hidden;">
+        <video id="vt-video" controls playsinline style="width:100%; height:auto; display:block;"></video>
+        <div id="vt-indicator" style="display:none; position:absolute; top:10px; right:10px; background:rgba(255,0,0,0.8); color:white; padding:5px 10px; border-radius:4px; font-weight:bold; font-size:12px;">
+          ▶ ハイライト再生中
+        </div>
+      </div>
+
+      <div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; background:#eee; padding:10px; border-radius:8px;">
+        <div style="display:flex; align-items:center; gap:5px;">
+          <span style="font-size:12px; font-weight:bold;">前後(秒):</span>
+          <input type="number" id="vt-buffer" value="3" min="1" max="10" style="width:50px; padding:5px; text-align:center;">
+        </div>
+        <button onclick="vtAddTag()" style="background:#ff6f00; color:white; border:none; padding:10px 20px; border-radius:30px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px;">
+          📌 今のシーンをタグ付け
+        </button>
+      </div>
+
+      <div style="margin-top:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h4 style="margin:0; color:#333;">登録されたタグ一覧</h4>
+          <button onclick="vtPlayHighlights()" id="btn-vt-play" disabled style="background:#1565c0; color:white; border:none; padding:8px 20px; border-radius:4px; cursor:not-allowed; font-size:14px;">
+            ▶ ハイライト連続再生
+          </button>
+        </div>
+        
+        <div id="vt-tag-list" style="max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; background:#fafafa;">
+          <p style="padding:15px; text-align:center; color:#999; font-size:12px;">まだタグがありません。<br>再生位置を合わせて「タグ付け」ボタンを押してください。</p>
+        </div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+          <button onclick="vtSaveHighlightsToLibrary()" id="btn-vt-save" disabled style="background:#00897b; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:not-allowed; font-size:12px; display:flex; align-items:center; gap:5px;">
+            💾 ライブラリに保存 (結合)
+          </button>
+
+          <button onclick="vtClearTags()" style="font-size:11px; color:#d32f2f; background:none; border:none; cursor:pointer; text-decoration:underline;">全タグ消去</button>
+        </div>
+
+        <p id="vt-save-status" style="font-size:12px; color:#e65100; font-weight:bold; margin-top:5px; height:20px;"></p>
+      </div>
+    </div>
+  </div>
 </section>
 
 <section id="screen-library" class="screen-content">
@@ -16209,6 +16275,368 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
+// ==========================================
+// 🏷️ 動画タギング＆ハイライト再生機能
+// ==========================================
+
+let vtVideo = null;
+let vtTags = []; // { id, time, start, end, note }
+let vtIsPlayingHighlights = false;
+let vtCurrentHighlightIndex = 0;
+
+// 1. 動画読み込み
+function vtLoadVideo(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    vtVideo = document.getElementById("vt-video");
+    const container = document.getElementById("vt-container");
+    
+    // リセット
+    vtTags = [];
+    vtRenderTags();
+    vtStopHighlights();
+
+    const url = URL.createObjectURL(file);
+    vtVideo.src = url;
+    
+    vtVideo.onloadedmetadata = () => {
+        container.style.display = "block";
+    };
+
+    // 再生位置監視用イベントリスナー
+    vtVideo.removeEventListener('timeupdate', vtCheckHighlightProgress);
+    vtVideo.addEventListener('timeupdate', vtCheckHighlightProgress);
+}
+
+// 2. タグ追加
+function vtAddTag() {
+    if (!vtVideo) return;
+    
+    const currentTime = vtVideo.currentTime;
+    const buffer = parseFloat(document.getElementById("vt-buffer").value) || 3;
+    
+    // 開始・終了時間を計算 (動画の範囲内に収める)
+    const startTime = Math.max(0, currentTime - buffer);
+    const endTime = Math.min(vtVideo.duration, currentTime + buffer);
+
+    const newTag = {
+        id: Date.now(),
+        centerTime: currentTime,
+        start: startTime,
+        end: endTime,
+        note: `シーン ${vtTags.length + 1}`
+    };
+
+    // 時間順にソートして追加
+    vtTags.push(newTag);
+    vtTags.sort((a, b) => a.start - b.start);
+
+    vtRenderTags();
+    
+    // 一瞬停止してフィードバック
+    const wasPlaying = !vtVideo.paused;
+    vtVideo.pause();
+    alert("タグを追加しました！");
+    if(wasPlaying) vtVideo.play();
+}
+
+// 3. タグリスト描画
+function vtRenderTags() {
+    const listEl = document.getElementById("vt-tag-list");
+    const btnPlay = document.getElementById("btn-vt-play");
+
+    if (vtTags.length === 0) {
+        listEl.innerHTML = '<p style="padding:15px; text-align:center; color:#999; font-size:12px;">まだタグがありません。<br>再生位置を合わせて「タグ付け」ボタンを押してください。</p>';
+        btnPlay.disabled = true;
+        btnPlay.style.cursor = "not-allowed";
+        btnPlay.style.background = "#90caf9"; // 薄い青
+        return;
+    }
+
+    btnPlay.disabled = false;
+    btnPlay.style.cursor = "pointer";
+    btnPlay.style.background = "#1565c0"; // 濃い青
+
+    let html = "";
+    vtTags.forEach((tag, index) => {
+        // 時間フォーマット (分:秒)
+        const fmt = (t) => {
+            const m = Math.floor(t / 60);
+            const s = Math.floor(t % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        };
+
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #eee; background:#fff;">
+                <div style="flex:1;">
+                    <div style="font-weight:bold; color:#333; font-size:14px;">
+                        <input type="text" value="${tag.note}" onchange="vtUpdateNote(${tag.id}, this.value)" style="border:none; border-bottom:1px dashed #ccc; width:120px; font-weight:bold; color:#333;">
+                    </div>
+                    <div style="font-size:12px; color:#666;">
+                        ⏱ ${fmt(tag.start)} ～ ${fmt(tag.end)} (中心: ${fmt(tag.centerTime)})
+                    </div>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="vtPreviewTag(${index})" style="background:#4caf50; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">▶ 再生</button>
+                    <button onclick="vtDeleteTag(${index})" style="background:#ef5350; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">削除</button>
+                </div>
+            </div>
+        `;
+    });
+    listEl.innerHTML = html;
+}
+
+// 4. 個別タグの再生確認
+function vtPreviewTag(index) {
+    vtStopHighlights(); // ハイライトモードは解除
+    const tag = vtTags[index];
+    vtVideo.currentTime = tag.start;
+    vtVideo.play();
+    
+    // 一回だけ終了判定する関数
+    const stopAtEnd = () => {
+        if (vtVideo.currentTime >= tag.end) {
+            vtVideo.pause();
+            vtVideo.removeEventListener('timeupdate', stopAtEnd);
+        }
+    };
+    vtVideo.addEventListener('timeupdate', stopAtEnd);
+}
+
+// 5. タグ削除・編集
+function vtDeleteTag(index) {
+    if(confirm("このタグを削除しますか？")) {
+        vtTags.splice(index, 1);
+        vtRenderTags();
+    }
+}
+function vtClearTags() {
+    if(confirm("すべてのタグを削除しますか？")) {
+        vtTags = [];
+        vtRenderTags();
+    }
+}
+function vtUpdateNote(id, text) {
+    const tag = vtTags.find(t => t.id === id);
+    if(tag) tag.note = text;
+}
+
+// 6. ハイライト連続再生（メイン機能）
+function vtPlayHighlights() {
+    if (vtTags.length === 0) return;
+    
+    vtIsPlayingHighlights = true;
+    vtCurrentHighlightIndex = 0;
+    
+    // UI更新
+    const indicator = document.getElementById("vt-indicator");
+    indicator.style.display = "block";
+    const btn = document.getElementById("btn-vt-play");
+    btn.textContent = "■ 再生停止";
+    btn.onclick = vtStopHighlights;
+    btn.style.background = "#d32f2f"; // 赤
+
+    // 最初のタグへシークして再生
+    vtPlayCurrentTag();
+}
+
+function vtStopHighlights() {
+    vtIsPlayingHighlights = false;
+    vtVideo.pause();
+    
+    // UI戻す
+    const indicator = document.getElementById("vt-indicator");
+    if(indicator) indicator.style.display = "none";
+    const btn = document.getElementById("btn-vt-play");
+    if(btn) {
+        btn.textContent = "▶ ハイライト連続再生";
+        btn.onclick = vtPlayHighlights;
+        btn.style.background = "#1565c0";
+    }
+}
+
+function vtPlayCurrentTag() {
+    if (vtCurrentHighlightIndex >= vtTags.length) {
+        // 全終了
+        vtStopHighlights();
+        alert("ハイライト再生が終了しました");
+        return;
+    }
+
+    const tag = vtTags[vtCurrentHighlightIndex];
+    vtVideo.currentTime = tag.start;
+    vtVideo.play();
+    console.log(`Playing Highlight ${vtCurrentHighlightIndex + 1}: ${tag.note}`);
+}
+
+// 動画再生中に常に呼ばれる監視関数
+function vtCheckHighlightProgress() {
+    if (!vtIsPlayingHighlights || vtTags.length === 0) return;
+
+    const tag = vtTags[vtCurrentHighlightIndex];
+    
+    // 現在のタグの終了時間を超えたら次へ
+    if (vtVideo.currentTime >= tag.end) {
+        vtCurrentHighlightIndex++;
+        vtPlayCurrentTag(); // 次のタグへシークして再生
+    }
+}
+
+// ==========================================
+// 💾 ハイライト保存機能 (ライブラリ連携)
+// ==========================================
+
+async function vtSaveHighlightsToLibrary() {
+    if (vtTags.length === 0) return alert("タグがありません。");
+    if (!vtVideo) return;
+
+    // UIロック
+    const btnSave = document.getElementById("btn-vt-save");
+    const statusEl = document.getElementById("vt-save-status");
+    const originalText = btnSave.innerHTML;
+    
+    btnSave.disabled = true;
+    btnSave.style.background = "#ccc";
+    vtStopHighlights(); // 再生中なら止める
+
+    // 録画の準備
+    const stream = vtVideo.captureStream(); // 映像+音声を取得
+    const mimeTypes = ["video/mp4", "video/webm;codecs=vp9", "video/webm"];
+    const selectedType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
+    
+    let recorder;
+    let chunks = [];
+
+    try {
+        recorder = new MediaRecorder(stream, { mimeType: selectedType });
+    } catch (e) {
+        alert("録画の初期化に失敗しました。");
+        btnSave.disabled = false;
+        btnSave.style.background = "#00897b";
+        return;
+    }
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    
+    // 録画終了時の処理
+    recorder.onstop = () => {
+        const blob = new Blob(chunks, { type: selectedType });
+        const now = new Date();
+        const timestamp = `${now.getHours()}時${now.getMinutes()}分`;
+        const filename = `Highlights_${timestamp}.${selectedType.includes("mp4") ? "mp4" : "webm"}`;
+
+        statusEl.textContent = "保存処理中...";
+
+        // 既存のライブラリ保存関数を呼び出し
+        if (typeof saveVideoToDB === 'function') {
+            saveVideoToDB(blob, filename).then(() => {
+                statusEl.textContent = "✅ ライブラリに保存しました！";
+                setTimeout(() => statusEl.textContent = "", 3000);
+            });
+        } else {
+            alert("ライブラリ機能が見つかりません。");
+        }
+
+        // UI復帰
+        btnSave.disabled = false;
+        btnSave.innerHTML = originalText;
+        btnSave.style.background = "#00897b";
+        vtVideo.controls = true; // コントロールを戻す
+    };
+
+    // --- 自動再生＆録画プロセス ---
+    statusEl.textContent = "⏳ ハイライトを作成中... (画面を閉じないでください)";
+    vtVideo.controls = false; // ユーザー操作をブロック
+    vtVideo.pause();
+
+    recorder.start();
+    recorder.pause(); // 一旦ポーズ（シーク中の余計な映像を入れないため）
+
+    for (let i = 0; i < vtTags.length; i++) {
+        const tag = vtTags[i];
+        statusEl.textContent = `⏳ 作成中... (${i + 1}/${vtTags.length})`;
+
+        // 1. 開始位置へシーク
+        vtVideo.currentTime = tag.start;
+        
+        // シーク完了を待つ
+        await new Promise(resolve => {
+            const onSeeked = () => {
+                vtVideo.removeEventListener('seeked', onSeeked);
+                resolve();
+            };
+            vtVideo.addEventListener('seeked', onSeeked);
+        });
+
+        // 2. 録画再開 & 再生
+        recorder.resume();
+        await vtVideo.play();
+
+        // 3. 終了時間まで待機
+        await new Promise(resolve => {
+            const checkTime = () => {
+                if (vtVideo.currentTime >= tag.end || vtVideo.paused) {
+                    vtVideo.removeEventListener('timeupdate', checkTime);
+                    resolve();
+                }
+            };
+            vtVideo.addEventListener('timeupdate', checkTime);
+        });
+
+        // 4. 一時停止
+        vtVideo.pause();
+        recorder.pause();
+    }
+
+    // 全工程終了
+    recorder.stop();
+}
+
+// 既存の vtRenderTags 関数を少し修正して、保存ボタンの有効化を追加
+// (以下のコードで既存の vtRenderTags を上書きしてください)
+function vtRenderTags() {
+    const listEl = document.getElementById("vt-tag-list");
+    const btnPlay = document.getElementById("btn-vt-play");
+    const btnSave = document.getElementById("btn-vt-save"); // ★追加
+
+    if (vtTags.length === 0) {
+        listEl.innerHTML = '<p style="padding:15px; text-align:center; color:#999; font-size:12px;">まだタグがありません。<br>再生位置を合わせて「タグ付け」ボタンを押してください。</p>';
+        if(btnPlay) { btnPlay.disabled = true; btnPlay.style.cursor = "not-allowed"; btnPlay.style.background = "#90caf9"; }
+        if(btnSave) { btnSave.disabled = true; btnSave.style.cursor = "not-allowed"; btnSave.style.background = "#80cbc4"; } // ★追加
+        return;
+    }
+
+    if(btnPlay) { btnPlay.disabled = false; btnPlay.style.cursor = "pointer"; btnPlay.style.background = "#1565c0"; }
+    if(btnSave) { btnSave.disabled = false; btnSave.style.cursor = "pointer"; btnSave.style.background = "#00897b"; } // ★追加
+
+    let html = "";
+    vtTags.forEach((tag, index) => {
+        const fmt = (t) => {
+            const m = Math.floor(t / 60);
+            const s = Math.floor(t % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        };
+
+        html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid #eee; background:#fff;">
+                <div style="flex:1;">
+                    <div style="font-weight:bold; color:#333; font-size:14px;">
+                        <input type="text" value="${tag.note}" onchange="vtUpdateNote(${tag.id}, this.value)" style="border:none; border-bottom:1px dashed #ccc; width:120px; font-weight:bold; color:#333;">
+                    </div>
+                    <div style="font-size:12px; color:#666;">
+                        ⏱ ${fmt(tag.start)} ～ ${fmt(tag.end)}
+                    </div>
+                </div>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="vtPreviewTag(${index})" style="background:#4caf50; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">▶ 再生</button>
+                    <button onclick="vtDeleteTag(${index})" style="background:#ef5350; color:white; border:none; padding:4px 8px; border-radius:4px; font-size:11px; cursor:pointer;">削除</button>
+                </div>
+            </div>
+        `;
+    });
+    listEl.innerHTML = html;
+}
 </script>
 </body>
 </html>
