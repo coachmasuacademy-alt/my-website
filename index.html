@@ -359,6 +359,13 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection"></script>
 
+<script type="importmap">
+  {
+    "imports": {
+      "@google/generative-ai": "https://esm.run/@google/generative-ai"
+    }
+  }
+</script>
 
 <script>
 if ('serviceWorker' in navigator) {
@@ -434,7 +441,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbzUs6VMFx_z7QMGnsDLinls16zxnyCTcdMjm3U13BmsSzc5JTWthqeUcNnkiL8vuqusfQ/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbzz3kAzB6dcn0-pRMFq28mD1zCgvhMnEfvmUrXCuevX8sG8tjs5IsRaQs97B7d2mUBjIg/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -2523,6 +2530,26 @@ function resetToJapanese() {
 </section>
 
 <section id="screen-training" class="screen-content">
+<div id="team-plan-section" style="display:none; background:#e3f2fd; padding:15px; border-radius:12px; border:2px solid #1976d2; margin-bottom:25px;">
+    <h3 style="margin-top:0; color:#0d47a1; display:flex; align-items:center; gap:5px;">
+      📋 チーム練習メニュー作成 (運営連携)
+    </h3>
+    
+    <div style="margin-bottom:10px;">
+      <label style="font-weight:bold; font-size:13px; color:#555;">受信データ (対象・課題):</label>
+      <textarea id="team-input-text" readonly style="width:100%; height:80px; background:#fff; border:1px solid #ccc; border-radius:6px; padding:8px; font-size:13px; color:#555; resize:none;"></textarea>
+    </div>
+
+    <button onclick="executeTeamMenuGen()" id="btn-team-gen" style="width:100%; background:linear-gradient(135deg, #1565c0, #0d47a1); color:white; border:none; padding:12px; border-radius:30px; font-weight:bold; cursor:pointer; font-size:16px; box-shadow:0 2px 5px rgba(0,0,0,0.2);">
+      🤖 AIで練習メニューを作成する
+    </button>
+
+    <div id="team-plan-result" style="display:none; margin-top:20px; background:#fff; padding:15px; border-radius:8px; border:1px solid #ccc;">
+      <h4 style="margin-top:0; color:#333;">生成結果:</h4>
+      <div id="team-plan-output" style="white-space: pre-wrap; font-size:13px; line-height:1.6; color:#333; max-height:500px; overflow-y:auto; font-family:monospace;"></div>
+      <button onclick="copyTeamPlan()" style="margin-top:10px; background:#00796b; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:pointer;">テキストをコピー</button>
+    </div>
+  </div>
 <section id="ai-section" style="
   background:#fff;
   padding:15px;
@@ -2537,9 +2564,9 @@ function resetToJapanese() {
   <h3 style="margin-bottom:8px; color:#00796b;">課題・目的の入力</h3>
   
   <textarea id="free-text"
-  maxlength="150"
+  maxlength="300"
   placeholder="例）スマッシュの威力を上げたい。後半バテない体力をつけたい。（150文字以内）"
-  style="width:100%; height:60px; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:none; box-sizing:border-box; background-color: #fff;">
+  style="width:100%; height:80px; font-size:14px; padding:8px; border:1px solid #ccc; border-radius:6px; resize:none; box-sizing:border-box; background-color: #fff;">
 </textarea>
 <div id="char-count" style="text-align: right; font-size: 12px; color: #666; margin-bottom: 5px;">0 / 150</div>
 
@@ -2548,8 +2575,15 @@ function resetToJapanese() {
   おすすめメニューを提案
 </button>
 
-  <div id="ai-suggested" style="margin-top:12px; font-size:14px; line-height:1.5;">
-    </div>
+  <div id="ai-suggested" style="margin-top:12px; font-size:14px; line-height:1.5;"></div>
+
+  <div id="ai-text-result-area" style="display:none; margin-top:15px; background:#fafafa; padding:15px; border:1px solid #ccc; border-radius:8px;">
+      <h4 style="margin:0 0 10px 0; color:#00796b;">📋 チーム練習プラン</h4>
+      <div id="ai-text-output" style="white-space: pre-wrap; font-family: monospace; font-size:13px; line-height:1.6; color:#333;"></div>
+      <button onclick="copyAiTextResult()" style="margin-top:15px; background:#00796b; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer;">
+        テキストをコピー
+      </button>
+  </div>
 
   <button id="add-ai-menus-btn" onclick="addSuggestedMenus()"
     style="display:none; margin-top:15px; background:#e65100; color:white; border:none; padding:10px 18px; border-radius:6px; cursor:pointer; font-weight:bold;">
@@ -5963,7 +5997,7 @@ if (pdfBtn) {
 var suggestedMenusData = [];
 
 // もしSHEET_URLが定義されていない場合の予備
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzUs6VMFx_z7QMGnsDLinls16zxnyCTcdMjm3U13BmsSzc5JTWthqeUcNnkiL8vuqusfQ/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzz3kAzB6dcn0-pRMFq28mD1zCgvhMnEfvmUrXCuevX8sG8tjs5IsRaQs97B7d2mUBjIg/exec";
 
 // ✅ 1. Gemini API呼び出し関数
 window.analyzeAndSuggest = async function() {
@@ -16636,6 +16670,86 @@ function vtRenderTags() {
         `;
     });
     listEl.innerHTML = html;
+}
+
+// ▼▼▼ チーム練習連携用スクリプト (既存のscriptタグ内に追加) ▼▼▼
+
+// 1. ページ読み込み時のチェック
+document.addEventListener("DOMContentLoaded", () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    const dataParam = urlParams.get('data');
+
+    // 運営アプリから 'team_link' モードで来た場合のみ発動
+    if (mode === 'team_link' && dataParam) {
+        try {
+            // 画面をトレーニングタブに切り替え
+            if(typeof showScreen === 'function') {
+                const nav = document.getElementById('nav-training');
+                if(nav) showScreen('training', nav);
+            }
+
+            // 隠しセクションを表示
+            const section = document.getElementById("team-plan-section");
+            if (section) section.style.display = "block";
+
+            // データを展開して表示
+            const teamData = JSON.parse(decodeURIComponent(dataParam));
+            const inputText = `【対象】${teamData.category}\n【主な課題】${teamData.issues.join(', ')}`;
+            document.getElementById("team-input-text").value = inputText;
+
+            // 既存のAI入力欄などは隠す（任意）
+            const normalAi = document.getElementById("ai-section");
+            if(normalAi) normalAi.style.display = "none";
+
+        } catch(e) {
+            console.error("データ展開エラー", e);
+        }
+    }
+});
+
+// 2. GASにリクエストを送る関数
+async function executeTeamMenuGen() {
+    const text = document.getElementById("team-input-text").value;
+    const btn = document.getElementById("btn-team-gen");
+    const resultArea = document.getElementById("team-plan-result");
+    const output = document.getElementById("team-plan-output");
+
+    if(!text) return;
+
+    btn.disabled = true;
+    btn.textContent = "⏳ AIが練習メニューを考案中...";
+    resultArea.style.display = "none";
+
+    try {
+        // GASのURL (SHEET_URL変数が定義済み前提)
+        // team_planモードとしてリクエストを送る
+        const requestUrl = `${SHEET_URL}?mode=team_plan&text=${encodeURIComponent(text)}`;
+        
+        const res = await fetch(requestUrl);
+        const data = await res.json();
+
+        if (data.error) {
+            alert("エラー: " + data.error);
+        } else {
+            resultArea.style.display = "block";
+            // GASからの返却値 (data.content) を表示
+            output.innerText = data.content;
+        }
+
+    } catch(e) {
+        console.error(e);
+        alert("通信エラーが発生しました");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "🤖 この条件で練習メニューを作成";
+    }
+}
+
+// 3. コピー用
+function copyTeamPlan() {
+    const text = document.getElementById("team-plan-output").innerText;
+    navigator.clipboard.writeText(text).then(() => alert("コピーしました！"));
 }
 </script>
 </body>
