@@ -441,7 +441,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbzxtPTHKXY8QXVFwBKeNCMtt0BDF6grwB4vQsSr5FuB-9zsgvoaOei0fMaJ9ht_J8pymw/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycby_9OmzJ7KwpSSfJyJsJ4HVqPBqeHmL5SOysUCQP3wRilsScdWQOOMVuMIi3sPs9e-BkA/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -5997,7 +5997,7 @@ if (pdfBtn) {
 var suggestedMenusData = [];
 
 // もしSHEET_URLが定義されていない場合の予備
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbzxtPTHKXY8QXVFwBKeNCMtt0BDF6grwB4vQsSr5FuB-9zsgvoaOei0fMaJ9ht_J8pymw/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycby_9OmzJ7KwpSSfJyJsJ4HVqPBqeHmL5SOysUCQP3wRilsScdWQOOMVuMIi3sPs9e-BkA/exec";
 
 // ✅ 1. Gemini API呼び出し関数
 window.analyzeAndSuggest = async function() {
@@ -6040,8 +6040,21 @@ window.analyzeAndSuggest = async function() {
 
         // API通信
         const res = await fetch(requestUrl);
-        const jsonString = await res.text();
+        let jsonString = await res.text(); // ★変更: const -> let (書き換えるため)
         
+        // --- ▼▼▼ 追加: AIの余計な文字を削除する処理 ▼▼▼ ---
+        // 1. Markdownのコードブロック記号 (```json と ```) を削除
+        jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "");
+
+        // 2. 最初の '{' から 最後の '}' までを切り出す (前後の挨拶文をカット)
+        const firstOpen = jsonString.indexOf('{');
+        const lastClose = jsonString.lastIndexOf('}');
+        
+        if (firstOpen !== -1 && lastClose !== -1) {
+            jsonString = jsonString.substring(firstOpen, lastClose + 1);
+        }
+        // --- ▲▲▲ 追加ここまで ▲▲▲ ---
+
         let data;
         try {
             data = JSON.parse(jsonString);
