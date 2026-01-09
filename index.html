@@ -16742,13 +16742,32 @@ async function executeTeamMenuGen() {
         const res = await fetch(requestUrl);
         const data = await res.json();
 
+        // ▼▼▼ 修正ここから ▼▼▼
         if (data.error) {
-            alert("エラー: " + data.error);
+            console.error("API Error:", data.error);
+            
+            // エラーメッセージの内容で判定
+            if (typeof data.error === 'string' && (data.error.includes("429") || data.error.includes("quota") || data.error.includes("RESOURCE_EXHAUSTED"))) {
+                // 制限エラーの場合の表示
+                resultArea.style.display = "block";
+                output.innerHTML = `
+                    <div style="color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 4px; border: 1px solid #ffcdd2;">
+                        <strong>⚠️ AIの利用制限に達しました</strong><br>
+                        短時間に多くのアクセスがあったため、Google AIが一時的に利用を制限しています。<br>
+                        <br>
+                        1〜2分ほど時間を空けてから、再度お試しください。
+                    </div>
+                `;
+            } else {
+                // その他のエラー
+                alert("エラーが発生しました: " + data.error);
+            }
         } else {
             resultArea.style.display = "block";
             // GASからの返却値 (data.content) を表示
             output.innerText = data.content;
         }
+        // ▲▲▲ 修正ここまで ▲▲▲
 
     } catch(e) {
         console.error(e);
