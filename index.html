@@ -441,7 +441,7 @@ let feedbackData = []; // 感想データを保持する配列
 
 // ==============================================
 // ... 既存の定数・変数の定義
-const SHEET_URL = "https://script.google.com/macros/s/AKfycbxlWcQ-yto-Tq4-B94_wIRN54sNYG3r6b5M11hrHs-T8FdsmLGi-gBBlytDVXTQu-BqFQ/exec";
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbw_ltWsvwzLKuMO7XUEPr8WRG-m76YnR6ZriwGId1-fBYFK0HNvrGO86ds_VU8T7sLCfA/exec";
 let sheetData = [];
 let selectedMenus = [];
 let editableName = "";
@@ -5997,11 +5997,14 @@ if (pdfBtn) {
 var suggestedMenusData = [];
 
 // もしSHEET_URLが定義されていない場合の予備
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxlWcQ-yto-Tq4-B94_wIRN54sNYG3r6b5M11hrHs-T8FdsmLGi-gBBlytDVXTQu-BqFQ/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbw_ltWsvwzLKuMO7XUEPr8WRG-m76YnR6ZriwGId1-fBYFK0HNvrGO86ds_VU8T7sLCfA/exec";
+
 // ✅ 1. Gemini API呼び出し関数
-window.analyzeAndSuggest = async function() {
+
+        // API通信
+        window.analyzeAndSuggest = async function() {
     console.log("🚀 AIボタンがクリックされました");  
-  
+   
     const text = document.getElementById("free-text").value.trim();
     const output = document.getElementById("ai-suggested");
     const addBtn = document.getElementById("add-ai-menus-btn");
@@ -6026,61 +6029,55 @@ window.analyzeAndSuggest = async function() {
         </div>`;
 
     try {
-        // URLの決定
         const targetUrl = (typeof SHEET_URL !== 'undefined') ? SHEET_URL : DEFAULT_GAS_URL;
-        
-        // URLパラメータ処理
-        const urlParams = new URLSearchParams(window.location.search);
-        let requestUrl = `${targetUrl}?mode=ai&text=${encodeURIComponent(text)}`;
-
-        if (urlParams.get('role') === 'admin') {
-            requestUrl += "&secret=MY_SECRET_PASS_2025";
-        }
+        const requestUrl = `${targetUrl}?mode=ai&text=${encodeURIComponent(text)}`;
 
         // API通信
         const res = await fetch(requestUrl);
-        let jsonString = await res.text(); // ★変更: const -> let (書き換えるため)
+        let jsonString = await res.text(); 
         
-        // --- ▼▼▼ 追加: AIの余計な文字を削除する処理 ▼▼▼ ---
-        // 1. Markdownのコードブロック記号 (```json と ```) を削除
+        // クリーニング処理
         jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "");
-
-        // 2. 最初の '{' から 最後の '}' までを切り出す (前後の挨拶文をカット)
         const firstOpen = jsonString.indexOf('{');
         const lastClose = jsonString.lastIndexOf('}');
-        
         if (firstOpen !== -1 && lastClose !== -1) {
             jsonString = jsonString.substring(firstOpen, lastClose + 1);
         }
-        // --- ▲▲▲ 追加ここまで ▲▲▲ ---
 
         let data;
         try {
             data = JSON.parse(jsonString);
         } catch (e) {
             console.error("JSON Parse Error:", jsonString);
-            output.innerHTML = `⚠️ サーバーエラー: データの読み込みに失敗しました。<br>詳細: ${jsonString.substring(0, 50)}...`;
+            output.innerHTML = `⚠️ データ読み込みエラーが発生しました。`;
             return;
         }
 
         // エラーチェック
         if (data.error) {
              console.error("API Error Response:", data.error);
-             if (data.error.includes("429") || data.error.includes("RESOURCE_EXHAUSTED") || data.error.includes("quota")) {
-                 // （省略：制限エラー時のメッセージは既存と同じ）
-                 output.innerHTML = `<div style="color:red; padding:10px; border:1px solid red;">⚠️ AI利用枠の上限に達しました。<br>しばらく時間を置いてからお試しください。</div>`;
+             
+             if (typeof data.error === 'string' && (data.error.includes("429") || data.error.includes("quota"))) {
+                 output.innerHTML = `
+                    <div style="color: #c62828; background: #ffebee; padding: 15px; border-radius: 8px; border: 1px solid #ef5350;">
+                        <strong>⚠️ 本日のAI利用上限に達しました</strong><br>
+                        <span style="font-size:13px;">明日になればリセットされます。</span>
+                    </div>`;
              } else { 
-                 output.innerHTML = `⚠️ 予期せぬエラーが発生しました。<br>詳細: ${data.error}`;
+                 output.innerHTML = `
+                    <div style="color: #ef6c00; background: #fff3e0; padding: 15px; border-radius: 8px;">
+                        <strong>⚠️ エラーが発生しました</strong><br>
+                        <span style="font-size:13px;">${data.error}</span>
+                    </div>`;
              }
              return; 
         }
 
-        // データの整形
+        // 成功時の処理（リスト表示）
         let parsedMenus = [];
-        let adviceText = "";
+        let adviceText = data.advice || "";
 
         if (data.suggested_menus && Array.isArray(data.suggested_menus)) {
-            adviceText = data.advice || "";
             parsedMenus = data.suggested_menus.map(m => ({
                 category: m.category || m.step || "AI提案", 
                 name: m.name,
@@ -6088,18 +6085,11 @@ window.analyzeAndSuggest = async function() {
                 url: m.url || m.video_url || ""      
             }));
         } 
-        else if (Array.isArray(data)) {
-            data.forEach(group => {
-                const catName = group.カテゴリ || "AI提案";
-                (group.メニュー || []).forEach(name => parsedMenus.push({ category: catName, name: name }));
-            });
-        }
 
-        // グローバル変数に格納
         suggestedMenusData = parsedMenus.map(m => ({
             category: m.category,
             name: m.name,
-            time: 5, // デフォルト時間
+            time: 5,
             note: m.note || "",
             url: m.url || ""
         }));
@@ -6109,34 +6099,17 @@ window.analyzeAndSuggest = async function() {
             return;
         }
 
-        // --- ★ここからデザイン変更部分★ ---
-
-        // アドバイス表示のHTML
         const adviceHtml = adviceText ? `
-            <div style="background:#fffde7; border-left: 5px solid #fbc02d; padding: 15px; margin-bottom: 20px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <div style="background:#fffde7; border-left: 5px solid #fbc02d; padding: 15px; margin-bottom: 20px; border-radius: 4px;">
                 <div style="font-weight:bold; color:#f57f17; margin-bottom:5px; font-size:15px;">💡 コーチからのアドバイス</div>
                 <div style="font-size:14px; color:#333; line-height:1.6;">${adviceText}</div>
-            </div>
-        ` : "";
+            </div>` : "";
 
-        // メニューリストのHTML生成
         const listHtml = suggestedMenusData.map((m, i) => {
             return `
-                <div style="
-                    background: #ffffff; 
-                    border: 1px solid #e0e0e0; 
-                    border-radius: 8px; 
-                    margin-bottom: 12px; 
-                    padding: 12px; 
-                    box-shadow: 0 2px 5px rgba(0,0,0,0.03); 
-                    transition: transform 0.1s;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 8px;
-                ">
+                <div style="background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 12px; padding: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.03);">
                     <div style="display: flex; align-items: flex-start; gap: 10px;">
                         <input type="checkbox" id="ai-chk-${i}" checked style="transform: scale(1.3); margin-top: 4px; cursor: pointer;">
-                        
                         <div style="flex: 1;">
                             <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px;">
                                 <span style="font-size: 11px; font-weight: bold; color: #fff; background: #00796b; padding: 3px 8px; border-radius: 12px;">${m.category}</span>
@@ -6144,17 +6117,9 @@ window.analyzeAndSuggest = async function() {
                             </div>
                         </div>
                     </div>
-
-                    ${m.note ? `
-                        <div style="margin-left: 32px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: #555; line-height: 1.5;">
-                            <span style="font-weight:bold; color:#00796b;">POINT:</span> ${m.note}
-                        </div>
-                    ` : ""}
-
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-left: 32px; flex-wrap: wrap; gap: 10px;">
-                        <div>
-                            ${m.url ? `<a href="${m.url}" target="_blank" style="font-size:13px; color:#1565c0; text-decoration:none; font-weight:bold; display:inline-flex; align-items:center; gap:4px;">📺 参考動画を見る</a>` : ""}
-                        </div>
+                    ${m.note ? `<div style="margin-left: 32px; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: #555; line-height: 1.5; margin-top:5px;"><span style="font-weight:bold; color:#00796b;">POINT:</span> ${m.note}</div>` : ""}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-left: 32px; flex-wrap: wrap; gap: 10px; margin-top:5px;">
+                        <div>${m.url ? `<a href="${m.url}" target="_blank" style="font-size:13px; color:#1565c0; text-decoration:none; font-weight:bold;">📺 動画</a>` : ""}</div>
                         <div style="display: flex; align-items: center; background: #e0f2f1; padding: 4px 10px; border-radius: 20px;">
                             <span style="font-size:12px; margin-right:6px; color:#00695c; font-weight:bold;">時間:</span>
                             <input type="number" id="ai-time-${i}" value="5" min="1" style="width: 45px; padding: 4px; border: 1px solid #b2dfdb; border-radius: 4px; text-align:center; font-weight:bold; color:#00695c;">
@@ -6164,32 +6129,17 @@ window.analyzeAndSuggest = async function() {
                 </div>`;
         }).join('');
 
-        output.innerHTML = `
-            <div style="text-align: left;">
-                ${adviceHtml}
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                    <h4 style="margin:0; color:#00796b; font-size:16px;">📋 提案メニューリスト</h4>
-                    <span style="font-size:12px; color:#666;">${suggestedMenusData.length} 件</span>
-                </div>
-                <div style="max-height: 600px; overflow-y: auto; padding: 2px;">
-                    ${listHtml}
-                </div>
-            </div>
-        `;
+        output.innerHTML = `<div style="text-align: left;">${adviceHtml}<div style="max-height: 600px; overflow-y: auto; padding: 2px;">${listHtml}</div></div>`;
 
-        // 追加ボタンを表示
         if(addBtn) {
             addBtn.textContent = "✅ チェックしたメニューを一括追加";
             addBtn.style.display = "block";
-            addBtn.style.width = "100%"; // ボタンを大きくする
-            addBtn.style.fontSize = "16px";
-            addBtn.style.padding = "12px";
             addBtn.onclick = window.addSuggestedMenus; 
         }
 
     } catch (e) {
         console.error("AI Analyze Error:", e);
-        output.innerHTML = `<div style="color:red; padding:10px;">⚠️ 通信エラーが発生しました。<br>詳細: ${e.message}</div>`;
+        output.innerHTML = `<div style="color:red; padding:10px;">⚠️ エラー: ${e.message}</div>`;
     }
 };
 
@@ -16735,45 +16685,56 @@ async function executeTeamMenuGen() {
 
     try {
         // GASのURL (SHEET_URL変数が定義済み前提)
-        // team_planモードとしてリクエストを送る
         const requestUrl = `${SHEET_URL}?mode=team_plan&text=${encodeURIComponent(text)}`;
         
         const res = await fetch(requestUrl);
         const data = await res.json();
 
-        // ▼▼▼ 修正ここから ▼▼▼
+        // ▼▼▼ エラー判定ロジックの改善 ▼▼▼
         if (data.error) {
             console.error("API Error:", data.error);
+            resultArea.style.display = "block";
             
-            // エラーメッセージの内容で判定
+            // エラーメッセージに "429" や "quota" が含まれていたら「制限」とみなす
             if (typeof data.error === 'string' && (data.error.includes("429") || data.error.includes("quota") || data.error.includes("RESOURCE_EXHAUSTED"))) {
-                // 制限エラーの場合の表示
-                resultArea.style.display = "block";
                 output.innerHTML = `
-                    <div style="color: #d32f2f; background: #ffebee; padding: 10px; border-radius: 4px; border: 1px solid #ffcdd2;">
-                        <strong>⚠️ AIの利用制限に達しました</strong><br>
-                        短時間に多くのアクセスがあったため、Google AIが一時的に利用を制限しています。<br>
-                        <br>
-                        1〜2分ほど時間を空けてから、再度お試しください。
+                    <div style="padding: 15px; border: 2px solid #ef5350; background: #ffebee; color: #c62828; border-radius: 8px;">
+                        <h4 style="margin: 0 0 10px 0;">⚠️ 本日のAI利用上限に達しました</h4>
+                        <p style="margin: 0; font-size: 14px; line-height: 1.6;">
+                            申し訳ありません。高性能AIモデル（Gemini 2.5 Flash）の1日の無料利用枠（20回）を使い切ってしまいました。<br>
+                            <strong>明日になれば回数がリセットされ、再び利用可能になります。</strong><br>
+                            <br>
+                            <span style="font-size: 12px; color: #555;">※時間を空けても今日は回復しません。明日またお試しください。</span>
+                        </p>
                     </div>
                 `;
             } else {
                 // その他のエラー
-                alert("エラーが発生しました: " + data.error);
+                output.innerHTML = `
+                    <div style="padding: 15px; border: 2px solid #ff9800; background: #fff3e0; color: #ef6c00; border-radius: 8px;">
+                        <h4 style="margin: 0 0 10px 0;">⚠️ エラーが発生しました</h4>
+                        <p style="margin: 0; font-size: 14px;">
+                            一時的な通信エラーか、システムの問題が発生しています。<br>
+                            少し時間を置いてから再度お試しください。<br>
+                            <br>
+                            <span style="font-size: 11px; color: #777;">エラー詳細: ${data.error.substring(0, 100)}...</span>
+                        </p>
+                    </div>
+                `;
             }
         } else {
+            // 成功時
             resultArea.style.display = "block";
-            // GASからの返却値 (data.content) を表示
             output.innerText = data.content;
         }
         // ▲▲▲ 修正ここまで ▲▲▲
 
     } catch(e) {
         console.error(e);
-        alert("通信エラーが発生しました");
+        alert("通信エラーが発生しました。ネット接続を確認してください。");
     } finally {
         btn.disabled = false;
-        btn.textContent = "🤖 この条件で練習メニューを作成";
+        btn.textContent = "🤖 AIで練習メニューを作成する";
     }
 }
 
