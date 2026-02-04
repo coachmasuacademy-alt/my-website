@@ -551,6 +551,13 @@
     let isFwModelLoaded = false;
     let isStrokeModelLoaded = false;
 
+// --- AIジャンプ測定用変数 ---
+let jumpModeActive = false;
+let isJumpAirborne = false;
+let jumpTakeoffTime = 0;
+let jumpGroundY = 0;
+let jumpFacingMode = 'environment';
+
     // ログイン処理
     async function loginWithPassword() {
       const passwordInput = document.getElementById("passwordInput");
@@ -5157,6 +5164,53 @@
         </div>
       </div>
     </section>
+
+<section id="jump-analysis-box" style="margin-top: 30px; padding:20px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin:0; color:#d81b60;">🚀 AIジャンプ力測定</h3>
+        <button onclick="saveJumpData()" style="background:#ff9800; font-size:12px; padding:5px 10px;">記録保存</button>
+    </div>
+
+    <div style="background:#fce4ec; padding:15px; border-radius:8px; border:1px solid #f8bbd0; margin-bottom:15px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
+            <button onclick="startJumpAICamera()" style="background:#e91e63; font-weight:bold;">📷 カメラ起動</button>
+            <button onclick="toggleJumpCamera()" style="background:#00bcd4;">🔄 切替</button>
+            <button onclick="resetJumpGround()" style="background:#546e7a;">📏 地面校正</button>
+<button onclick="stopJumpAICamera()" style="background:#424242; font-weight:bold;">⏹ 停止</button>
+        </div>
+
+        <div id="jump-monitor-wrapper" style="position: relative; width: 100%; max-width: 480px; margin: 0 auto 15px auto; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; border: 3px solid #f06292; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+            <canvas id="jump_canvas" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
+            <div id="jump-ai-status" style="position: absolute; top: 10px; left: 10px; background: rgba(233, 30, 99, 0.8); color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none;">
+                OFFLINE
+            </div>
+            <div id="ground-line-guide" style="position: absolute; left: 0; width: 100%; height: 2px; border-top: 2px dashed #ffeb3b; display: none; pointer-events: none;"></div>
+        </div>
+        
+        <div style="text-align:center;">
+            <div id="jump-timer-display" style="font-size:42px; font-weight:bold; color:#333; font-family:monospace;">0.000 <span style="font-size:18px;">s</span></div>
+        </div>
+    </div>
+
+    <div id="jump-result-area" style="display:none; animation: fadeIn 0.5s;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+            <div style="background:#fff; border:2px solid #e91e63; padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:11px; color:#666;">今回の跳躍高</div>
+                <div style="font-size:28px; font-weight:bold; color:#e91e63;"><span id="val-jump-height">0.0</span> <span style="font-size:14px;">cm</span></div>
+            </div>
+            <div style="background:#fff; border:2px solid #3f51b5; padding:15px; border-radius:8px; text-align:center;">
+                <div style="font-size:11px; color:#666;">最高到達点 (推定)</div>
+                <div style="font-size:20px; font-weight:bold; color:#3f51b5;"><span id="val-jump-reach">0.0</span> <span style="font-size:14px;">cm</span></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="jump-history" style="margin-top:20px; border-top:1px dashed #ccc; padding-top:10px;">
+        <h4 style="font-size:13px; color:#666; margin-bottom:8px;">📊 測定履歴</h4>
+        <div id="jump-history-list" style="max-height:120px; overflow-y:auto; font-size:12px;"></div>
+    </div>
+</div>
+</section>
 
     <section id="video-tagging-section" style="
   margin-top: 30px; 
@@ -10073,6 +10127,11 @@
         let currentFacingMode = 'user';
         let isAnalysisRunning = false;
 
+// --- ジャンプ力測定用の変数 ---
+let isAirborne = false; 
+let takeoffTime = 0;    
+let groundY = 0;
+
         // 🎥 録画用
         let mediaRecorder;
         let recordedChunks = [];
@@ -10156,168 +10215,280 @@
         // ==========================================
         // 🤖 2. 結果処理 (メインループ) ★画像ストロボ版
         // ==========================================
-        function onPoseResults(results) {
-          if (!results.poseLandmarks || !canvasCtx) return;
+        // 自動ジャンプ検知ロジック
+function detectJumpAI(results) {
+    if (!jumpModeActive || !results.poseLandmarks) return;
 
-          canvasElement.width = videoElement.videoWidth || 640;
-          canvasElement.height = videoElement.videoHeight || 480;
+    const canvas = document.getElementById('jump_canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById("jump-ai-status");
+    const guideLine = document.getElementById("ground-line-guide");
 
-          // --- UI設定値の取得 ---
-          const showPolygon = document.getElementById('polygon-toggle') ? document.getElementById('polygon-toggle').checked : true;
-          const isStrobeOn = document.getElementById('strobe-toggle') ? document.getElementById('strobe-toggle').checked : false;
-          const isDimOn = document.getElementById('dim-toggle') ? document.getElementById('dim-toggle').checked : false;
+    // モニターサイズの調整
+    if (canvas.width !== results.image.width) {
+        canvas.width = results.image.width;
+        canvas.height = results.image.height;
+    }
 
-          // 間隔と枚数
-          const strobeIntervalInput = document.getElementById('strobe-interval');
-          const strobeInterval = strobeIntervalInput ? parseInt(strobeIntervalInput.value) : 30;
-          const strobeCountInput = document.getElementById('strobe-count');
-          const maxStrobeCount = strobeCountInput ? parseInt(strobeCountInput.value) : 50;
+    // --- A. モニターへの描画処理 ---
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 映像を描画
+    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    
+    // スケルトン描画（簡易版）
+    drawJumpSkeleton(ctx, results.poseLandmarks);
+    ctx.restore();
 
-          canvasCtx.save();
-          canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    // --- B. ジャンプ判定ロジック ---
+    const lm = results.poseLandmarks;
+    const currentAnkleY = (lm[27].y + lm[28].y) / 2;
 
-          // ------------------------------------------------
-          // 1. 現在の映像（背景）を描画
-          // ------------------------------------------------
-          if (isBackgroundVisible) {
-            canvasCtx.globalAlpha = 1.0;
-            canvasCtx.globalCompositeOperation = 'source-over';
-            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    if (jumpGroundY === 0) {
+        jumpGroundY = currentAnkleY;
+        if(statusEl) statusEl.textContent = "READY";
+        if(guideLine) {
+            guideLine.style.display = "block";
+            guideLine.style.top = (jumpGroundY * 100) + "%";
+        }
+        return;
+    }
 
-            // 背景を暗くする
-            if (isDimOn) {
-              canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-              canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-            }
-          } else {
-            canvasCtx.fillStyle = '#000000';
+    const takeoffThreshold = 0.04;
+
+    if (!isJumpAirborne && currentAnkleY < jumpGroundY - takeoffThreshold) {
+        isJumpAirborne = true;
+        takeoffTime = performance.now();
+        if(statusEl) {
+            statusEl.textContent = "🚀 AIRBORNE";
+            statusEl.style.background = "#ffeb3b";
+            statusEl.style.color = "#000";
+        }
+    } 
+    else if (isJumpAirborne && currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
+        isJumpAirborne = false;
+        const flightTime = (performance.now() - jumpTakeoffTime) / 1000;
+        const heightCm = (9.80665 * Math.pow(flightTime, 2)) / 8 * 100;
+
+        if (heightCm > 2.0) {
+            processJumpResult(heightCm, flightTime);
+        }
+        if(statusEl) {
+            statusEl.textContent = "READY";
+            statusEl.style.background = "rgba(233, 30, 99, 0.8)";
+            statusEl.style.color = "#fff";
+        }
+    }
+}
+
+// モニター用の簡易スケルトン描画
+function drawJumpSkeleton(ctx, landmarks) {
+    const w = ctx.canvas.width;
+    const h = ctx.canvas.height;
+    const color = isJumpAirborne ? "#ffeb3b" : "#00e676";
+    
+    // 下半身の主要点のみ描画
+    const points = [23, 24, 25, 26, 27, 28]; // 腰、膝、足首
+    
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 4;
+    
+    // 脚の描画
+    const drawLine = (i, j) => {
+        if (landmarks[i].score > 0.5 && landmarks[j].score > 0.5) {
+            ctx.beginPath();
+            ctx.moveTo(landmarks[i].x * w, landmarks[i].y * h);
+            ctx.lineTo(landmarks[j].x * w, landmarks[j].y * h);
+            ctx.stroke();
+        }
+    };
+    
+    drawLine(24, 26); drawLine(26, 28); // 右
+    drawLine(23, 25); drawLine(25, 27); // 左
+    
+    // ポイントの描画
+    ctx.fillStyle = "#fff";
+    points.forEach(idx => {
+        const p = landmarks[idx];
+        if (p.score > 0.5) {
+            ctx.beginPath();
+            ctx.arc(p.x * w, p.y * h, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+}
+// 基準値をリセットする関数（カメラ起動時などに呼ぶと良い）
+function resetGroundLevel() {
+    groundY = 0;
+    console.log("Ground level reset.");
+}
+
+function onPoseResults(results) {
+    // 映像データ自体が届いていない場合は何もしない
+    if (!results.image) return;
+
+    // ==========================================
+    // 🚀 ジャンプ計測モードの分岐処理
+    // ==========================================
+    if (jumpModeActive) {
+        // 人物が検出されていなくても、映像を表示するために detectJumpAI を呼び出す
+        detectJumpAI(results);
+        
+        // メインモニター（フォーム解析側）は真っ暗にする
+        if (canvasCtx) {
+            canvasCtx.save();
+            canvasCtx.fillStyle = "#000";
             canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-          }
+            canvasCtx.restore();
+        }
+        return; 
+    }
 
-          // ------------------------------------------------
-          // 2. 残像の保存と描画（人物切り抜き）
-          // ------------------------------------------------
-          if (isStrobeOn) {
-            strobeFrameCounter++;
+    // --- 通常モード（AIフォーム解析）---
+    // 人物が検出されていない場合はここで終了（背景も描画しない仕様を維持）
+    if (!results.poseLandmarks || !canvasCtx) return;
 
-            // 指定間隔ごとに保存
-            if (strobeFrameCounter % strobeInterval === 0) {
-              const snapCanvas = document.createElement('canvas');
-              snapCanvas.width = canvasElement.width;
-              snapCanvas.height = canvasElement.height;
-              const snapCtx = snapCanvas.getContext('2d');
+    canvasElement.width = videoElement.videoWidth || 640;
+    canvasElement.height = videoElement.videoHeight || 480;
 
-              // ★重要: 人物切り抜き処理
-              if (results.segmentationMask) {
-                // 1. まず映像を描画
+    // --- UI設定値の取得 ---
+    const showPolygon = document.getElementById('polygon-toggle') ? document.getElementById('polygon-toggle').checked : true;
+    const isStrobeOn = document.getElementById('strobe-toggle') ? document.getElementById('strobe-toggle').checked : false;
+    const isDimOn = document.getElementById('dim-toggle') ? document.getElementById('dim-toggle').checked : false;
+
+    // 間隔と枚数
+    const strobeIntervalInput = document.getElementById('strobe-interval');
+    const strobeInterval = strobeIntervalInput ? parseInt(strobeIntervalInput.value) : 30;
+    const strobeCountInput = document.getElementById('strobe-count');
+    const maxStrobeCount = strobeCountInput ? parseInt(strobeCountInput.value) : 50;
+
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+    // ------------------------------------------------
+    // 1. 現在の映像（背景）を描画
+    // ------------------------------------------------
+    if (isBackgroundVisible) {
+        canvasCtx.globalAlpha = 1.0;
+        canvasCtx.globalCompositeOperation = 'source-over';
+        canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+        if (isDimOn) {
+            canvasCtx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+        }
+    } else {
+        canvasCtx.fillStyle = '#000000';
+        canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+    }
+
+    // ------------------------------------------------
+    // 2. 残像の保存と描画（人物切り抜き）
+    // ------------------------------------------------
+    if (isStrobeOn) {
+        strobeFrameCounter++;
+        if (strobeFrameCounter % strobeInterval === 0) {
+            const snapCanvas = document.createElement('canvas');
+            snapCanvas.width = canvasElement.width;
+            snapCanvas.height = canvasElement.height;
+            const snapCtx = snapCanvas.getContext('2d');
+
+            if (results.segmentationMask) {
                 snapCtx.drawImage(results.image, 0, 0, snapCanvas.width, snapCanvas.height);
-
-                // 2. 「destination-in」モードでマスクを描画
-                // これにより、マスク（人物）が重なる部分以外が透明になります
                 snapCtx.globalCompositeOperation = 'destination-in';
                 snapCtx.drawImage(results.segmentationMask, 0, 0, snapCanvas.width, snapCanvas.height);
-
-                // 設定を戻す
                 snapCtx.globalCompositeOperation = 'source-over';
-              } else {
-                // 切り抜きがまだ準備できていない場合はそのまま描画
+            } else {
                 snapCtx.drawImage(results.image, 0, 0, snapCanvas.width, snapCanvas.height);
-              }
-
-              strobeFrames.push(snapCanvas);
-
-              if (strobeFrames.length > maxStrobeCount) strobeFrames.shift();
             }
-
-            // 残像を描画
-            // 背景が透明になっているので、単純に重ねるだけで綺麗に見えます
-            canvasCtx.globalAlpha = 1.0;
-            canvasCtx.globalCompositeOperation = 'source-over';
-
-            strobeFrames.forEach(frame => {
-              canvasCtx.drawImage(frame, 0, 0, canvasElement.width, canvasElement.height);
-            });
-          }
-
-          const lm = results.poseLandmarks;
-
-          // ------------------------------------------------
-          // 3. 負荷(トルク)の計算処理
-          // ------------------------------------------------
-          const visR = (lm[12].visibility + lm[14].visibility + lm[24].visibility + lm[26].visibility) / 4;
-          let torqueR = { shoulder: 0, elbow: 0, knee: 0 };
-          if (visR > 0.5) {
-            const angElbowR = calculateAngle(lm[12], lm[14], lm[16]);
-            const angShoulderR = calculateAngle(lm[24], lm[12], lm[14]);
-            const angKneeR = calculateAngle(lm[24], lm[26], lm[28]);
-            const midShoulder = { x: (lm[12].x + lm[11].x) / 2, y: (lm[12].y + lm[11].y) / 2 };
-            const midHip = { x: (lm[24].x + lm[23].x) / 2, y: (lm[24].y + lm[23].y) / 2 };
-            const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
-            const angTrunk = calculateAngle(verticalPt, midHip, midShoulder);
-            torqueR = calculateFullBodyTorque(angShoulderR, angElbowR, angKneeR, angTrunk);
-            updateMaxAndDrawVisual('r', lm, torqueR, { e: angElbowR, s: angShoulderR, k: angKneeR });
-          }
-
-          const visL = (lm[11].visibility + lm[13].visibility + lm[23].visibility + lm[25].visibility) / 4;
-          let torqueL = { shoulder: 0, elbow: 0, knee: 0 };
-          if (visL > 0.5) {
-            const angElbowL = calculateAngle(lm[11], lm[13], lm[15]);
-            const angShoulderL = calculateAngle(lm[23], lm[11], lm[13]);
-            const angKneeL = calculateAngle(lm[23], lm[25], lm[27]);
-            torqueL = calculateFullBodyTorque(angShoulderL, angElbowL, angKneeL, 0);
-            updateMaxAndDrawVisual('l', lm, torqueL, { e: angElbowL, s: angShoulderL, k: angKneeL });
-          }
-
-          let valTrunk = 0;
-          if (visR > 0.5 || visL > 0.5) {
-            const midShoulder = { x: (lm[12].x + lm[11].x) / 2, y: (lm[12].y + lm[11].y) / 2 };
-            const midHip = { x: (lm[24].x + lm[23].x) / 2, y: (lm[24].y + lm[23].y) / 2 };
-            const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
-            const angTrunk = calculateAngle(verticalPt, midHip, midShoulder);
-            const tData = calculateFullBodyTorque(0, 0, 0, angTrunk);
-            valTrunk = tData.trunk;
-            if (valTrunk > maxTorqueValues.trunk) maxTorqueValues.trunk = valTrunk;
-            setText("val-trunk", Math.round(angTrunk));
-            setText("max-trunk-t", maxTorqueValues.trunk.toFixed(1));
-          }
-
-          // ------------------------------------------------
-          // 4. ポリゴン描画
-          // ------------------------------------------------
-          if (showPolygon) {
-            drawPolygonBody(lm);
-            drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
-            drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
-            drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
-            drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
-            drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
-            drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
-            drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
-            drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
-            if (visR > 0.5 || visL > 0.5) {
-              const midShoulder = { x: (lm[12].x + lm[11].x) / 2, y: (lm[12].y + lm[11].y) / 2 };
-              const midHip = { x: (lm[24].x + lm[23].x) / 2, y: (lm[24].y + lm[23].y) / 2 };
-              drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, true);
-            }
-            drawJoints(lm, true);
-          }
-
-          updateAllGraphData(torqueR, torqueL, valTrunk);
-          drawAllGraphs();
-
-          if (mediaRecorder && mediaRecorder.state === "recording") {
-            const elapsed = (Date.now() - recordingStartTime) / 1000;
-            recordedCSVData.push({
-              time: elapsed.toFixed(2),
-              r_elbow: torqueR.elbow.toFixed(1), r_shoulder: torqueR.shoulder.toFixed(1), r_knee: torqueR.knee.toFixed(1),
-              l_elbow: torqueL.elbow.toFixed(1), l_shoulder: torqueL.shoulder.toFixed(1), l_knee: torqueL.knee.toFixed(1),
-              trunk: valTrunk.toFixed(1)
-            });
-          }
-
-          canvasCtx.restore();
+            strobeFrames.push(snapCanvas);
+            if (strobeFrames.length > maxStrobeCount) strobeFrames.shift();
         }
+        canvasCtx.globalAlpha = 1.0;
+        canvasCtx.globalCompositeOperation = 'source-over';
+        strobeFrames.forEach(frame => {
+            canvasCtx.drawImage(frame, 0, 0, canvasElement.width, canvasElement.height);
+        });
+    }
 
+    const lm = results.poseLandmarks;
+
+    // ------------------------------------------------
+    // 3. 負荷(トルク)の計算処理
+    // ------------------------------------------------
+    const visR = (lm[12].visibility + lm[14].visibility + lm[24].visibility + lm[26].visibility) / 4;
+    let torqueR = { shoulder: 0, elbow: 0, knee: 0 };
+    if (visR > 0.5) {
+        const angElbowR = calculateAngle(lm[12], lm[14], lm[16]);
+        const angShoulderR = calculateAngle(lm[24], lm[12], lm[14]);
+        const angKneeR = calculateAngle(lm[24], lm[26], lm[28]);
+        const midShoulder = { x: (lm[12].x + lm[11].x) / 2, y: (lm[12].y + lm[11].y) / 2 };
+        const midHip = { x: (lm[24].x + lm[23].x) / 2, y: (lm[24].y + lm[23].y) / 2 };
+        const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
+        const angTrunk = calculateAngle(verticalPt, midHip, midShoulder);
+        torqueR = calculateFullBodyTorque(angShoulderR, angElbowR, angKneeR, angTrunk);
+        updateMaxAndDrawVisual('r', lm, torqueR, { e: angElbowR, s: angShoulderR, k: angKneeR });
+    }
+
+    const visL = (lm[11].visibility + lm[13].visibility + lm[23].visibility + lm[25].visibility) / 4;
+    let torqueL = { shoulder: 0, elbow: 0, knee: 0 };
+    if (visL > 0.5) {
+        const angElbowL = calculateAngle(lm[11], lm[13], lm[15]);
+        const angShoulderL = calculateAngle(lm[23], lm[11], lm[13]);
+        const angKneeL = calculateAngle(lm[23], lm[25], lm[27]);
+        torqueL = calculateFullBodyTorque(angShoulderL, angElbowL, angKneeL, 0);
+        updateMaxAndDrawVisual('l', lm, torqueL, { e: angElbowL, s: angShoulderL, k: angKneeL });
+    }
+
+    let valTrunk = 0;
+    if (visR > 0.5 || visL > 0.5) {
+        const midShoulder = { x: (lm[12].x + lm[11].x) / 2, y: (lm[12].y + lm[11].y) / 2 };
+        const midHip = { x: (lm[24].x + lm[23].x) / 2, y: (lm[24].y + lm[23].y) / 2 };
+        const verticalPt = { x: midHip.x, y: midHip.y - 0.5 };
+        const angTrunk = calculateAngle(verticalPt, midHip, midShoulder);
+        const tData = calculateFullBodyTorque(0, 0, 0, angTrunk);
+        valTrunk = tData.trunk;
+        if (valTrunk > maxTorqueValues.trunk) maxTorqueValues.trunk = valTrunk;
+        setText("val-trunk", Math.round(angTrunk));
+        setText("max-trunk-t", maxTorqueValues.trunk.toFixed(1));
+    }
+
+    // ------------------------------------------------
+    // 4. ポリゴン描画
+    // ------------------------------------------------
+    if (showPolygon) {
+        drawPolygonBody(lm);
+        drawDynamicMuscle(lm[12], lm[14], torqueR.elbow, 60, true);
+        drawDynamicMuscle(lm[14], lm[16], 0, 100, true);
+        drawDynamicMuscle(lm[24], lm[26], torqueR.knee, 250, true);
+        drawDynamicMuscle(lm[26], lm[28], 0, 100, true);
+        drawDynamicMuscle(lm[11], lm[13], torqueL.elbow, 60, true);
+        drawDynamicMuscle(lm[13], lm[15], 0, 100, true);
+        drawDynamicMuscle(lm[23], lm[25], torqueL.knee, 250, true);
+        drawDynamicMuscle(lm[25], lm[27], 0, 100, true);
+        if (visR > 0.5 || visL > 0.5) {
+            const midShoulder = { x: (lm[12].x + lm[11].x) / 2, y: (lm[12].y + lm[11].y) / 2 };
+            const midHip = { x: (lm[24].x + lm[23].x) / 2, y: (lm[24].y + lm[23].y) / 2 };
+            drawDynamicMuscle(midShoulder, midHip, valTrunk, 150, true);
+        }
+        drawJoints(lm, true);
+    }
+
+    updateAllGraphData(torqueR, torqueL, valTrunk);
+    drawAllGraphs();
+
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+        const elapsed = (Date.now() - recordingStartTime) / 1000;
+        recordedCSVData.push({
+            time: elapsed.toFixed(2),
+            r_elbow: torqueR.elbow.toFixed(1), r_shoulder: torqueR.shoulder.toFixed(1), r_knee: torqueR.knee.toFixed(1),
+            l_elbow: torqueL.elbow.toFixed(1), l_shoulder: torqueL.shoulder.toFixed(1), l_knee: torqueL.knee.toFixed(1),
+            trunk: valTrunk.toFixed(1)
+        });
+    }
+
+    canvasCtx.restore();
+}
         // --- 🔷 ポリゴン（面）描画 ---
         function drawPolygonBody(lm) {
           if (!canvasCtx) return;
@@ -17565,6 +17736,185 @@ function clearLeagueData() {
 // 起動時に自動読み込み
 document.addEventListener("DOMContentLoaded", loadLeagueFromBrowser);
 
+// ==========================================
+// 🚀 AIジャンプ力測定ロジック（自動検知版）
+// ==========================================
+
+// 1. カメラ起動
+async function startJumpAICamera() {
+    jumpModeActive = true;
+    jumpGroundY = 0; // 地面基準をリセット
+    const statusEl = document.getElementById("jump-ai-status");
+    if (statusEl) statusEl.textContent = "📐 地面を認識中... まっすぐ立ってください";
+    
+    // 既存の他の解析カメラが動いていれば停止
+    stopTracking(); 
+    
+    // パフォーマンス分析のカメラ設定をジャンプ用にセットして起動
+    currentFacingMode = jumpFacingMode; 
+    startCamera(); 
+}
+
+// 2. カメラ切替
+function toggleJumpCamera() {
+    jumpFacingMode = (jumpFacingMode === 'user') ? 'environment' : 'user';
+    if (jumpModeActive) startJumpAICamera();
+}
+
+// 3. 地面リセット
+function resetJumpGround() {
+    jumpGroundY = 0;
+    const statusEl = document.getElementById("jump-ai-status");
+    if (statusEl) statusEl.textContent = "📏 地面を再設定しました。まっすぐ立ってください";
+}
+
+// 4. AI解析ループ内から呼ばれる判定コア
+function detectJumpAI(results) {
+    const canvas = document.getElementById('jump_canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById("jump-ai-status");
+    const guideLine = document.getElementById("ground-line-guide");
+
+    // モニターサイズの調整
+    if (canvas.width !== results.image.width) {
+        canvas.width = results.image.width;
+        canvas.height = results.image.height;
+    }
+
+    // --- 📺 描画処理 (人物がいなくても背景は必ず描く) ---
+    ctx.save();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    
+    // 人物が検出されている場合のみ骨格と判定を行う
+    if (results.poseLandmarks) {
+        drawJumpSkeleton(ctx, results.poseLandmarks);
+        
+        const lm = results.poseLandmarks;
+        const currentAnkleY = (lm[27].y + lm[28].y) / 2;
+
+        // 地面の基準設定
+        if (jumpGroundY === 0) {
+            jumpGroundY = currentAnkleY;
+            if(statusEl) statusEl.textContent = "READY";
+            if(guideLine) {
+                guideLine.style.display = "block";
+                guideLine.style.top = (jumpGroundY * 100) + "%";
+            }
+        } else {
+            // 地面ガイド線の描画
+            ctx.strokeStyle = "#ffeb3b";
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, jumpGroundY * canvas.height);
+            ctx.lineTo(canvas.width, jumpGroundY * canvas.height);
+            ctx.stroke();
+
+            // ジャンプ判定
+            const takeoffThreshold = 0.04;
+            if (!isJumpAirborne && currentAnkleY < jumpGroundY - takeoffThreshold) {
+                isJumpAirborne = true;
+                jumpTakeoffTime = performance.now(); // 変数名を jumpTakeoffTime に統一
+                if(statusEl) {
+                    statusEl.textContent = "🚀 AIRBORNE";
+                    statusEl.style.background = "#ffeb3b";
+                    statusEl.style.color = "#000";
+                }
+            } 
+            else if (isJumpAirborne && currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
+                isJumpAirborne = false;
+                const flightTime = (performance.now() - jumpTakeoffTime) / 1000;
+                const heightCm = (9.80665 * Math.pow(flightTime, 2)) / 8 * 100;
+
+                if (heightCm > 2.0) {
+                    processJumpResult(heightCm, flightTime);
+                }
+                if(statusEl) {
+                    statusEl.textContent = "READY";
+                    statusEl.style.background = "rgba(233, 30, 99, 0.8)";
+                    statusEl.style.color = "#fff";
+                }
+            }
+        }
+    } else {
+        // 人が見つからないとき
+        if(statusEl) statusEl.textContent = "SEARCHING...";
+        if(guideLine) guideLine.style.display = "none";
+    }
+    ctx.restore();
+}
+
+// 5. 結果処理
+function processJumpResult(height, time) {
+    document.getElementById("val-jump-height").textContent = height.toFixed(1);
+    document.getElementById("jump-timer-display").innerHTML = `${time.toFixed(3)} <span style="font-size:18px;">s</span>`;
+    document.getElementById("jump-result-area").style.display = "block";
+
+    // 到達点計算
+    const userHeight = parseFloat(document.getElementById("bio-height")?.value || 170);
+    const reach = (userHeight * 1.25) + height; // 手を伸ばした高さを身長の1.25倍と仮定
+    document.getElementById("val-jump-reach").textContent = reach.toFixed(1);
+
+    // 履歴保存（既存の関数を利用）
+    saveJumpData();
+}
+
+// --- 以下、既存の履歴管理 ---
+let jumpHistoryData = [];
+function saveJumpData() {
+    const h = document.getElementById("val-jump-height").textContent;
+    if (h === "0.0") return;
+    const record = {
+        date: new Date().toLocaleString("ja-JP", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"}),
+        height: h
+    };
+    jumpHistoryData.unshift(record);
+    if (jumpHistoryData.length > 10) jumpHistoryData.pop();
+    localStorage.setItem("smartCoachJumpData", JSON.stringify(jumpHistoryData));
+    renderJumpHistory();
+}
+function renderJumpHistory() {
+    const container = document.getElementById("jump-history-list");
+    if(!container) return;
+    container.innerHTML = jumpHistoryData.map(d => `
+        <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #f0f0f0;">
+            <span style="color:#999;">${d.date}</span>
+            <span style="font-weight:bold; color:#d81b60;">${d.height} cm</span>
+        </div>
+    `).join('');
+}
+
+// 🟥 AIジャンプ測定を完全に停止する関数
+function stopJumpAICamera() {
+    // 1. 解析フラグをオフにする
+    jumpModeActive = false;
+    isJumpAirborne = false;
+
+    // 2. 既存の共通カメラ停止関数を呼び出す（ストリームを止める）
+    stopTracking();
+
+    // 3. ジャンプ専用モニター（キャンバス）を真っ黒にリセット
+    const canvas = document.getElementById('jump_canvas');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // 4. UI表示のリセット
+    const statusEl = document.getElementById("jump-ai-status");
+    if (statusEl) {
+        statusEl.textContent = "OFFLINE";
+        statusEl.style.background = "rgba(0, 0, 0, 0.6)";
+    }
+    
+    const guideLine = document.getElementById("ground-line-guide");
+    if (guideLine) guideLine.style.display = "none";
+
+    console.log("Jump AI Camera Stopped.");
+}
 </script>
 </body>
 
