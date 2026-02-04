@@ -433,6 +433,17 @@
         margin-bottom: 0;
       }
     }
+
+.jump-res-card {
+    background:#fafafa; 
+    border:1px solid #ddd; 
+    padding:10px 5px; 
+    border-radius:8px; 
+    font-size:12px; 
+    text-align:center; 
+    font-weight:bold;
+    color: #444;
+}
   </style>
 
   <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -481,11 +492,17 @@
 
           // アプリに戻ってきた時に更新をチェック
           document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-              registration.update();
-              console.log('App visible, checking for updates...');
-            }
-          });
+    if (document.visibilityState === 'visible') {
+        // インストール中や待機中のワーカーがないか確認してからアップデートを試みる
+        if (registration && !registration.installing && !registration.waiting) {
+            registration.update().catch(err => {
+                // 冗長なエラー（InvalidStateError等）をコンソールに流さないように処理
+                console.warn('ServiceWorker update skipped or failed:', err.message);
+            });
+            console.log('App visible, checking for updates...');
+        }
+    }
+});
 
           // 更新が見つかったらユーザーに通知
           registration.onupdatefound = function () {
@@ -557,6 +574,11 @@ let isJumpAirborne = false;
 let jumpTakeoffTime = 0;
 let jumpGroundY = 0;
 let jumpFacingMode = 'environment';
+
+let jumpLog = []; // 時系列データ保存用（CSV出力に使用）
+let prevKneeAngle = 0; // 前フレームの角度（角速度の計算に使用）
+let jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 }; // 1回のジャンプ中の最大値を保持
+let lastFrameTime = 0; // フレーム間の時間差計算用
 
     // ログイン処理
     async function loginWithPassword() {
@@ -5192,16 +5214,30 @@ let jumpFacingMode = 'environment';
         </div>
     </div>
 
-    <div id="jump-result-area" style="display:none; animation: fadeIn 0.5s;">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
-            <div style="background:#fff; border:2px solid #e91e63; padding:15px; border-radius:8px; text-align:center;">
-                <div style="font-size:11px; color:#666;">今回の跳躍高</div>
-                <div style="font-size:28px; font-weight:bold; color:#e91e63;"><span id="val-jump-height">0.0</span> <span style="font-size:14px;">cm</span></div>
-            </div>
-            <div style="background:#fff; border:2px solid #3f51b5; padding:15px; border-radius:8px; text-align:center;">
-                <div style="font-size:11px; color:#666;">最高到達点 (推定)</div>
-                <div style="font-size:20px; font-weight:bold; color:#3f51b5;"><span id="val-jump-reach">0.0</span> <span style="font-size:14px;">cm</span></div>
-            </div>
+    <div id="jump-result-area" style="display:none; animation: fadeIn 0.5s; margin-top:15px;">
+    
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+        <div style="background:#fff; border:2px solid #e91e63; padding:10px; border-radius:8px; text-align:center;">
+            <div style="font-size:10px; color:#666;">今回の跳躍高</div>
+            <div style="font-size:24px; font-weight:bold; color:#e91e63;"><span id="val-jump-height">0.0</span> <small style="font-size:12px;">cm</small></div>
+        </div>
+        <div style="background:#fff; border:2px solid #3f51b5; padding:10px; border-radius:8px; text-align:center;">
+            <div style="font-size:10px; color:#666;">最高到達点(推定)</div>
+            <div style="font-size:24px; font-weight:bold; color:#3f51b5;"><span id="val-jump-reach">0.0</span> <small style="font-size:12px;">cm</small></div>
+        </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
+        <div class="jump-res-card">最大膝角度: <span id="max-knee-angle" style="color:#ff9800;">0</span>°</div>
+        <div class="jump-res-card">最大膝角速度: <span id="max-knee-av" style="color:#ff9800;">0</span>°/s</div>
+        <div class="jump-res-card">最大膝トルク: <span id="max-knee-t-val" style="color:#ff9800;">0</span> <small>Nm</small></div>
+        <div class="jump-res-card">最大腕速度: <span id="max-arm-v" style="color:#4caf50;">0</span></div>
+    </div>
+    
+    <button onclick="downloadJumpCSV()" style="width:100%; height:44px; background:#00897b; color:white; border:none; border-radius:22px; font-weight:bold; cursor:pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; gap:8px;">
+        <span>📥</span> 測定データをCSVで保存
+    </button>
+</div>
         </div>
     </div>
     
@@ -10219,66 +10255,94 @@ let groundY = 0;
 function detectJumpAI(results) {
     if (!jumpModeActive || !results.poseLandmarks) return;
 
+    const lm = results.poseLandmarks;
+    const now = performance.now();
     const canvas = document.getElementById('jump_canvas');
     const ctx = canvas.getContext('2d');
     const statusEl = document.getElementById("jump-ai-status");
     const guideLine = document.getElementById("ground-line-guide");
 
-    // モニターサイズの調整
-    if (canvas.width !== results.image.width) {
-        canvas.width = results.image.width;
-        canvas.height = results.image.height;
-    }
-
-    // --- A. モニターへの描画処理 ---
+    // モニター描画
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // 映像を描画
     ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+    drawJumpSkeleton(ctx, lm);
     
-    // スケルトン描画（簡易版）
-    drawJumpSkeleton(ctx, results.poseLandmarks);
+    if (jumpGroundY !== 0) {
+        ctx.strokeStyle = "#ffeb3b";
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(0, jumpGroundY * canvas.height);
+        ctx.lineTo(canvas.width, jumpGroundY * canvas.height);
+        ctx.stroke();
+    }
     ctx.restore();
 
-    // --- B. ジャンプ判定ロジック ---
-    const lm = results.poseLandmarks;
+    // --- 🏃‍♂️ 物理量計算セクション ---
+    const dt = lastFrameTime > 0 ? (now - lastFrameTime) / 1000 : 0.033;
+    lastFrameTime = now;
+
+    // 1. 膝角度と角速度
+    const currentKneeAngle = calculateFwAngle(lm[24], lm[26], lm[28]);
+    let angularVelocity = 0;
+    if (prevKneeAngle !== 0 && dt > 0) {
+        angularVelocity = Math.abs(currentKneeAngle - prevKneeAngle) / dt;
+    }
+    prevKneeAngle = currentKneeAngle;
+
+    // 2. 膝トルク
+    const weight = parseFloat(document.getElementById("bio-weight")?.value || 65);
+    const currentTorque = weight * 9.81 * Math.abs(Math.sin((180 - currentKneeAngle) * Math.PI / 180));
+    
+    // 3. 腕速度 (右手首: 10番)
+    const wrist = lm[10];
+    let armSpeed = 0;
+    if (prevWristPos.x !== 0 && dt > 0) {
+        armSpeed = Math.sqrt(Math.pow(wrist.x - prevWristPos.x, 2) + Math.pow(wrist.y - prevWristPos.y, 2)) / dt;
+    }
+    prevWristPos = { x: wrist.x, y: wrist.y };
+
+    // 最大値の更新
+    if (currentKneeAngle > jumpMaxStats.angle) jumpMaxStats.angle = currentKneeAngle;
+    if (angularVelocity > jumpMaxStats.av) jumpMaxStats.av = angularVelocity;
+    if (currentTorque > jumpMaxStats.torque) jumpMaxStats.torque = currentTorque;
+    if (armSpeed > jumpMaxStats.armV) jumpMaxStats.armV = armSpeed;
+
+    // --- ⚖️ ジャンプ判定ロジック ---
     const currentAnkleY = (lm[27].y + lm[28].y) / 2;
+    let eventLabel = "";
 
     if (jumpGroundY === 0) {
         jumpGroundY = currentAnkleY;
+        jumpLog = []; // ログリセット
         if(statusEl) statusEl.textContent = "READY";
-        if(guideLine) {
-            guideLine.style.display = "block";
-            guideLine.style.top = (jumpGroundY * 100) + "%";
-        }
         return;
     }
 
     const takeoffThreshold = 0.04;
-
     if (!isJumpAirborne && currentAnkleY < jumpGroundY - takeoffThreshold) {
         isJumpAirborne = true;
-        takeoffTime = performance.now();
-        if(statusEl) {
-            statusEl.textContent = "🚀 AIRBORNE";
-            statusEl.style.background = "#ffeb3b";
-            statusEl.style.color = "#000";
-        }
-    } 
-    else if (isJumpAirborne && currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
+        jumpTakeoffTime = now;
+        eventLabel = "TAKE_OFF";
+        if(statusEl) statusEl.textContent = "🚀 AIRBORNE";
+    } else if (isJumpAirborne && currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
         isJumpAirborne = false;
-        const flightTime = (performance.now() - jumpTakeoffTime) / 1000;
-        const heightCm = (9.80665 * Math.pow(flightTime, 2)) / 8 * 100;
-
-        if (heightCm > 2.0) {
-            processJumpResult(heightCm, flightTime);
-        }
-        if(statusEl) {
-            statusEl.textContent = "READY";
-            statusEl.style.background = "rgba(233, 30, 99, 0.8)";
-            statusEl.style.color = "#fff";
-        }
+        eventLabel = "LANDING";
+        const flightTime = (now - jumpTakeoffTime) / 1000;
+        const height = (9.80665 * Math.pow(flightTime, 2)) / 8 * 100;
+        processJumpResultDetailed(height, flightTime); // 下記の関数を呼び出し
+        if(statusEl) statusEl.textContent = "READY";
     }
+
+    // 時系列ログへ保存
+    jumpLog.push({
+        time: (now / 1000).toFixed(3),
+        angle: currentKneeAngle.toFixed(1),
+        angularVelocity: angularVelocity.toFixed(1),
+        torque: currentTorque.toFixed(1),
+        armSpeed: (armSpeed * 10).toFixed(1),
+        event: eventLabel
+    });
 }
 
 // モニター用の簡易スケルトン描画
@@ -17845,19 +17909,65 @@ function detectJumpAI(results) {
     ctx.restore();
 }
 
-// 5. 結果処理
-function processJumpResult(height, time) {
-    document.getElementById("val-jump-height").textContent = height.toFixed(1);
-    document.getElementById("jump-timer-display").innerHTML = `${time.toFixed(3)} <span style="font-size:18px;">s</span>`;
+
+function processJumpResultDetailed(height, time) {
     document.getElementById("jump-result-area").style.display = "block";
+    document.getElementById("val-jump-height").textContent = height.toFixed(1);
+    
+    // UI上の各IDに最大値を書き込み
+    const elAngle = document.getElementById("max-knee-angle");
+    const elAv = document.getElementById("max-knee-av");
+    const elT = document.getElementById("max-knee-t-val");
+    const elArm = document.getElementById("max-arm-v");
 
-    // 到達点計算
+    if (elAngle) elAngle.textContent = Math.round(jumpMaxStats.angle);
+    if (elAv) elAv.textContent = Math.round(jumpMaxStats.av);
+    if (elT) elT.textContent = jumpMaxStats.torque.toFixed(1);
+    if (elArm) elArm.textContent = (jumpMaxStats.armV * 10).toFixed(1);
+
+    // 最高到達点の計算
     const userHeight = parseFloat(document.getElementById("bio-height")?.value || 170);
-    const reach = (userHeight * 1.25) + height; // 手を伸ばした高さを身長の1.25倍と仮定
-    document.getElementById("val-jump-reach").textContent = reach.toFixed(1);
+    const reach = (userHeight * 1.25) + height;
+    const elReach = document.getElementById("val-jump-reach");
+    if (elReach) elReach.textContent = reach.toFixed(1);
 
-    // 履歴保存（既存の関数を利用）
+    // 履歴保存
     saveJumpData();
+
+    // 次回の計測のために最大値だけリセット（ログはdownloadJumpCSVで使うため残す）
+    jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
+}
+
+// 5. 結果処理
+function processJumpResultDetailed(height, time) {
+    document.getElementById("jump-result-area").style.display = "block";
+    document.getElementById("val-jump-height").textContent = height.toFixed(1);
+    
+    // 最大値を表示
+    document.getElementById("max-knee-angle").textContent = Math.round(jumpMaxStats.angle);
+    document.getElementById("max-knee-av").textContent = Math.round(jumpMaxStats.av);
+    document.getElementById("max-knee-t-val").textContent = jumpMaxStats.torque.toFixed(1);
+    document.getElementById("max-arm-v").textContent = (jumpMaxStats.armV * 10).toFixed(1);
+
+    // 最大値をリセット（次回の計測用）
+    jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
+}
+
+function downloadJumpCSV() {
+    if (jumpLog.length === 0) return alert("データがありません");
+
+    let csvContent = "Time(s),KneeAngle(deg),AngularVelocity(deg/s),KneeTorque(Nm),ArmSpeed,Event\n";
+    jumpLog.forEach(row => {
+        csvContent += `${row.time},${row.angle},${row.angularVelocity},${row.torque},${row.armSpeed},${row.event}\n`;
+    });
+
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const blob = new Blob([bom, csvContent], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `JumpAnalysis_${new Date().getTime()}.csv`;
+    a.click();
 }
 
 // --- 以下、既存の履歴管理 ---
