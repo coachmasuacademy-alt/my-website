@@ -7,7 +7,7 @@ const CACHE_NAME = 'smart-coach-v33';
 // キャッシュする最小限の静的アセット
 const urlsToCache = [
   './',
-  './index.html',
+  './training_program.html',
   './manifest.json',
   './icon2.png',
   './custom_fonts.js'
@@ -81,6 +81,7 @@ self.addEventListener('message', (event) => {
     self.skipWaiting();
   }
 });
+
 
 
 
