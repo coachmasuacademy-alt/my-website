@@ -2348,7 +2348,7 @@
     <button id="nav-home" onclick="showScreen('home', this)">🏠 ホーム</button>
     <button id="nav-training" onclick="showScreen('training', this)">1. トレーニング計画</button>
     <button id="nav-analysis" onclick="showScreen('analysis', this)">2. パフォーマンス分析</button>
-    <button id="nav-tactics" onclick="showScreen('tactics', this)">3. 戦術・コート</button>
+    <button id="nav-tactics" onclick="showScreen('tactics', this)">3. 戦術・コート・リーグ</button>
     <button id="nav-beginner" onclick="showScreen('beginner', this)">4. 初心者指導</button>
     <button id="nav-learning" onclick="showScreen('learning', this)">5. 知識・スキル学習</button>
     <button id="nav-utility" onclick="showScreen('utility', this)">6. ユーティリティ</button>
@@ -3068,6 +3068,53 @@
         </div>
       </div>
     </div>
+
+<div id="league-management-box" style="margin-top: 30px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin:0; color:#00796b;">🏆 リーグ戦マネージャー</h3>
+        <div style="display: flex; gap: 5px;">
+            <button onclick="saveLeagueToBrowser()" style="background:#ff9800; font-size:12px; padding:5px 10px;">保存</button>
+            <button onclick="clearLeagueData()" style="background:#bdbdbd; font-size:12px; padding:5px 10px;">削除</button>
+        </div>
+    </div>
+    
+    <div id="league-setup-area" style="background:#f1f8e9; padding:15px; border-radius:8px; border:1px solid #c5e1a5; margin-bottom:20px;">
+    <label style="font-weight:bold; font-size:14px; color: #33691e;">① 参加者・チーム名を入力</label>
+    <p style="font-size: 11px; color: #666; margin: 4px 0;">名前を改行して貼り付けるとまとめて追加できます。</p>
+    
+    <textarea id="league-player-bulk" placeholder="佐藤&#13;&#10;鈴木&#13;&#10;高橋" style="width:100%; height:80px; padding:10px; box-sizing:border-box; border:1px solid #ccc; border-radius:4px; font-size:14px; line-height:1.5;"></textarea>
+    
+    <button onclick="addLeaguePlayersBulk()" style="width:100%; margin-top:8px; background:#00897b; font-weight:bold;">リストに追加する</button>
+    
+    <div id="league-player-list" style="margin-top:15px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+    
+    <button onclick="generateLeagueSchedule()" id="btn-generate-league" style="width:100%; margin-top:15px; background:#ef6c00; font-weight:bold; height:44px; border-radius:22px; display:none;">
+        📊 リーグ戦表を生成する
+    </button>
+</div>
+
+    <div id="league-table-area" style="display:none;">
+        <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin-bottom:10px;">📅 進行スケジュール・結果入力</h4>
+        <div style="overflow-x: auto;">
+            <table id="match-schedule-table" style="width:100%; border-collapse:collapse; font-size:14px; background:#fff; min-width:320px;">
+                <thead style="background:#f5f5f5;">
+                    <tr>
+                        <th style="border:1px solid #ddd; padding:8px; width:40px;">No.</th>
+                        <th style="border:1px solid #ddd; padding:8px;">対戦カード</th>
+                        <th style="border:1px solid #ddd; padding:8px; width:120px;">スコア入力</th>
+                        <th style="border:1px solid #ddd; padding:8px; width:50px;">状態</th>
+                    </tr>
+                </thead>
+                <tbody id="league-matches-body"></tbody>
+            </table>
+        </div>
+
+        <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">📈 現在の順位表</h4>
+        <div id="league-ranking-container" style="overflow-x: auto;"></div>
+        
+        <p style="font-size:11px; color:#666; margin-top:10px;">※順位決定優先度：1.勝数 / 2.得失点差 / 3.総得点</p>
+    </div>
+</div>
 
   </section>
   <section id="screen-learning" class="screen-content">
@@ -17277,7 +17324,248 @@
           const text = document.getElementById("team-plan-output").innerText;
           navigator.clipboard.writeText(text).then(() => alert("コピーしました！"));
         }
-      </script>
+
+// ==========================================
+// 🏆 リーグ戦管理（均等進行スケジューリング）
+// ==========================================
+
+let lPlayers = [];
+let lMatches = [];
+const L_STORAGE_KEY = "smartCoachLeagueData";
+
+// 選手追加
+function addLeaguePlayersBulk() {
+    const textarea = document.getElementById("league-player-bulk");
+    if (!textarea) return;
+
+    // 改行で分割し、空白を除去、空行を無視
+    const names = textarea.value.split(/\r?\n/).map(name => name.trim()).filter(name => name !== "");
+
+    if (names.length === 0) return;
+
+    let addedCount = 0;
+    let skipCount = 0;
+
+    names.forEach(name => {
+        if (!lPlayers.includes(name)) {
+            lPlayers.push(name);
+            addedCount++;
+        } else {
+            skipCount++;
+        }
+    });
+
+    textarea.value = ""; // 入力欄をクリア
+    renderLeaguePlayerList();
+
+    if (skipCount > 0) {
+        console.log(`${skipCount}名の重複をスキップしました`);
+    }
+}
+
+// 選手リストUI
+function renderLeaguePlayerList() {
+    const container = document.getElementById("league-player-list");
+    const btnGen = document.getElementById("btn-generate-league");
+    container.innerHTML = "";
+    
+    lPlayers.forEach((p, i) => {
+        const tag = document.createElement("span");
+        tag.style.cssText = "background:#e0f2f1; border:1px solid #00897b; padding:4px 10px; border-radius:20px; font-size:13px; display:flex; align-items:center; gap:6px; color:#00695c;";
+        tag.innerHTML = `${p} <span onclick="removeLeaguePlayer(${i})" style="cursor:pointer; color:#d32f2f; font-weight:bold;">×</span>`;
+        container.appendChild(tag);
+    });
+    btnGen.style.display = lPlayers.length >= 2 ? "block" : "none";
+}
+
+function removeLeaguePlayer(i) {
+    lPlayers.splice(i, 1);
+    renderLeaguePlayerList();
+}
+
+// 均等進行スケジュールの生成 (サークル・メソッド)
+function generateLeagueSchedule() {
+    if (lPlayers.length < 2) return;
+    if (lMatches.length > 0 && !confirm("現在の結果を破棄して新しく作成しますか？")) return;
+
+    let names = [...lPlayers];
+    if (names.length % 2 !== 0) names.push(null); // 奇数の場合休み(Bye)を入れる
+    
+    const n = names.length;
+    const rounds = n - 1;
+    const matchesPerRound = n / 2;
+    lMatches = [];
+    let matchCounter = 1;
+
+    for (let r = 0; r < rounds; r++) {
+        for (let i = 0; i < matchesPerRound; i++) {
+            const p1 = names[i];
+            const p2 = names[n - 1 - i];
+            
+            // 休み(null)ではない場合のみ試合追加
+            if (p1 !== null && p2 !== null) {
+                lMatches.push({
+                    id: matchCounter++,
+                    round: r + 1,
+                    p1: p1,
+                    p2: p2,
+                    s1: "",
+                    s2: ""
+                });
+            }
+        }
+        // 円環回転：最初の要素以外を回す
+        names.splice(1, 0, names.pop());
+    }
+
+    document.getElementById("league-table-area").style.display = "block";
+    renderLeagueMatches();
+    updateLeagueRanking();
+    
+    // 生成時に自動保存
+    saveLeagueToBrowser(true);
+}
+
+// 試合表の描画 (表形式)
+function renderLeagueMatches() {
+    const body = document.getElementById("league-matches-body");
+    body.innerHTML = "";
+
+    lMatches.forEach((m, idx) => {
+        const isDone = (m.s1 !== "" && m.s2 !== "");
+        const tr = document.createElement("tr");
+        tr.style.backgroundColor = isDone ? "#f9f9f9" : "#fff";
+        
+        tr.innerHTML = `
+            <td style="border:1px solid #eee; padding:10px; text-align:center; color:#888;">${m.id}</td>
+            <td style="border:1px solid #eee; padding:10px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="flex:1; text-align:right; font-weight:bold; color:#333;">${m.p1}</span>
+                    <span style="margin:0 10px; color:#999; font-size:12px;">VS</span>
+                    <span style="flex:1; text-align:left; font-weight:bold; color:#333;">${m.p2}</span>
+                </div>
+            </td>
+            <td style="border:1px solid #eee; padding:10px; text-align:center;">
+                <div style="display:flex; align-items:center; justify-content:center; gap:5px;">
+                    <input type="number" value="${m.s1}" oninput="updateLScore(${idx}, 1, this.value)" style="width:40px; text-align:center; padding:5px; border:1px solid #ccc; border-radius:4px;">
+                    <span>-</span>
+                    <input type="number" value="${m.s2}" oninput="updateLScore(${idx}, 2, this.value)" style="width:40px; text-align:center; padding:5px; border:1px solid #ccc; border-radius:4px;">
+                </div>
+            </td>
+            <td style="border:1px solid #eee; padding:10px; text-align:center; font-size:12px;">
+                ${isDone ? '<span style="color:green;">済</span>' : '<span style="color:#aaa;">待機</span>'}
+            </td>
+        `;
+        body.appendChild(tr);
+    });
+}
+
+function updateLScore(idx, playerNum, val) {
+    if (playerNum === 1) lMatches[idx].s1 = val;
+    else lMatches[idx].s2 = val;
+    
+    updateLeagueRanking();
+    // リアルタイム描画更新（状態ラベルのため）
+    const row = document.getElementById("league-matches-body").children[idx];
+    const isDone = (lMatches[idx].s1 !== "" && lMatches[idx].s2 !== "");
+    row.style.backgroundColor = isDone ? "#f9f9f9" : "#fff";
+    row.children[3].innerHTML = isDone ? '<span style="color:green;">済</span>' : '<span style="color:#aaa;">待機</span>';
+}
+
+// 順位表の更新
+function updateLeagueRanking() {
+    let stats = {};
+    lPlayers.forEach(p => stats[p] = { name:p, win:0, lose:0, pointF:0, pointA:0 });
+
+    lMatches.forEach(m => {
+        const s1 = parseInt(m.s1);
+        const s2 = parseInt(m.s2);
+        if (!isNaN(s1) && !isNaN(s2)) {
+            stats[m.p1].pointF += s1; stats[m.p1].pointA += s2;
+            stats[m.p2].pointF += s2; stats[m.p2].pointA += s1;
+            if (s1 > s2) { stats[m.p1].win++; stats[m.p2].lose++; }
+            else if (s2 > s1) { stats[m.p2].win++; stats[m.p1].lose++; }
+        }
+    });
+
+    let ranking = Object.values(stats).sort((a, b) => {
+        if (b.win !== a.win) return b.win - a.win;
+        const diffA = a.pointF - a.pointA;
+        const diffB = b.pointF - b.pointA;
+        if (diffB !== diffA) return diffB - diffA;
+        return b.pointF - a.pointF;
+    });
+
+    let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b;">
+            <thead style="background:#00796b; color:#fff;">
+                <tr>
+                    <th style="padding:8px;">順位</th>
+                    <th style="padding:8px; text-align:left;">名前</th>
+                    <th style="padding:8px;">勝-敗</th>
+                    <th style="padding:8px;">得失点差</th>
+                    <th style="padding:8px;">総得点</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    ranking.forEach((r, i) => {
+        const diff = r.pointF - r.pointA;
+        html += `
+            <tr style="background:${i%2===0?'#fff':'#f1f8e9'};">
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${i + 1}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; text-align:left; font-weight:bold;">${r.name}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.win}勝 ${r.lose}敗</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; color:${diff>0?'green':(diff<0?'red':'#333')}">${diff>0?'+'+diff:diff}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.pointF}</td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table>`;
+    document.getElementById("league-ranking-container").innerHTML = html;
+}
+
+// 💾 ブラウザ保存・削除
+function saveLeagueToBrowser(silent = false) {
+    if (lPlayers.length === 0) return;
+    const data = { players: lPlayers, matches: lMatches, timestamp: new Date().toLocaleString() };
+    localStorage.setItem(L_STORAGE_KEY, JSON.stringify(data));
+    if (!silent) alert("リーグ戦のデータをブラウザに保存しました。");
+}
+
+function loadLeagueFromBrowser() {
+    const json = localStorage.getItem(L_STORAGE_KEY);
+    if (!json) return;
+    const data = JSON.parse(json);
+    lPlayers = data.players || [];
+    lMatches = data.matches || [];
+    
+    if (lPlayers.length > 0) {
+        renderLeaguePlayerList();
+        if (lMatches.length > 0) {
+            document.getElementById("league-table-area").style.display = "block";
+            renderLeagueMatches();
+            updateLeagueRanking();
+        }
+    }
+}
+
+function clearLeagueData() {
+    if (!confirm("保存されているリーグ戦データを完全に削除しますか？")) return;
+    localStorage.removeItem(L_STORAGE_KEY);
+    lPlayers = [];
+    lMatches = [];
+    document.getElementById("league-table-area").style.display = "none";
+    document.getElementById("league-player-list").innerHTML = "";
+    document.getElementById("btn-generate-league").style.display = "none";
+    alert("削除しました。");
+}
+
+// 起動時に自動読み込み
+document.addEventListener("DOMContentLoaded", loadLeagueFromBrowser);
+
+</script>
 </body>
 
 </html>
