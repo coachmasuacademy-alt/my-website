@@ -566,7 +566,7 @@
     let isProgramGenerated = false;
     let isPoseModelLoaded = false;
     let isFwModelLoaded = false;
-    let isStrokeModelLoaded = false;
+    
 
 // --- AIジャンプ測定用変数 ---
 let jumpModeActive = false;
@@ -574,6 +574,9 @@ let isJumpAirborne = false;
 let jumpTakeoffTime = 0;
 let jumpGroundY = 0;
 let jumpFacingMode = 'environment';
+let prevWristPos = { x: 0, y: 0 };
+let isJumpMeasuring = false; 
+let latestJumpAnkleY = null;
 
 let jumpLog = []; // 時系列データ保存用（CSV出力に使用）
 let prevKneeAngle = 0; // 前フレームの角度（角速度の計算に使用）
@@ -2510,7 +2513,7 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
     <div class="category-card" onclick="showScreen('analysis', document.getElementById('nav-analysis'))">
       <h4>2. AI/動画によるパフォーマンス分析</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">
-        AIフォーム解析、移動速度/距離計測（ゲーム分析）、ダブルス陣形比率分析、ストローク位置分析など、試合や練習を科学的に評価します。（AIフォーム解析、ゲーム分析、AIフォーム比較コーチ、ダブルス陣形分析、ストローク位置分析）
+        AIフォーム解析、移動速度/距離計測（ゲーム分析）、ダブルス陣形比率分析など、試合や練習を科学的に評価します。（AIフォーム解析、ゲーム分析、AIフォーム比較コーチ、ダブルス陣形分析）
       </p>
     </div>
 
@@ -5036,157 +5039,7 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
       }
     </style>
 
-    <section id="shuttle-analysis-section" style="
-  margin-top: 30px; 
-  padding: 0; 
-  background: #fff; 
-  border: 1px solid #ccc; 
-  border-radius: 10px; 
-  overflow: hidden; 
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
-      <div style="background: #e0f7fa; padding: 15px 20px; border-bottom: 1px solid #b2ebf2;">
-        <h3 style="margin:0; color:#006064; display:flex; align-items:center; gap:8px; font-size: 20px;">
-          🏸 ストローク位置分析 <span style="font-size:15px; color:#d32f2f; font-weight:bold;">(※作成中)</span>
-        </h3>
-        <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
-          AIがスイングを検知し、その瞬間の「足の位置」をコート図にプロットします。<br>
-          「どこで打たされているか」の傾向を分析します。
-        </p>
-      </div>
-
-      <div style="padding: 20px;">
-
-        <div
-          style="margin-bottom: 15px; border: 2px solid #0097a7; padding: 15px; border-radius: 8px; background: #e0f2f1;">
-          <div style="font-weight:bold; font-size:14px; color:#006064; margin-bottom:10px;">
-            🤖 準備・設定
-          </div>
-
-          <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:10px;">
-            <label
-              style="background:#00897b; color:white; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px;">
-              📁 動画を選択
-              <input type="file" id="shuttle-video-upload" accept="video/*" style="display:none;"
-                onchange="loadShuttleVideo(this)">
-            </label>
-
-            <button id="btn-shuttle-area" onclick="toggleShuttleAreaSelectMode()"
-              style="background:#ff9800; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">
-              📐 分析エリア指定
-            </button>
-
-            <button id="btn-shuttle-calib" onclick="toggleShuttleMapCalibration()"
-              style="background:#7b1fa2; color:white; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:13px; font-weight:bold;">
-              📏 コート位置合わせ (必須)
-            </button>
-
-            <label
-              style="background:#fff3e0; padding:8px 16px; border-radius:4px; border:1px solid #ffe0b2; display:flex; align-items:center; gap:5px; cursor:pointer;">
-              <input type="checkbox" id="shuttle-rally-mode">
-              <span style="font-weight:bold; font-size:13px; color:#e65100;">🟢 ラリー中のみ集計 (Spaceキー)</span>
-            </label>
-          </div>
-
-          <div id="shuttle-area-msg"
-            style="display:none; color:#d32f2f; font-weight:bold; font-size:12px; margin-bottom:5px;">
-            ※ ドラッグして、分析したい範囲（コート内）を囲ってください。
-          </div>
-
-          <div
-            style="background:rgba(255,255,255,0.6); padding:8px; border-radius:4px; display:flex; align-items:center; gap:15px;">
-            <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-              <input type="checkbox" id="shuttle-debug-mode" checked>
-              <span style="font-size:11px; font-weight:bold; color:#006064;">骨格を表示</span>
-            </label>
-            <div style="display:flex; align-items:center; gap:5px;">
-              <span style="font-size:11px;">スイング感度:</span>
-              <input type="range" id="swing-threshold" min="5" max="80" value="25" style="width:100px;">
-              <span id="val-swing" style="font-size:11px; width:20px;">25</span>
-            </div>
-          </div>
-        </div>
-
-        <div style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center;">
-
-          <div style="position: relative;">
-            <div style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:5px; color:#333;">ストローク分布
-              (18分割)</div>
-            <canvas id="shuttle_court_canvas" width="300" height="600"
-              style="background: #2e7d32; border: 2px solid #333; cursor: crosshair; box-shadow: 0 4px 6px rgba(0,0,0,0.3);"></canvas>
-          </div>
-
-          <div style="flex: 1; min-width: 300px; max-width: 640px;">
-            <div style="text-align:center; font-weight:bold; font-size:14px; margin-bottom:5px; color:#333;">AI解析画面
-              (骨格検出)</div>
-
-            <div id="video-container"
-              style="position: relative; width: 100%; padding-top: 56.25%; background: #000; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-              <video id="shuttle_video"
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 1;"
-                playsinline muted></video>
-              <canvas id="shuttle_video_overlay"
-                style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: auto; cursor: crosshair; z-index: 2;"></canvas>
-            </div>
-
-            <div style="margin-top:10px; background:#f5f5f5; padding:10px; border-radius:6px; border:1px solid #ddd;">
-
-              <div style="display:flex; justify-content:center; gap:10px; margin-bottom:10px;">
-                <button onclick="toggleShuttleTracking()" id="btn-shuttle-track" disabled
-                  style="background:#ccc; color:white; border:none; padding:8px 20px; border-radius:20px; font-weight:bold; cursor:not-allowed; min-width:100px;">
-                  ▶ 分析開始
-                </button>
-                <button
-                  onclick="clearShuttleData(); if(sVideo){sVideo.currentTime=0; sVideo.pause(); isShuttleTracking=false; document.getElementById('btn-shuttle-track').textContent='▶ 分析開始'; document.getElementById('btn-shuttle-track').style.background='#00897b';}"
-                  style="background:#546e7a; color:white; border:none; padding:8px 15px; border-radius:20px; cursor:pointer;">
-                  ⏮ リセット
-                </button>
-              </div>
-
-              <hr style="border:0; border-top:1px dashed #ccc; margin:10px 0;">
-
-              <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-                <span style="font-size:12px; font-weight:bold; color:#555;">📍 位置補正:</span>
-                <span style="font-size:11px;">奥</span>
-                <input type="range" id="plot-y-offset" min="-300" max="300" value="0" step="5" style="flex:1;">
-                <span style="font-size:11px;">手前</span>
-                <span id="val-y-offset" style="font-size:11px; width:30px; text-align:right;">0</span>
-              </div>
-
-              <div style="text-align:center;">
-                <button onclick="autoCalibrateServicePos()"
-                  style="background:#ff9800; color:white; border:none; padding:6px 20px; border-radius:4px; font-size:12px; font-weight:bold; cursor:pointer; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
-                  🧍 ここを「手前コート中央」に設定
-                </button>
-                <div style="font-size:10px; color:#666; margin-top:4px;">※動画内の選手が手前コートの真ん中にいる時に押してください</div>
-              </div>
-            </div>
-            <div id="shuttle-stats-box"
-              style="margin-top:10px; background:#fff; padding:10px; border-radius:6px; border:1px solid #ddd; display:flex; justify-content:space-between; align-items:center;">
-              <div style="font-size:14px;">
-                <strong>📊 ストローク数:</strong>
-                <span id="shuttle-total-count"
-                  style="font-size:20px; font-weight:bold; color:#d32f2f; margin-left:5px;">0</span> 本
-              </div>
-              <div style="display:flex; gap:5px;">
-                <button onclick="undoLastShot()"
-                  style="background:#757575; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">↩
-                  1つ戻る</button>
-                <button onclick="clearShuttleData()"
-                  style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">🗑️
-                  全消去</button>
-                <button onclick="downloadShuttleReport()"
-                  style="background:#1565c0; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:11px;">📄
-                  保存</button>
-              </div>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-    </section>
-
+    
 <section id="jump-analysis-box" style="margin-top: 30px; padding:20px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h3 style="margin:0; color:#d81b60;">🚀 AIジャンプ力測定</h3>
@@ -5197,7 +5050,8 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
         <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
             <button onclick="startJumpAICamera()" style="background:#e91e63; font-weight:bold;">📷 カメラ起動</button>
             <button onclick="toggleJumpCamera()" style="background:#00bcd4;">🔄 切替</button>
-            <button onclick="resetJumpGround()" style="background:#546e7a;">📏 地面校正</button>
+<button id="btn-jump-trigger" onclick="prepareJumpMeasurement()" style="background:#ff9800; font-weight:bold; color:white;">⏱ 計測スタート</button>
+           <button onclick="resetJumpGround()" style="background:#546e7a;">📏 地面リセット</button>
 <button onclick="stopJumpAICamera()" style="background:#424242; font-weight:bold;">⏹ 停止</button>
         </div>
 
@@ -5228,7 +5082,7 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
     </div>
 
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
-        <div class="jump-res-card">最大膝角度: <span id="max-knee-angle" style="color:#ff9800;">0</span>°</div>
+        <div class="jump-res-card">最大屈曲角度: <span id="max-knee-angle" style="color:#ff9800;">0</span>°</div>
         <div class="jump-res-card">最大膝角速度: <span id="max-knee-av" style="color:#ff9800;">0</span>°/s</div>
         <div class="jump-res-card">最大膝トルク: <span id="max-knee-t-val" style="color:#ff9800;">0</span> <small>Nm</small></div>
         <div class="jump-res-card">最大腕速度: <span id="max-arm-v" style="color:#4caf50;">0</span></div>
@@ -10255,96 +10109,145 @@ let groundY = 0;
 function detectJumpAI(results) {
     if (!jumpModeActive || !results.poseLandmarks) return;
 
-    const lm = results.poseLandmarks;
-    const now = performance.now();
-    const canvas = document.getElementById('jump_canvas');
-    const ctx = canvas.getContext('2d');
-    const statusEl = document.getElementById("jump-ai-status");
-    const guideLine = document.getElementById("ground-line-guide");
+    try {
+        const lm = results.poseLandmarks;
+        const now = performance.now();
+        const canvas = document.getElementById('jump_canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById("jump-ai-status");
+        const timerEl = document.getElementById("jump-timer-display");
 
-    // モニター描画
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    drawJumpSkeleton(ctx, lm);
-    
-    if (jumpGroundY !== 0) {
-        ctx.strokeStyle = "#ffeb3b";
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(0, jumpGroundY * canvas.height);
-        ctx.lineTo(canvas.width, jumpGroundY * canvas.height);
-        ctx.stroke();
-    }
-    ctx.restore();
+        // 1. モニター描画
+        ctx.save();
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+        if (typeof drawJumpSkeleton === 'function') drawJumpSkeleton(ctx, lm);
+        
+        // 地面ラインの描画
+        if (jumpGroundY !== 0) {
+            ctx.strokeStyle = "#ffeb3b";
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(0, jumpGroundY * canvas.height);
+            ctx.lineTo(canvas.width, jumpGroundY * canvas.height);
+            ctx.stroke();
+            ctx.fillStyle = "#ffeb3b";
+            ctx.font = "bold 12px Arial";
+            ctx.fillText(" GROUND", 5, jumpGroundY * canvas.height - 5);
+        }
+        ctx.restore();
 
-    // --- 🏃‍♂️ 物理量計算セクション ---
-    const dt = lastFrameTime > 0 ? (now - lastFrameTime) / 1000 : 0.033;
-    lastFrameTime = now;
+        // 2. 物理量計算
+        const dt = (lastFrameTime > 0) ? (now - lastFrameTime) / 1000 : 0.033;
+        lastFrameTime = now;
 
-    // 1. 膝角度と角速度
-    const currentKneeAngle = calculateFwAngle(lm[24], lm[26], lm[28]);
-    let angularVelocity = 0;
-    if (prevKneeAngle !== 0 && dt > 0) {
-        angularVelocity = Math.abs(currentKneeAngle - prevKneeAngle) / dt;
-    }
-    prevKneeAngle = currentKneeAngle;
+        const currentKneeAngle = calculateFwAngle(lm[24], lm[26], lm[28]);
 
-    // 2. 膝トルク
-    const weight = parseFloat(document.getElementById("bio-weight")?.value || 65);
-    const currentTorque = weight * 9.81 * Math.abs(Math.sin((180 - currentKneeAngle) * Math.PI / 180));
-    
-    // 3. 腕速度 (右手首: 10番)
-    const wrist = lm[10];
-    let armSpeed = 0;
-    if (prevWristPos.x !== 0 && dt > 0) {
-        armSpeed = Math.sqrt(Math.pow(wrist.x - prevWristPos.x, 2) + Math.pow(wrist.y - prevWristPos.y, 2)) / dt;
-    }
-    prevWristPos = { x: wrist.x, y: wrist.y };
+// ★追加：関節角度(180°基準)を屈曲角度(0°基準)に変換
+// 180(直線) - 関節角度 = 屈曲角度
+const currentFlexion = Math.max(0, 180 - currentKneeAngle); 
 
-    // 最大値の更新
-    if (currentKneeAngle > jumpMaxStats.angle) jumpMaxStats.angle = currentKneeAngle;
-    if (angularVelocity > jumpMaxStats.av) jumpMaxStats.av = angularVelocity;
-    if (currentTorque > jumpMaxStats.torque) jumpMaxStats.torque = currentTorque;
-    if (armSpeed > jumpMaxStats.armV) jumpMaxStats.armV = armSpeed;
+let angularVelocity = 0;
+// 角速度の計算も屈曲角度の増減で行う
+if (prevKneeAngle !== 0 && dt > 0) {
+    angularVelocity = Math.abs(currentFlexion - prevKneeAngle) / dt;
+}
+prevKneeAngle = currentFlexion; // 屈曲角度を保存
 
-    // --- ⚖️ ジャンプ判定ロジック ---
-    const currentAnkleY = (lm[27].y + lm[28].y) / 2;
-    let eventLabel = "";
-
-    if (jumpGroundY === 0) {
-        jumpGroundY = currentAnkleY;
-        jumpLog = []; // ログリセット
-        if(statusEl) statusEl.textContent = "READY";
-        return;
-    }
-
-    const takeoffThreshold = 0.04;
-    if (!isJumpAirborne && currentAnkleY < jumpGroundY - takeoffThreshold) {
-        isJumpAirborne = true;
-        jumpTakeoffTime = now;
-        eventLabel = "TAKE_OFF";
-        if(statusEl) statusEl.textContent = "🚀 AIRBORNE";
-    } else if (isJumpAirborne && currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
-        isJumpAirborne = false;
-        eventLabel = "LANDING";
-        const flightTime = (now - jumpTakeoffTime) / 1000;
-        const height = (9.80665 * Math.pow(flightTime, 2)) / 8 * 100;
-        processJumpResultDetailed(height, flightTime); // 下記の関数を呼び出し
-        if(statusEl) statusEl.textContent = "READY";
-    }
-
-    // 時系列ログへ保存
-    jumpLog.push({
-        time: (now / 1000).toFixed(3),
-        angle: currentKneeAngle.toFixed(1),
-        angularVelocity: angularVelocity.toFixed(1),
-        torque: currentTorque.toFixed(1),
-        armSpeed: (armSpeed * 10).toFixed(1),
-        event: eventLabel
-    });
+// ★修正：最大屈曲角度（一番深く曲げた瞬間）を更新
+if (currentFlexion > jumpMaxStats.angle) {
+    jumpMaxStats.angle = currentFlexion;
 }
 
+        const wrist = lm[10];
+        let armSpeed = 0;
+        if (prevWristPos && prevWristPos.x !== 0 && dt > 0) {
+            armSpeed = Math.sqrt(Math.pow(wrist.x - prevWristPos.x, 2) + Math.pow(wrist.y - prevWristPos.y, 2)) / dt;
+        }
+        prevWristPos = { x: wrist.x, y: wrist.y };
+
+        // 最大値更新
+        if (currentKneeAngle > jumpMaxStats.angle) jumpMaxStats.angle = currentKneeAngle;
+        if (angularVelocity > jumpMaxStats.av) jumpMaxStats.av = angularVelocity;
+        if (armSpeed > jumpMaxStats.armV) jumpMaxStats.armV = armSpeed;
+
+        // 3. ジャンプ判定ロジック
+        const currentAnkleY = (lm[27].y + lm[28].y) / 2;
+        let eventLabel = "";
+
+        if (jumpGroundY === 0) {
+            jumpGroundY = currentAnkleY;
+            if(statusEl) statusEl.textContent = "READY";
+            if(timerEl) timerEl.innerHTML = `0.000 <span style="font-size:18px;">s</span>`;
+            return;
+        }
+
+        const takeoffThreshold = 0.04;
+        if (!isJumpAirborne && currentAnkleY < jumpGroundY - takeoffThreshold) {
+            // 離地
+            isJumpAirborne = true;
+            jumpTakeoffTime = now;
+            eventLabel = "TAKE_OFF";
+            if(statusEl) statusEl.textContent = "🚀 AIRBORNE";
+        } else if (isJumpAirborne) {
+            // 空中（タイマー更新）
+            const currentFlightTime = (now - jumpTakeoffTime) / 1000;
+            if (timerEl) {
+                timerEl.innerHTML = `${currentFlightTime.toFixed(3)} <span style="font-size:18px;">s</span>`;
+            }
+
+            // 着地
+            if (currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
+                isJumpAirborne = false;
+                eventLabel = "LANDING";
+                const finalTime = (now - jumpTakeoffTime) / 1000;
+                const height = (9.80665 * Math.pow(finalTime, 2)) / 8 * 100;
+                
+                if (timerEl) timerEl.innerHTML = `${finalTime.toFixed(3)} <span style="font-size:18px;">s</span>`;
+                processJumpResultDetailed(height, finalTime);
+                if(statusEl) statusEl.textContent = "READY";
+            }
+        }
+
+        jumpLog.push({
+            time: (now / 1000).toFixed(3),
+            angle: currentKneeAngle.toFixed(1),
+            av: angularVelocity.toFixed(1),
+            arm: (armSpeed * 10).toFixed(1),
+            event: eventLabel
+        });
+
+    } catch (e) {
+        console.error("Jump Error:", e);
+    }
+}
+
+// 結果表示関数（重複を削除し、これ1つにまとめてください）
+function processJumpResultDetailed(height, time) {
+    const resArea = document.getElementById("jump-result-area");
+    if (resArea) resArea.style.display = "block";
+    
+    document.getElementById("val-jump-height").textContent = height.toFixed(1);
+    
+    // 最大値の表示
+    const elAngle = document.getElementById("max-knee-angle");
+    const elAv = document.getElementById("max-knee-av");
+    const elArm = document.getElementById("max-arm-v");
+
+    if (elAngle) elAngle.textContent = Math.round(jumpMaxStats.angle);
+    if (elAv) elAv.textContent = Math.round(jumpMaxStats.av);
+    if (elArm) elArm.textContent = (jumpMaxStats.armV * 10).toFixed(1);
+
+    // 最高到達点
+    const userH = parseFloat(document.getElementById("bio-height")?.value || 170);
+    const elReach = document.getElementById("val-jump-reach");
+    if (elReach) elReach.textContent = ((userH * 1.25) + height).toFixed(1);
+
+    saveJumpData();
+    jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
+}
 // モニター用の簡易スケルトン描画
 function drawJumpSkeleton(ctx, landmarks) {
     const w = ctx.canvas.width;
@@ -13432,854 +13335,6 @@ function onPoseResults(results) {
           const seek = document.getElementById('seek-' + videoId);
           if (video && video.duration && seek) {
             seek.value = (video.currentTime / video.duration) * 100;
-          }
-        }
-
-
-        // ==========================================
-        // 🚀 ストローク位置分析 Ver.9 (修正版: 感度向上 + エリア指定 + リアルタイム補正)
-        // ==========================================
-
-        // --- 変数定義 (初期値はnull) ---
-        var sCourtCanvas = null;
-        var sCourtCtx = null;
-        var sVideo = null;
-        var sOverlay = null;
-        var sOverlayCtx = null;
-
-        // データ
-        var shuttleShots = [];
-        var isShuttleTracking = false;
-        var shuttleAnimId = null;
-
-        // Pose検出器
-        var strokeDetector = null;
-
-        // 座標変換用
-        var isShuttleMapCalibrating = false;
-        var sCalibPointsNorm = [];
-        var sHomographyMatrix = null;
-
-        // エリア指定用
-        var isShuttleAreaSelecting = false;
-        var shuttleDragStart = null;
-        var shuttleAnalysisArea = null; // {x, y, w, h} (内部解像度ベース)
-
-        // スイング検知用
-        var prevWristL = null;
-        var prevWristR = null;
-        var prevWristL_Far = null;
-        var prevWristR_Far = null;
-        var lastStrokeTime = 0;
-
-        // 18分割ゾーン & 履歴
-        var zoneCounts = new Array(18).fill(0);
-        var shotHistory = [];
-
-        var isShuttleRallyActive = false; // ラリーモードの状態
-
-        // --- スペースキーのイベントリスナー ---
-        document.addEventListener('keydown', (e) => {
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-          if (e.code === 'Space') {
-            e.preventDefault();
-            const shuttleSection = document.getElementById('shuttle-analysis-section');
-
-            if (shuttleSection && shuttleSection.offsetParent !== null) {
-              const cb = document.getElementById('shuttle-rally-mode');
-              if (cb) {
-                cb.checked = !cb.checked;
-                console.log("Rally Mode:", cb.checked ? "ON" : "OFF");
-              }
-            }
-          }
-        });
-
-        // 初期化イベント (要素取得とイベント設定)
-        document.addEventListener("DOMContentLoaded", () => {
-          console.log("初期化処理開始");
-
-          // ▼ 要素取得
-          sCourtCanvas = document.getElementById("shuttle_court_canvas");
-          if (sCourtCanvas) sCourtCtx = sCourtCanvas.getContext("2d");
-
-          sVideo = document.getElementById("shuttle_video");
-          sOverlay = document.getElementById("shuttle_video_overlay");
-          if (sOverlay) sOverlayCtx = sOverlay.getContext("2d");
-
-          // 初期描画
-          if (typeof drawShuttleCourt === 'function') drawShuttleCourt();
-
-          const btnReset = document.getElementById("btn-reset");
-          if (btnReset) {
-            btnReset.addEventListener("click", clearShuttleData);
-          }
-
-          // スイング感度スライダー連動
-          const slSwing = document.getElementById("swing-threshold");
-          if (slSwing) slSwing.addEventListener("input", (e) => {
-            const val = document.getElementById("val-swing");
-            if (val) val.textContent = e.target.value;
-          });
-
-          // ▼ プロット位置補正スライダー連動
-          const slOffset = document.getElementById("plot-y-offset");
-          if (slOffset) slOffset.addEventListener("input", (e) => {
-            const val = document.getElementById("val-y-offset");
-            if (val) val.textContent = e.target.value;
-            // スライダー操作時に再描画
-            if (typeof refreshShuttleAnalysis === 'function') refreshShuttleAnalysis();
-          });
-        });
-
-        // 動画読み込み (グローバル関数)
-        window.loadShuttleVideo = function (input) {
-          const file = input.files[0];
-          if (!file) return;
-          const url = URL.createObjectURL(file);
-
-          // 要素がなければ再取得
-          if (!sVideo) sVideo = document.getElementById("shuttle_video");
-          sVideo.src = url;
-
-          sVideo.onloadeddata = () => {
-            if (!sOverlay) {
-              sOverlay = document.getElementById("shuttle_video_overlay");
-              if (sOverlay) sOverlayCtx = sOverlay.getContext("2d");
-            }
-            if (sOverlay) {
-              sOverlay.width = sVideo.videoWidth;
-              sOverlay.height = sVideo.videoHeight;
-            }
-
-            loadStrokeModel().then(() => {
-              const btn = document.getElementById("btn-shuttle-track");
-              if (btn) {
-                btn.disabled = false;
-                btn.style.background = "#00897b";
-                btn.style.cursor = "pointer";
-                btn.textContent = "▶ 分析開始";
-              }
-              if (typeof refreshShuttleAnalysis === 'function') {
-                refreshShuttleAnalysis();
-              }
-            });
-          };
-        }
-
-        // モデルロード
-        async function loadStrokeModel() {
-          if (strokeDetector) return;
-          try {
-            await tf.ready();
-
-            const detectorConfig = {
-              modelType: 'MultiPose.Lightning',
-              enableTracking: true,
-              trackerType: 'boundingBox',
-              modelConfig: {
-                minPoseScore: 0.1,
-                enableSmoothing: true
-              }
-            };
-
-            strokeDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
-            console.log("Stroke Detector Loaded");
-
-          } catch (e) {
-            console.error(e);
-            alert("AIモデルの読み込みに失敗しました。\nページをリロードしてください。");
-          }
-        }
-
-        // メイン解析ループ制御
-        window.toggleShuttleTracking = function () {
-          if (isShuttleTracking) {
-            isShuttleTracking = false;
-            sVideo.pause();
-            const btn = document.getElementById("btn-shuttle-track");
-            if (btn) {
-              btn.textContent = "▶ 分析開始";
-              btn.style.background = "#00897b";
-            }
-          } else {
-            isShuttleTracking = true;
-            sVideo.play();
-            analyzeStrokeFrame();
-            const btn = document.getElementById("btn-shuttle-track");
-            if (btn) {
-              btn.textContent = "⏸ 停止";
-              btn.style.background = "#d32f2f";
-            }
-          }
-        }
-
-        var latestNearPose = null; // 最新の手前選手の姿勢データ
-
-        async function analyzeStrokeFrame() {
-          if (!isShuttleTracking || sVideo.paused || sVideo.ended) {
-            if (sVideo.ended) toggleShuttleTracking();
-            return;
-          }
-
-          if (sOverlay.width !== sVideo.videoWidth || sOverlay.height !== sVideo.videoHeight) {
-            sOverlay.width = sVideo.videoWidth;
-            sOverlay.height = sVideo.videoHeight;
-          }
-
-          // 1. Pose推定
-          const poses = await strokeDetector.estimatePoses(sVideo, {
-            maxPoses: 2,
-            flipHorizontal: false
-          });
-
-          sOverlayCtx.clearRect(0, 0, sOverlay.width, sOverlay.height);
-
-          // 視覚フィードバック
-          const container = document.getElementById('video-container');
-          const isRallyOn = document.getElementById('shuttle-rally-mode')?.checked;
-
-          if (container) {
-            if (isRallyOn) {
-              container.style.border = "5px solid #ff3d00"; // 赤 (記録中)
-              container.style.boxShadow = "0 0 15px rgba(255, 61, 0, 0.7)";
-            } else {
-              container.style.border = "5px solid #ffd600"; // 黄 (待機中)
-              container.style.boxShadow = "none";
-            }
-          }
-
-          // エリア枠
-          if (shuttleAnalysisArea) {
-            sOverlayCtx.strokeStyle = "rgba(0, 230, 118, 0.5)";
-            sOverlayCtx.lineWidth = 2;
-            sOverlayCtx.strokeRect(shuttleAnalysisArea.x, shuttleAnalysisArea.y, shuttleAnalysisArea.w, shuttleAnalysisArea.h);
-          }
-
-          if (sCalibPointsNorm.length > 0) drawShuttleCalibMarkers(sOverlayCtx, sOverlay.width, sOverlay.height);
-
-          // 2. 手前の選手を特定 (Y座標が大きい＝下＝手前)
-          const validPoses = poses.filter(p => p.score > 0.2);
-
-          if (validPoses.length > 0) {
-            validPoses.sort((a, b) => {
-              const yA = (a.keypoints[5].y + a.keypoints[6].y) / 2;
-              const yB = (b.keypoints[5].y + b.keypoints[6].y) / 2;
-              return yB - yA;
-            });
-
-            const nearPlayer = validPoses[0];
-            const kp = nearPlayer.keypoints;
-            const cx = (kp[5].x + kp[6].x) / 2;
-            const cy = (kp[5].y + kp[6].y) / 2;
-
-            latestNearPose = nearPlayer;
-
-            let isInArea = true;
-            if (shuttleAnalysisArea) {
-              isInArea = (cx >= shuttleAnalysisArea.x && cx <= shuttleAnalysisArea.x + shuttleAnalysisArea.w &&
-                cy >= shuttleAnalysisArea.y && cy <= shuttleAnalysisArea.y + shuttleAnalysisArea.h);
-            }
-
-            if (isInArea) {
-              processStrokeLogic(nearPlayer);
-
-              if (document.getElementById("shuttle-debug-mode").checked) {
-                drawSkeleton(nearPlayer, "#00e676", 3);
-              }
-            }
-          }
-
-          shuttleAnimId = requestAnimationFrame(analyzeStrokeFrame);
-        }
-
-        let prevNose = null;
-
-        // スイング検知ロジック (完全版)
-        function processStrokeLogic(pose) {
-          if (!pose || !pose.keypoints) return;
-          const kp = pose.keypoints;
-
-          // 関節番号 (MoveNet)
-          const rightWrist = kp[10];
-          const leftWrist = kp[9];
-          const nose = kp[0]; // ★ここだけにする（重複削除）
-          const rightShoulder = kp[6];
-          const leftShoulder = kp[5];
-          const rightHip = kp[12];
-
-          // 1. 信頼度チェック
-          if (!rightWrist || rightWrist.score < 0.2) return;
-          if (!leftWrist || leftWrist.score < 0.2) return;
-
-          // 2. 閾値設定
-          const elThresh = document.getElementById("swing-threshold");
-          const thresh = elThresh ? parseInt(elThresh.value) : 45;
-          const activeThresh = thresh * 1.5;
-
-          const now = Date.now();
-          let isSwing = false;
-          let prevR = prevWristR;
-          let prevL = prevWristL;
-
-          // ★体の移動量を計算（鼻の移動距離）
-          let bodyDist = 0;
-          if (nose && prevNose) {
-            bodyDist = Math.hypot(nose.x - prevNose.x, nose.y - prevNose.y);
-          }
-
-          // 3. フォーム判定
-          const isValidForm = (wrist, shoulder) => {
-            if (!wrist || !shoulder || !nose) return false;
-            const isHigh = wrist.y < shoulder.y;
-            const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
-            const distFromCenter = Math.abs(wrist.x - nose.x);
-            const isWide = distFromCenter > (shoulderWidth * 1.3);
-
-            // アンダーハンド対策（腰より下は無視）
-            if (rightHip && (wrist.y > rightHip.y)) {
-              return false;
-            }
-            return isHigh || isWide;
-          };
-
-          // 4. スイング判定 (右)
-          if (prevR && isValidForm(rightWrist, rightShoulder)) {
-            const dist = Math.hypot(rightWrist.x - prevR.x, rightWrist.y - prevR.y);
-
-            // ★「手首の移動量」から「体の移動量」を引く
-            // 1.2倍〜1.5倍引くことで、走りながらの誤検知を防ぐ
-            const netSwing = dist - (bodyDist * 1.5);
-
-            if (netSwing > activeThresh) isSwing = true;
-          }
-
-          // 4. スイング判定 (左) ※左手にも同じロジックを適用
-          if (prevL && isValidForm(leftWrist, leftShoulder)) {
-            const dist = Math.hypot(leftWrist.x - prevL.x, leftWrist.y - prevL.y);
-            const netSwing = dist - (bodyDist * 1.5);
-
-            if (netSwing > activeThresh) isSwing = true;
-          }
-
-          // ★履歴更新 (重要: これがないと次回計算できません)
-          prevWristR = rightWrist;
-          prevWristL = leftWrist;
-          prevNose = nose;
-
-          // ラリーモードチェック
-          const isRallyOn = document.getElementById('shuttle-rally-mode')?.checked;
-          if (!isRallyOn) return;
-
-          // 5. ストローク確定時の処理
-          if (isSwing && (now - lastStrokeTime > 400)) {
-            lastStrokeTime = now;
-
-            // --- 打点座標の決定 ---
-            let hitX = 0, hitY = 0;
-            let count = 0;
-
-            const leftHip = kp[11]; const rightHip = kp[12];
-            const leftSh = kp[5]; const rightSh = kp[6];
-
-            // 1. 腰
-            if (leftHip && leftHip.score > 0.1) { hitX += leftHip.x; hitY += leftHip.y; count++; }
-            if (rightHip && rightHip.score > 0.1) { hitX += rightHip.x; hitY += rightHip.y; count++; }
-
-            // 2. 肩
-            if (count === 0) {
-              if (leftSh && leftSh.score > 0.1) { hitX += leftSh.x; hitY += leftSh.y; count++; }
-              if (rightSh && rightSh.score > 0.1) { hitX += rightSh.x; hitY += rightSh.y; count++; }
-            }
-
-            // 3. 足首 (念のため)
-            if (count === 0) {
-              if (kp[15] && kp[15].score > 0.1) { hitX += kp[15].x; hitY += kp[15].y; count++; }
-              if (kp[16] && kp[16].score > 0.1) { hitX += kp[16].x; hitY += kp[16].y; count++; }
-            }
-
-            if (count > 0) {
-              hitX /= count;
-              hitY /= count;
-
-              const pixelX = hitX;
-              const pixelY = hitY;
-
-              const offsetInput = document.getElementById("plot-y-offset");
-              const offsetVal = offsetInput ? parseInt(offsetInput.value) : 0;
-
-              sOverlayCtx.beginPath();
-              sOverlayCtx.arc(pixelX, pixelY + offsetVal, 20, 0, Math.PI * 2);
-              sOverlayCtx.fillStyle = "rgba(255, 0, 0, 0.7)";
-              sOverlayCtx.fill();
-
-              plotToCourt(pixelX, pixelY, sVideo.videoWidth, sVideo.videoHeight);
-            }
-          }
-        }
-
-        // 骨格描画
-        function drawSkeleton(pose, color, lineWidth) {
-          const kp = pose.keypoints;
-          const edges = [[5, 7], [7, 9], [6, 8], [8, 10], [11, 13], [13, 15], [12, 14], [14, 16], [5, 6], [11, 12], [5, 11], [6, 12]];
-
-          sOverlayCtx.strokeStyle = color;
-          sOverlayCtx.lineWidth = lineWidth || 2;
-
-          edges.forEach(([i, j]) => {
-            if (kp[i].score > 0.15 && kp[j].score > 0.15) {
-              sOverlayCtx.beginPath();
-              sOverlayCtx.moveTo(kp[i].x, kp[i].y);
-              sOverlayCtx.lineTo(kp[j].x, kp[j].y);
-              sOverlayCtx.stroke();
-            }
-          });
-
-          sOverlayCtx.fillStyle = color;
-          kp.forEach(p => {
-            if (p.score > 0.15) {
-              sOverlayCtx.beginPath();
-              sOverlayCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
-              sOverlayCtx.fill();
-            }
-          });
-        }
-
-        // ==========================================
-        // 📊 コート描画・再計算・プロット保存
-        // ==========================================
-
-        function plotToCourt(vidX, vidY, vidW, vidH) {
-          // 安全策
-          if (!sCourtCanvas) {
-            sCourtCanvas = document.getElementById("shuttle_court_canvas");
-            if (sCourtCanvas) sCourtCtx = sCourtCanvas.getContext("2d");
-            else return;
-          }
-
-          let plotX, plotY;
-
-          if (sHomographyMatrix) {
-            const currentPoints = sCalibPointsNorm.map(p => ({ x: p.x * vidW, y: p.y * vidH }));
-            // 手前コート半面 (ネットy=300 ～ バックy=580)
-            const dst = [{ x: 20, y: 300 }, { x: 280, y: 300 }, { x: 280, y: 580 }, { x: 20, y: 580 }];
-            const matrix = getPerspectiveTransform(currentPoints, dst);
-            if (matrix) {
-              const pt = transformPoint(vidX, vidY, matrix);
-              plotX = pt.x; plotY = pt.y;
-            }
-          } else {
-            // 変換なし
-            plotX = (vidX / vidW) * sCourtCanvas.width;
-            plotY = (vidY / vidH) * sCourtCanvas.height;
-          }
-
-          // 生データを保存
-          shuttleShots.push({ x: plotX, y: plotY, type: 'near' });
-          shotHistory.push({ x: plotX, y: plotY, isNear: true });
-
-          // 再計算・描画更新
-          refreshShuttleAnalysis();
-        }
-
-        function refreshShuttleAnalysis() {
-          zoneCounts.fill(0);
-
-          const offsetInput = document.getElementById("plot-y-offset");
-          const offsetVal = offsetInput ? parseInt(offsetInput.value) : 0;
-
-          const courtL = 20, courtW = 260;
-          const nearYStart = 300;
-          const nearYEnd = 580;
-          const nearHeight = nearYEnd - nearYStart;
-
-          shuttleShots.forEach(shot => {
-            // ★ここでスライダー値を反映
-            const adjustedY = shot.y + offsetVal;
-            const adjustedX = shot.x;
-
-            let col = Math.floor((adjustedX - courtL) / (courtW / 3));
-            col = Math.max(0, Math.min(2, col));
-
-            let rowNear = Math.floor((adjustedY - nearYStart) / (nearHeight / 3));
-            rowNear = Math.max(0, Math.min(2, rowNear));
-
-            const zoneIndex = 9 + (rowNear * 3 + col);
-            if (zoneIndex >= 9 && zoneIndex < 18) {
-              zoneCounts[zoneIndex]++;
-            }
-          });
-
-          const el = document.getElementById("shuttle-total-count");
-          if (el) el.textContent = shuttleShots.length;
-
-          drawShuttleCourt();
-        }
-
-        function drawShuttleCourt() {
-          if (!sCourtCanvas) {
-            sCourtCanvas = document.getElementById("shuttle_court_canvas");
-            if (sCourtCanvas) sCourtCtx = sCourtCanvas.getContext("2d");
-            else return;
-          }
-          if (!sCourtCtx) return;
-
-          const W = sCourtCanvas.width;
-          const H = sCourtCanvas.height;
-
-          // 背景クリア
-          sCourtCtx.fillStyle = "#2e7d32";
-          sCourtCtx.fillRect(0, 0, W, H);
-
-          // グリッド線
-          const pad = 20;
-          const courtW = W - pad * 2;
-          const courtH = H - pad * 2;
-          const cellW = courtW / 3;
-          const cellH = (courtH / 2) / 3;
-
-          sCourtCtx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-          sCourtCtx.lineWidth = 1;
-          sCourtCtx.beginPath();
-          for (let i = 1; i < 3; i++) {
-            sCourtCtx.moveTo(pad + cellW * i, pad);
-            sCourtCtx.lineTo(pad + cellW * i, H - pad);
-          }
-          for (let i = 1; i < 3; i++) {
-            const y = pad + cellH * i;
-            sCourtCtx.moveTo(pad, y); sCourtCtx.lineTo(W - pad, y);
-          }
-          for (let i = 1; i < 3; i++) {
-            const y = pad + (courtH / 2) + cellH * i;
-            sCourtCtx.moveTo(pad, y); sCourtCtx.lineTo(W - pad, y);
-          }
-          sCourtCtx.stroke();
-
-          // カウント表示
-          sCourtCtx.fillStyle = "rgba(255, 255, 255, 0.6)";
-          sCourtCtx.font = "bold 16px Arial";
-          sCourtCtx.textAlign = "center";
-          sCourtCtx.textBaseline = "middle";
-
-          for (let i = 0; i < 18; i++) {
-            if (zoneCounts[i] > 0) {
-              // エリアの座標計算（簡易版）
-              let r, c, cy;
-              if (i < 9) { // 奥
-                r = Math.floor(i / 3); c = i % 3;
-                cy = pad + cellH * r + cellH / 2;
-              } else { // 手前
-                r = Math.floor((i - 9) / 3); c = (i - 9) % 3;
-                cy = pad + (courtH / 2) + cellH * r + cellH / 2;
-              }
-              const cx = pad + cellW * c + cellW / 2;
-              sCourtCtx.fillText(zoneCounts[i], cx, cy);
-            }
-          }
-
-          // コートライン
-          sCourtCtx.strokeStyle = "white";
-          sCourtCtx.lineWidth = 2;
-          sCourtCtx.beginPath();
-          const sideDist = 25, backDist = 25, shortDist = 60, netY = H / 2;
-          sCourtCtx.strokeRect(pad, pad, W - pad * 2, H - pad * 2);
-          sCourtCtx.moveTo(pad + sideDist, pad); sCourtCtx.lineTo(pad + sideDist, H - pad);
-          sCourtCtx.moveTo(W - pad - sideDist, pad); sCourtCtx.lineTo(W - pad - sideDist, H - pad);
-          sCourtCtx.moveTo(pad, pad + backDist); sCourtCtx.lineTo(W - pad, pad + backDist);
-          sCourtCtx.moveTo(pad, H - pad - backDist); sCourtCtx.lineTo(W - pad, H - pad - backDist);
-          sCourtCtx.moveTo(pad, netY - shortDist); sCourtCtx.lineTo(W - pad, netY - shortDist);
-          sCourtCtx.moveTo(pad, netY + shortDist); sCourtCtx.lineTo(W - pad, netY + shortDist);
-          sCourtCtx.moveTo(W / 2, pad); sCourtCtx.lineTo(W / 2, netY - shortDist);
-          sCourtCtx.moveTo(W / 2, netY + shortDist); sCourtCtx.lineTo(W / 2, H - pad);
-          sCourtCtx.moveTo(pad - 5, netY); sCourtCtx.lineTo(W - pad + 5, netY);
-          sCourtCtx.stroke();
-
-          // スライダー値取得
-          const offsetInput = document.getElementById("plot-y-offset");
-          const offsetVal = offsetInput ? parseInt(offsetInput.value) : 0;
-
-          // 軌跡
-          if (shotHistory.length > 1) {
-            sCourtCtx.lineWidth = 1;
-            for (let i = 1; i < shotHistory.length; i++) {
-              const prev = shotHistory[i - 1];
-              const curr = shotHistory[i];
-              if (prev.isNear && curr.isNear) {
-                sCourtCtx.beginPath();
-                sCourtCtx.strokeStyle = "rgba(255, 235, 59, 0.5)";
-                // ★補正値を足す
-                sCourtCtx.moveTo(prev.x, prev.y + offsetVal);
-                sCourtCtx.lineTo(curr.x, curr.y + offsetVal);
-                sCourtCtx.stroke();
-              }
-            }
-          }
-
-          // プロット
-          shuttleShots.forEach(shot => {
-            sCourtCtx.beginPath();
-            // ★補正値を足す
-            sCourtCtx.arc(shot.x, shot.y + offsetVal, 4, 0, Math.PI * 2);
-            sCourtCtx.fillStyle = "#ffeb3b";
-            sCourtCtx.fill();
-            sCourtCtx.strokeStyle = "black";
-            sCourtCtx.lineWidth = 1;
-            sCourtCtx.stroke();
-          });
-        }
-
-        // 座標変換キャリブレーション (再利用)
-        window.toggleShuttleAreaSelectMode = function () {
-          isShuttleAreaSelecting = !isShuttleAreaSelecting;
-          const btn = document.getElementById("btn-shuttle-area");
-          const msg = document.getElementById("shuttle-area-msg");
-
-          if (isShuttleAreaSelecting) {
-            if (btn) {
-              btn.textContent = "完了";
-              btn.style.background = "#d32f2f";
-            }
-            if (msg) msg.style.display = "block";
-            shuttleAnalysisArea = null;
-
-            sVideo.pause();
-            if (isShuttleTracking) {
-              isShuttleTracking = false;
-              const trackBtn = document.getElementById("btn-shuttle-track");
-              if (trackBtn) trackBtn.textContent = "▶ 分析開始";
-            }
-
-            sOverlay.addEventListener("mousedown", onShuttleAreaMouseDown);
-            sOverlay.addEventListener("mousemove", onShuttleAreaMouseMove);
-            sOverlay.addEventListener("mouseup", onShuttleAreaMouseUp);
-            sOverlayCtx.clearRect(0, 0, sOverlay.width, sOverlay.height);
-          } else {
-            if (btn) {
-              btn.textContent = "📐 分析エリア指定";
-              btn.style.background = "#ff9800";
-            }
-            if (msg) msg.style.display = "none";
-
-            sOverlay.removeEventListener("mousedown", onShuttleAreaMouseDown);
-            sOverlay.removeEventListener("mousemove", onShuttleAreaMouseMove);
-            sOverlay.removeEventListener("mouseup", onShuttleAreaMouseUp);
-          }
-        }
-
-        function onShuttleAreaMouseDown(e) {
-          const rect = sOverlay.getBoundingClientRect();
-          const scaleX = sOverlay.width / rect.width;
-          const scaleY = sOverlay.height / rect.height;
-          shuttleDragStart = {
-            x: (e.clientX - rect.left) * scaleX,
-            y: (e.clientY - rect.top) * scaleY
-          };
-        }
-
-        function onShuttleAreaMouseMove(e) {
-          if (!shuttleDragStart) return;
-          const rect = sOverlay.getBoundingClientRect();
-          const scaleX = sOverlay.width / rect.width;
-          const scaleY = sOverlay.height / rect.height;
-          const currentX = (e.clientX - rect.left) * scaleX;
-          const currentY = (e.clientY - rect.top) * scaleY;
-
-          sOverlayCtx.clearRect(0, 0, sOverlay.width, sOverlay.height);
-          sOverlayCtx.fillStyle = "rgba(0,0,0,0.5)";
-          sOverlayCtx.fillRect(0, 0, sOverlay.width, sOverlay.height);
-
-          const x = Math.min(shuttleDragStart.x, currentX);
-          const y = Math.min(shuttleDragStart.y, currentY);
-          const w = Math.abs(currentX - shuttleDragStart.x);
-          const h = Math.abs(currentY - shuttleDragStart.y);
-          sOverlayCtx.clearRect(x, y, w, h);
-
-          sOverlayCtx.strokeStyle = "#00e676";
-          sOverlayCtx.lineWidth = 3;
-          sOverlayCtx.strokeRect(x, y, w, h);
-        }
-
-        function onShuttleAreaMouseUp(e) {
-          if (!shuttleDragStart) return;
-          const rect = sOverlay.getBoundingClientRect();
-          const scaleX = sOverlay.width / rect.width;
-          const scaleY = sOverlay.height / rect.height;
-          const currentX = (e.clientX - rect.left) * scaleX;
-          const currentY = (e.clientY - rect.top) * scaleY;
-
-          const x = Math.min(shuttleDragStart.x, currentX);
-          const y = Math.min(shuttleDragStart.y, currentY);
-          const w = Math.abs(currentX - shuttleDragStart.x);
-          const h = Math.abs(currentY - shuttleDragStart.y);
-
-          if (w > 20 && h > 20) {
-            shuttleAnalysisArea = { x, y, w, h };
-          }
-          shuttleDragStart = null;
-          toggleShuttleAreaSelectMode();
-        }
-
-        // コート位置合わせキャリブレーション
-        window.toggleShuttleMapCalibration = function () {
-          isShuttleMapCalibrating = !isShuttleMapCalibrating;
-          const btn = document.getElementById("btn-shuttle-calib");
-
-          if (isShuttleMapCalibrating) {
-            sCalibPointsNorm = [];
-            sHomographyMatrix = null;
-            if (btn) {
-              btn.textContent = "キャンセル";
-              btn.style.background = "#999";
-            }
-            alert("【設定開始】\n動画内のコート四隅を以下の順でクリックしてください。\n\n1. 左上 (ネット左)\n2. 右上 (ネット右)\n3. 右下 (手前右)\n4. 左下 (手前左)");
-
-            sOverlay.removeEventListener("mousedown", onShuttleAreaMouseDown);
-            sOverlay.addEventListener("mousedown", handleShuttleVideoClick);
-          } else {
-            if (btn) {
-              btn.textContent = "📐 コート位置合わせ";
-              btn.style.background = "#7b1fa2";
-            }
-            sOverlay.removeEventListener("mousedown", handleShuttleVideoClick);
-          }
-        }
-
-        function handleShuttleVideoClick(e) {
-          if (!isShuttleMapCalibrating) return;
-          const rect = sOverlay.getBoundingClientRect();
-          const clickX = e.clientX - rect.left;
-          const clickY = e.clientY - rect.top;
-          const normX = clickX / rect.width;
-          const normY = clickY / rect.height;
-
-          sCalibPointsNorm.push({ x: normX, y: normY });
-
-          if (sOverlayCtx) {
-            const drawX = normX * sOverlay.width;
-            const drawY = normY * sOverlay.height;
-            sOverlayCtx.beginPath();
-            sOverlayCtx.arc(drawX, drawY, 5, 0, Math.PI * 2);
-            sOverlayCtx.fillStyle = "cyan";
-            sOverlayCtx.fill();
-            sOverlayCtx.fillStyle = "white";
-            sOverlayCtx.fillText(sCalibPointsNorm.length, drawX + 8, drawY);
-          }
-
-          if (sCalibPointsNorm.length === 4) {
-            sHomographyMatrix = true;
-            isShuttleMapCalibrating = false;
-            const btn = document.getElementById("btn-shuttle-calib");
-            if (btn) {
-              btn.textContent = "✅ 位置合わせ完了";
-              btn.style.background = "#00e676";
-            }
-            sOverlay.removeEventListener("mousedown", handleShuttleVideoClick);
-          }
-        }
-
-        function drawShuttleCalibMarkers(ctx, w, h) {
-          ctx.beginPath();
-          ctx.strokeStyle = "cyan";
-          ctx.lineWidth = 2;
-          const pts = sCalibPointsNorm.map(p => ({ x: p.x * w, y: p.y * h }));
-          if (pts.length > 0) {
-            ctx.moveTo(pts[0].x, pts[0].y);
-            for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-            if (pts.length === 4) ctx.closePath();
-          }
-          ctx.stroke();
-          pts.forEach(p => {
-            ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fillStyle = "cyan"; ctx.fill();
-          });
-        }
-
-        function undoLastShot() {
-          if (shuttleShots.length > 0) {
-            shuttleShots.pop();
-            shotHistory.pop();
-            // 再計算
-            refreshShuttleAnalysis();
-            alert("Undoしました");
-          }
-        }
-
-        function clearShuttleData() {
-          if (confirm("消去しますか？")) {
-            shuttleShots = [];
-            shotHistory = [];
-            zoneCounts.fill(0);
-            drawShuttleCourt();
-          }
-        }
-
-        function downloadShuttleReport() {
-          if (shuttleShots.length === 0) return alert("データがありません");
-          const imgData = sCourtCanvas.toDataURL("image/png");
-          const docDefinition = {
-            content: [
-              { text: 'Badminton Stroke Analysis (18 Zones)', style: 'header' },
-              { text: `Date: ${new Date().toLocaleString()}`, style: 'subheader' },
-              { image: imgData, width: 300, alignment: 'center', margin: [0, 20, 0, 20] },
-              { text: `Total Shots: ${shuttleShots.length}`, style: 'sectionHeader' }
-            ],
-            styles: {
-              header: { fontSize: 20, bold: true, color: '#006064' },
-              subheader: { fontSize: 10, color: '#666' },
-              sectionHeader: { fontSize: 14, bold: true }
-            }
-          };
-          if (window.pdfMake) pdfMake.createPdf(docDefinition).download(`Stroke_Analysis_${Date.now()}.pdf`);
-        }
-
-        function autoCalibrateServicePos() {
-          if (!latestNearPose || !sVideo) {
-            alert("選手が検出されていません。\nカメラに全身が映る位置に立ってください。");
-            return;
-          }
-
-          // 1. 現在の足（または腰）のY座標を取得 (0.0~1.0)
-          const kp = latestNearPose.keypoints;
-          let currentY = 0;
-
-          // 足首(15,16)があれば優先、なければ腰(11,12)
-          if (kp[15].score > 0.1 || kp[16].score > 0.1) {
-            const y1 = kp[15].score > 0.1 ? kp[15].y : kp[16].y;
-            const y2 = kp[16].score > 0.1 ? kp[16].y : kp[15].y;
-            currentY = (y1 + y2) / 2;
-          } else {
-            currentY = (kp[11].y + kp[12].y) / 2;
-          }
-
-          // ピクセル座標に変換
-          const currentPixelY = currentY;
-
-          // 2. 目標とするY座標の設定
-          // 手前コートは Canvas(高さ600) の Y=300(ネット) ～ Y=580(バック) の範囲です。
-          // その中央は (300 + 580) / 2 = 440 です。
-
-          const targetMapY = 440; // ★ここを「440」にすると手前コートのど真ん中になります
-
-          // Canvas座標を動画座標スケールに変換 (単純スケーリング)
-          const targetVideoY = (targetMapY / sCourtCanvas.height) * sVideo.videoHeight;
-
-          // 3. 必要なオフセット量を計算
-          // target = current + offset  =>  offset = target - current
-          const requiredOffset = Math.round(targetVideoY - currentPixelY);
-
-          // 4. スライダーに適用
-          const slider = document.getElementById("plot-y-offset");
-          const valDisplay = document.getElementById("val-y-offset");
-
-          if (slider) {
-            slider.value = requiredOffset;
-            if (valDisplay) valDisplay.textContent = requiredOffset;
-
-            // 再描画して反映
-            if (typeof refreshShuttleAnalysis === 'function') {
-              refreshShuttleAnalysis();
-            }
-            alert(`位置を補正しました！\n補正値: ${requiredOffset}\n(現在の立ち位置を手前コートの中央に合わせました)`);
           }
         }
 
@@ -17832,83 +16887,6 @@ function resetJumpGround() {
     if (statusEl) statusEl.textContent = "📏 地面を再設定しました。まっすぐ立ってください";
 }
 
-// 4. AI解析ループ内から呼ばれる判定コア
-function detectJumpAI(results) {
-    const canvas = document.getElementById('jump_canvas');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const statusEl = document.getElementById("jump-ai-status");
-    const guideLine = document.getElementById("ground-line-guide");
-
-    // モニターサイズの調整
-    if (canvas.width !== results.image.width) {
-        canvas.width = results.image.width;
-        canvas.height = results.image.height;
-    }
-
-    // --- 📺 描画処理 (人物がいなくても背景は必ず描く) ---
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-    
-    // 人物が検出されている場合のみ骨格と判定を行う
-    if (results.poseLandmarks) {
-        drawJumpSkeleton(ctx, results.poseLandmarks);
-        
-        const lm = results.poseLandmarks;
-        const currentAnkleY = (lm[27].y + lm[28].y) / 2;
-
-        // 地面の基準設定
-        if (jumpGroundY === 0) {
-            jumpGroundY = currentAnkleY;
-            if(statusEl) statusEl.textContent = "READY";
-            if(guideLine) {
-                guideLine.style.display = "block";
-                guideLine.style.top = (jumpGroundY * 100) + "%";
-            }
-        } else {
-            // 地面ガイド線の描画
-            ctx.strokeStyle = "#ffeb3b";
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.moveTo(0, jumpGroundY * canvas.height);
-            ctx.lineTo(canvas.width, jumpGroundY * canvas.height);
-            ctx.stroke();
-
-            // ジャンプ判定
-            const takeoffThreshold = 0.04;
-            if (!isJumpAirborne && currentAnkleY < jumpGroundY - takeoffThreshold) {
-                isJumpAirborne = true;
-                jumpTakeoffTime = performance.now(); // 変数名を jumpTakeoffTime に統一
-                if(statusEl) {
-                    statusEl.textContent = "🚀 AIRBORNE";
-                    statusEl.style.background = "#ffeb3b";
-                    statusEl.style.color = "#000";
-                }
-            } 
-            else if (isJumpAirborne && currentAnkleY > jumpGroundY - (takeoffThreshold / 2)) {
-                isJumpAirborne = false;
-                const flightTime = (performance.now() - jumpTakeoffTime) / 1000;
-                const heightCm = (9.80665 * Math.pow(flightTime, 2)) / 8 * 100;
-
-                if (heightCm > 2.0) {
-                    processJumpResult(heightCm, flightTime);
-                }
-                if(statusEl) {
-                    statusEl.textContent = "READY";
-                    statusEl.style.background = "rgba(233, 30, 99, 0.8)";
-                    statusEl.style.color = "#fff";
-                }
-            }
-        }
-    } else {
-        // 人が見つからないとき
-        if(statusEl) statusEl.textContent = "SEARCHING...";
-        if(guideLine) guideLine.style.display = "none";
-    }
-    ctx.restore();
-}
-
 
 function processJumpResultDetailed(height, time) {
     document.getElementById("jump-result-area").style.display = "block";
@@ -17993,6 +16971,30 @@ function renderJumpHistory() {
             <span style="font-weight:bold; color:#d81b60;">${d.height} cm</span>
         </div>
     `).join('');
+}
+
+// ★計測準備（ボタンを押した瞬間の足の高さを地面として固定する）
+function prepareJumpMeasurement() {
+    if (!jumpModeActive) {
+        alert("先にカメラを起動してください");
+        return;
+    }
+    if (latestJumpAnkleY) {
+        jumpGroundY = latestJumpAnkleY;
+        isJumpMeasuring = true;
+        
+        const statusEl = document.getElementById("jump-ai-status");
+        if(statusEl) {
+            statusEl.textContent = "⏱ 測定中... 跳んでください！";
+            statusEl.style.background = "#ff3d00"; // 測定中を強調
+        }
+        
+        // 数値をリセット
+        jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
+        jumpLog = [];
+    } else {
+        alert("AIが足を認識できていません。画面に全身を映してください。");
+    }
 }
 
 // 🟥 AIジャンプ測定を完全に停止する関数
