@@ -5055,7 +5055,7 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
 <button onclick="stopJumpAICamera()" style="background:#424242; font-weight:bold;">⏹ 停止</button>
         </div>
 
-        <div id="jump-monitor-wrapper" style="position: relative; width: 100%; max-width: 480px; margin: 0 auto 15px auto; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; border: 3px solid #f06292; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+       <div id="jump-monitor-wrapper" style="position: relative; width: 100%; max-width: 480px; margin: 0 auto 15px auto; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 3/4; border: 3px solid #f06292; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
             <canvas id="jump_canvas" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
             <div id="jump-ai-status" style="position: absolute; top: 10px; left: 10px; background: rgba(233, 30, 99, 0.8); color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none;">
                 OFFLINE
@@ -16863,6 +16863,12 @@ document.addEventListener("DOMContentLoaded", loadLeagueFromBrowser);
 async function startJumpAICamera() {
     jumpModeActive = true;
     jumpGroundY = 0; // 地面基準をリセット
+
+const canvas = document.getElementById('jump_canvas');
+    if (canvas) {
+        canvas.width = 480;  // 横幅
+        canvas.height = 640; // 縦幅（ここを大きくすることで縦長になります）
+    }
     const statusEl = document.getElementById("jump-ai-status");
     if (statusEl) statusEl.textContent = "📐 地面を認識中... まっすぐ立ってください";
     
