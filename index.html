@@ -4072,15 +4072,13 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
               style="flex:1; min-width:250px; background:#fafafa; padding:15px; border-radius:8px; border:1px solid #ddd;">
               <h4 style="margin-top:0; color:#00796b; font-size:14px;">3. トリミング (秒)</h4>
               <div style="display:flex; align-items:center; gap:5px; margin-bottom:5px; font-size:13px;">
-                <label>開始:<input type="number" id="trim-start" value="0" min="0" step="0.1" style="width:50px;"></label>
+                <label>開始:<input type="number" id="trim-start" value="0" min="0" step="0.01" style="width:60px;"></label>
                 <span>～</span>
-                <label>終了:<input type="number" id="trim-end" value="0" min="0" step="0.1" style="width:50px;"></label>
-              </div>
+                <label>終了:<input type="number" id="trim-end" value="0" min="0" step="0.01" style="width:60px;"></label>
+            </div>
               <div style="display:flex; gap:5px;">
-                <button onclick="setTrimCurrent('start')"
-                  style="background:#ddd; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:4px; color:#333;">現在地を開始へ</button>
-                <button onclick="setTrimCurrent('end')"
-                  style="background:#ddd; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:4px; color:#333;">現在地を終了へ</button>
+                <button onclick="updateTrimValue('start')" style="background:#ddd; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:4px; color:#333;">現在地を開始へ</button>
+<button onclick="updateTrimValue('end')" style="background:#ddd; border:none; padding:4px 8px; font-size:11px; cursor:pointer; border-radius:4px; color:#333;">現在地を終了へ</button>
               </div>
             </div>
           </div>
@@ -4114,13 +4112,18 @@ let lastFrameTime = 0; // フレーム間の時間差計算用
               <video id="editor-source-video" playsinline muted style="display:none;"></video>
             </div>
 
-            <div style="display:flex; justify-content:center; gap:10px;">
-              <button onclick="previewEditorVideo()"
-                style="background:#0288d1; color:white; padding:8px 20px; border:none; border-radius:4px; cursor:pointer;">▶
-                プレビュー再生</button>
-              <button onclick="stopEditorPreview()"
-                style="background:#fbc02d; color:#333; padding:8px 20px; border:none; border-radius:4px; cursor:pointer;">⏸
-                停止</button>
+           <div style="max-width: 640px; margin: 10px auto 15px auto; background: #eee; padding: 10px; border-radius: 8px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                    <span id="current-time-display" style="font-family: monospace; font-size: 14px; width: 50px; color:#333;">0.00</span>
+                    <input type="range" id="editor-seekbar" value="0" step="0.01" style="flex: 1; cursor: pointer;">
+                    <span id="total-time-display" style="font-family: monospace; font-size: 14px; width: 50px; color:#333;">0.00</span>
+                </div>
+                <div style="display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+                    <button onclick="stepEditorVideo(-0.1)" style="background:#fff; color:#333; border:1px solid #ccc; padding:4px 8px; border-radius:4px; font-size:12px;">-0.1s</button>
+                    <button onclick="previewEditorVideo()" style="background:#0288d1; color:white; padding:8px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">▶ 再生</button>
+                    <button onclick="stopEditorPreview()" style="background:#fbc02d; color:#333; padding:8px 20px; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">⏸ 停止</button>
+                    <button onclick="stepEditorVideo(0.1)" style="background:#fff; color:#333; border:1px solid #ccc; padding:4px 8px; border-radius:4px; font-size:12px;">+0.1s</button>
+                </div>
             </div>
 
             <div style="margin-top:20px; padding-top:15px; border-top:2px dashed #ccc;">
@@ -14372,8 +14375,6 @@ function onPoseResults(results) {
         let editorVideo = null;
         let editorCanvas = null;
         let editorCtx = null;
-
-        // ★変更: 複数のマスクを管理する配列に変更
         let editorMaskAreas = []; // [{x, y, w, h}, ...] 
         let isEditorMaskSelecting = false;
         let editorDragStart = null;
@@ -14390,29 +14391,33 @@ function onPoseResults(results) {
           editorCanvas = document.getElementById("editor-canvas");
           editorCtx = editorCanvas.getContext("2d");
 
-          // イベント設定（重複登録防止のため一度削除）
-          editorCanvas.removeEventListener("mousedown", onEditorMouseDown);
-          editorCanvas.removeEventListener("mousemove", onEditorMouseMove);
-          editorCanvas.removeEventListener("mouseup", onEditorMouseUp);
-          editorCanvas.removeEventListener("touchstart", onEditorMouseDown);
-          editorCanvas.removeEventListener("touchmove", onEditorMouseMove);
-          editorCanvas.removeEventListener("touchend", onEditorMouseUp);
-
           const url = URL.createObjectURL(file);
           editorVideo.src = url;
+          editorVideo.muted = false;
 
-          // メタデータ読み込み時
           editorVideo.onloadedmetadata = () => {
             document.getElementById("editor-controls").style.display = "block";
-            document.getElementById("trim-end").value = editorVideo.duration.toFixed(1);
-
-            // ★修正: 読み込み直後に先頭フレームを表示して待機
+            // ★ここをtoFixed(2)に変更
+            document.getElementById("trim-end").value = editorVideo.duration.toFixed(2);
+            
+            const seekbar = document.getElementById("editor-seekbar");
+            if(seekbar) {
+                seekbar.max = editorVideo.duration;
+                seekbar.value = 0;
+                document.getElementById("total-time-display").textContent = editorVideo.duration.toFixed(2);
+                seekbar.oninput = (e) => { editorVideo.currentTime = e.target.value; };
+            }
             editorVideo.currentTime = 0;
           };
 
-          // ★追加: シーク完了時（最初の画が出た時）に描画を実行
           editorVideo.onseeked = () => {
             updateEditorCanvas();
+            // スライダーと数字を同期
+            const seekbar = document.getElementById("editor-seekbar");
+            if(seekbar) {
+                seekbar.value = editorVideo.currentTime;
+                document.getElementById("current-time-display").textContent = editorVideo.currentTime.toFixed(2);
+            }
           };
         }
 
@@ -14420,8 +14425,6 @@ function onPoseResults(results) {
         function updateEditorCanvas() {
           if (!editorVideo) return;
           const aspect = document.querySelector('input[name="aspect"]:checked').value;
-
-          // 解像度設定
           if (aspect === "16:9") {
             editorCanvas.width = 1280; editorCanvas.height = 720;
           } else {
@@ -14435,11 +14438,9 @@ function onPoseResults(results) {
           const w = editorCanvas.width;
           const h = editorCanvas.height;
 
-          // 黒背景
           editorCtx.fillStyle = "#000";
           editorCtx.fillRect(0, 0, w, h);
 
-          // 動画を描画
           if (editorVideo.readyState >= 2) {
             const vw = editorVideo.videoWidth;
             const vh = editorVideo.videoHeight;
@@ -14448,40 +14449,24 @@ function onPoseResults(results) {
             const drawH = vh * scale;
             const offsetX = (w - drawW) / 2;
             const offsetY = (h - drawH) / 2;
-
             editorCtx.drawImage(editorVideo, offsetX, offsetY, drawW, drawH);
           }
 
-          // ★変更: 登録された全てのマスクを描画
           editorCtx.fillStyle = "#000";
           editorMaskAreas.forEach(area => {
             editorCtx.fillRect(area.x, area.y, area.w, area.h);
           });
 
-          // 選択中の黄色枠（ドラッグ中）
-          if (isEditorMaskSelecting && editorDragStart && currentEditorPos) {
-            editorCtx.strokeStyle = "#ffeb3b";
-            editorCtx.lineWidth = 4;
-            const x = Math.min(editorDragStart.x, currentEditorPos.x);
-            const y = Math.min(editorDragStart.y, currentEditorPos.y);
-            const w = Math.abs(currentEditorPos.x - editorDragStart.x);
-            const h = Math.abs(currentEditorPos.y - editorDragStart.y);
-            editorCtx.strokeRect(x, y, w, h);
-          }
-
-          // ★追加: 時間表示（書き出し中は消す、またはお好みで残す）
-          // ここでは「編集プレビュー中のみ表示」し、書き出し動画には時間を入れない仕様にします。
-          // (書き出し動画にも入れたい場合は !isEditorExporting の条件を外してください)
-          if (!isEditorExporting) {
-            const time = editorVideo.currentTime.toFixed(2); // 秒.ミリ秒
-            editorCtx.fillStyle = "rgba(0, 0, 0, 0.5)";
-            editorCtx.fillRect(10, 10, 100, 30); // 背景帯
-
-            editorCtx.fillStyle = "#fff";
-            editorCtx.font = "bold 20px Arial";
-            editorCtx.textAlign = "left";
+          // プレビュー中のみ時間を右上に表示（黄色で目立たせる）
+          if (!isEditorExporting && editorVideo) {
+            const time = editorVideo.currentTime.toFixed(2);
+            editorCtx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            editorCtx.fillRect(w - 140, 10, 130, 45); 
+            editorCtx.fillStyle = "#ffeb3b";
+            editorCtx.font = "bold 28px Arial";
+            editorCtx.textAlign = "center";
             editorCtx.textBaseline = "middle";
-            editorCtx.fillText(time + "s", 20, 25);
+            editorCtx.fillText(time + "s", w - 75, 33);
           }
         }
 
@@ -14490,11 +14475,23 @@ function onPoseResults(results) {
           const start = parseFloat(document.getElementById("trim-start").value);
           const end = parseFloat(document.getElementById("trim-end").value);
 
-          editorVideo.currentTime = start;
+          if (editorVideo.currentTime >= end || editorVideo.currentTime < start) {
+            editorVideo.currentTime = start;
+          }
+          
+          editorVideo.muted = false;
           editorVideo.play();
 
           function loop() {
             if (editorVideo.paused || editorVideo.ended) return;
+            
+            // スライダー同期
+            const seekbar = document.getElementById("editor-seekbar");
+            if(seekbar) {
+                seekbar.value = editorVideo.currentTime;
+                document.getElementById("current-time-display").textContent = editorVideo.currentTime.toFixed(2);
+            }
+
             if (editorVideo.currentTime >= end) {
               editorVideo.pause();
               return;
@@ -14506,14 +14503,38 @@ function onPoseResults(results) {
         }
 
         function stopEditorPreview() {
-          editorVideo.pause();
+          if(editorVideo) editorVideo.pause();
           if (editorAnimId) cancelAnimationFrame(editorAnimId);
         }
 
+        // --- ここから追加・修正するコード ---
+
+        // コマ送りボタン
+        function stepEditorVideo(seconds) {
+            if (!editorVideo) return;
+            editorVideo.currentTime += seconds;
+        }
+
+        // 現在の再生位置を入力欄に反映させる
+        function updateTrimValue(type) {
+            if (!editorVideo) return;
+            
+            // ★ここをtoFixed(2)に変更（0.01秒単位で取得）
+            const currentTime = editorVideo.currentTime.toFixed(2);
+            const targetInputId = (type === 'start') ? "trim-start" : "trim-end";
+            
+            const inputEl = document.getElementById(targetInputId);
+            if (inputEl) {
+                inputEl.value = currentTime;
+                
+                inputEl.style.backgroundColor = "#fff9c4";
+                setTimeout(() => { inputEl.style.backgroundColor = "#fff"; }, 500);
+            }
+        }
+
+        // 既存の関数を updateTrimValue を使うように書き換え
         function setTrimCurrent(type) {
-          if (editorVideo) {
-            document.getElementById(type === 'start' ? "trim-start" : "trim-end").value = editorVideo.currentTime.toFixed(1);
-          }
+            updateTrimValue(type);
         }
 
         // 4. マスクエリア指定（複数対応）
@@ -14609,8 +14630,8 @@ function onPoseResults(results) {
           drawEditorFrame();
         }
 
-        // 5. 書き出し (MediaRecorder)
-        function startEditorExport() {
+        // 5. 書き出し (MediaRecorder) - 🔊 音声結合版
+        async function startEditorExport() {
           if (isEditorExporting) return;
           isEditorExporting = true;
 
@@ -14628,13 +14649,48 @@ function onPoseResults(results) {
 
           btn.disabled = true;
           btn.style.background = "#ccc";
-          status.textContent = "⏳ 作成中... 画面を閉じないでください";
+          status.textContent = "⏳ 音声を処理中...";
 
-          // 録画ストリーム作成 (30fps)
-          const stream = editorCanvas.captureStream(30);
-          const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+          // --- 🔊 音声トラックの取得とミックス ---
+          let exportStream;
+          try {
+            // A. キャンバスからの映像ストリーム (30fps)
+            const videoStream = editorCanvas.captureStream(30);
+            
+            // B. 元の動画からの音声トラック取得
+            // captureStreamが使えないブラウザ（Safari等）への対策を含めた処理
+            let audioTracks = [];
+            if (editorVideo.captureStream) {
+              audioTracks = editorVideo.captureStream().getAudioTracks();
+            } else if (editorVideo.mozCaptureStream) {
+              audioTracks = editorVideo.mozCaptureStream().getAudioTracks();
+            }
+
+            // 映像と音声を結合
+            if (audioTracks.length > 0) {
+              exportStream = new MediaStream([
+                ...videoStream.getVideoTracks(),
+                audioTracks[0]
+              ]);
+            } else {
+              exportStream = videoStream;
+              console.warn("音声トラックが見つかりませんでした。");
+            }
+          } catch (e) {
+            console.error("Stream capture error:", e);
+            alert("録画ストリームの作成に失敗しました。");
+            isEditorExporting = false;
+            btn.disabled = false;
+            return;
+          }
+
+          // 録画設定 (高画質設定)
+          const recorder = new MediaRecorder(exportStream, { 
+            mimeType: 'video/webm;codecs=vp9,opus', // opus（音声）を追加
+            videoBitsPerSecond: 5000000 // 5Mbps
+          });
+          
           const chunks = [];
-
           recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
 
           recorder.onstop = () => {
@@ -14646,19 +14702,16 @@ function onPoseResults(results) {
               if (typeof saveVideoToDB === 'function') {
                 saveVideoToDB(blob, fname);
               } else {
-                alert("ライブラリ機能が見つかりません。ダウンロードします。");
                 downloadBlob(blob, fname);
               }
             } else {
               downloadBlob(blob, fname);
             }
 
-            // リセット
             status.textContent = "✅ 完了";
             isEditorExporting = false;
             btn.disabled = false;
             btn.style.background = "#d32f2f";
-            // 時間表示などを戻すために再描画
             drawEditorFrame();
           };
 
@@ -14670,8 +14723,9 @@ function onPoseResults(results) {
           }
 
           // 録画プロセス
+          editorVideo.muted = false; // 🔊 書き出し中も音を出す（内部処理用）
           editorVideo.currentTime = start;
-          // シーク完了を待ってからスタートしないと最初が飛ぶことがあるため修正
+          
           const onSeekedForRec = () => {
             editorVideo.removeEventListener('seeked', onSeekedForRec);
             recorder.start();
@@ -14679,7 +14733,7 @@ function onPoseResults(results) {
             recordLoop();
           };
           editorVideo.addEventListener('seeked', onSeekedForRec);
-          editorVideo.currentTime = start; // シーク発火
+          editorVideo.currentTime = start;
 
           function recordLoop() {
             if (!isEditorExporting) return;
@@ -14692,7 +14746,7 @@ function onPoseResults(results) {
             }
 
             const progress = Math.min(100, ((editorVideo.currentTime - start) / duration * 100)).toFixed(0);
-            status.textContent = `⏳ 作成中... ${progress}%`;
+            status.textContent = `⏳ 保存中... ${progress}%`;
             requestAnimationFrame(recordLoop);
           }
         }
