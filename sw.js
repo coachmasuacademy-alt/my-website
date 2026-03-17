@@ -2,7 +2,7 @@
 // Service Worker (Smart Coach Badminton v33)
 // ==========================================
 
-const CACHE_NAME = 'smart-coach-v37';
+const CACHE_NAME = 'smart-coach-v38';
 
 // キャッシュする最小限の静的アセット
 const urlsToCache = [
