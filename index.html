@@ -5239,15 +5239,20 @@ async function loadCoachingVideos() {
     </div>
 
     <div style="background:#e1f5fe; padding:15px; border-radius:8px; border:1px solid #b3e5fc; margin-bottom:15px;">
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
-<button onclick="switchP3DCamera()" style="background:#00bcd4; color:white;">🔄 カメラ切替(内/外)</button>
-            <button class="btn-mode" id="btn-p3d-mode" onclick="toggleP3DMode()" style="background:#546e7a;">正面/横 切替</button>
-            <button onclick="startP3D()" style="background:#0288d1; font-weight:bold;">📷 カメラ開始</button>
-            <button id="btn-p3d-rec" onclick="startP3DRecording()" style="background:#ff4444; color:white;">🔴 録画開始</button>
-            <button id="btn-p3d-stop" onclick="stopP3DRecording()" style="background:#fff; color:#333; border:1px solid #ccc; display:none;">■ 停止</button>
-            <button id="btn-p3d-play" onclick="playP3DReplay()" style="background:#4caf50; color:white; display:none;">▶ 再生</button>
-            <button onclick="stopP3D()" style="background:#424242;">⏹ 終了</button>
-        </div>
+       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
+    <button onclick="startP3D()" style="background:#0288d1; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-weight:bold;">
+        📷 カメラ起動 (外側/内側)
+    </button>
+    <button onclick="switchP3DCamera()" style="background:#00bcd4; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
+        🔄 カメラ切替
+    </button>
+    
+    <button class="btn-mode" id="btn-p3d-mode" onclick="toggleP3DMode()" style="background:#546e7a;">正面/横 切替</button>
+    <button id="btn-p3d-rec" onclick="startP3DRecording()" style="background:#ff4444; color:white;">🔴 録画開始</button>
+    <button id="btn-p3d-stop" onclick="stopP3DRecording()" style="background:#fff; color:#333; border:1px solid #ccc; display:none;">■ 停止</button>
+    <button id="btn-p3d-play" onclick="playP3DReplay()" style="background:#4caf50; color:white; display:none;">▶ 再生</button>
+    <button onclick="stopP3D()" style="background:#424242;">⏹ 終了</button>
+</div>
 
         <div id="p3d-result-panel" style="background: rgba(0, 0, 0, 0.8); border-radius: 12px; padding: 10px; text-align: center; margin-bottom: 10px; color: white;">
             <div id="p3d-label" style="font-size: 0.8rem; color: #aaa;">LIVE ANALYSIS</div>
@@ -17283,13 +17288,14 @@ function stopJumpAICamera() {
 }
 
 // ==========================================
-// 🌐 3Dフォーム・レコーダー (完成版・エラー修正済み)
+// 🌐 3Dフォーム・レコーダー (完成版・変数名修正済み)
 // ==========================================
 let p3dScene, p3dCamera, p3dRenderer, p3dPose;
 let p3dJoints = [], p3dBones = [];
 let p3dIsRunning = false;
 let p3dCurrentMode = 'front';
-let p3dCurrentFacing = 'environment'; // 初期値を背面(environment)に固定
+// ★ 変数名を p3dFacingMode に統一し、初期値を背面(environment)に固定
+let p3dFacingMode = 'environment'; 
 let p3dMediaRecorder;
 let p3dRecordedChunks = [];
 
@@ -17355,9 +17361,22 @@ function initP3DScene() {
     });
 }
 
+// 自身のカメラトラックを確実に停止する内部関数
+function internalStopP3DTracks() {
+    const video = document.getElementById('p3d-video-input');
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+}
+
 async function startP3D() {
+    console.log("Starting 3D Camera with facingMode:", p3dFacingMode);
+
+    // 1. 他のカメラを完全に停止
     if (typeof stopTracking === 'function') stopTracking();
     if (typeof stopJumpAICamera === 'function') stopJumpAICamera();
+    internalStopP3DTracks();
 
     initP3DScene();
     const video = document.getElementById('p3d-video-input');
@@ -17370,22 +17389,50 @@ async function startP3D() {
     }
 
     try {
+        // カメラ映像の取得
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: p3dCurrentFacing, width: { ideal: 1280 }, height: { ideal: 720 } } 
+            video: { 
+                facingMode: p3dFacingMode, 
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 } 
+            } 
         });
         video.srcObject = stream;
 
-        if (p3dCurrentFacing === 'user') {
+        // ★重要: 映像の準備ができるまで待機するプロミス
+        await new Promise((resolve) => {
+            video.onloadedmetadata = () => {
+                // 解像度が確定してから再生
+                video.play().then(resolve);
+            };
+        });
+
+        // 映像サイズが0でないことを最終確認
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            throw new Error("Video dimensions are 0. Camera may not be ready.");
+        }
+
+        // 内側カメラ(user)の時だけ左右反転
+        if (p3dFacingMode === 'user') {
             video.style.transform = "scaleX(-1)"; 
         } else {
             video.style.transform = "scaleX(1)";  
         }
 
         p3dIsRunning = true;
-        status.textContent = "Running (" + (p3dCurrentFacing === 'user' ? 'Front' : 'Back') + ")";
+        status.textContent = "Active (" + (p3dFacingMode === 'user' ? 'Front' : 'Back') + ")";
         
+        // MediaPipeへの送信を開始（videoが確実に動いている状態）
         const cameraUtils = new Camera(video, {
-            onFrame: async () => { if (p3dIsRunning) await p3dPose.send({ image: video }); },
+            onFrame: async () => {
+                // エラー防止: 実行中でない、またはビデオが読み込めていない場合はスキップ
+                if (!p3dIsRunning || video.paused || video.ended) return;
+                try {
+                    await p3dPose.send({ image: video });
+                } catch (err) {
+                    console.warn("MediaPipe ignore frame:", err);
+                }
+            },
             width: 640, height: 480
         });
         cameraUtils.start();
@@ -17396,21 +17443,21 @@ async function startP3D() {
             requestAnimationFrame(animate);
         };
         animate();
-    } catch (e) { alert("カメラの起動に失敗しました。"); }
+
+    } catch (e) { 
+        console.error("Camera Start Error:", e);
+        alert("カメラの起動に失敗しました。カメラの許可設定を確認してください。"); 
+    }
 }
 
-async function switchP3DCamera() {
-    p3dCurrentFacing = (p3dCurrentFacing === 'environment') ? 'user' : 'environment';
+function switchP3DCamera() {
+    // p3dFacingModeを切り替える
+    p3dFacingMode = (p3dFacingMode === 'environment') ? 'user' : 'environment';
+    
     if (p3dIsRunning) {
-        p3dIsRunning = false;
-        const video = document.getElementById('p3d-video-input');
-        if (video && video.srcObject) {
-            video.srcObject.getTracks().forEach(track => track.stop());
-            video.srcObject = null;
-        }
-        setTimeout(async () => { await startP3D(); }, 300);
+        startP3D(); // 実行中なら再起動して反映
     } else {
-        alert("次回の起動時に反映されます。");
+        alert("次回の起動時は " + (p3dFacingMode === 'user' ? '内側' : '外側') + " カメラで開始します。");
     }
 }
 
@@ -17464,7 +17511,7 @@ function calculateAngle3D(p1, p2, p3) {
 
 function toggleP3DMode() {
     p3dCurrentMode = p3dCurrentMode === 'front' ? 'side' : 'front';
-    document.getElementById('btn-p3d-mode').innerText = p3dCurrentMode === 'front' ? '正面モード' : '横向きモード';
+    document.getElementById('btn-p3d-mode').innerText = p3dCurrentMode === 'front' ? '正面判定' : '横向き判定';
 }
 
 function startP3DRecording() {
@@ -17510,11 +17557,7 @@ function playP3DReplay() {
 
 function stopP3D() {
     p3dIsRunning = false;
-    const video = document.getElementById('p3d-video-input');
-    if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach(t => t.stop());
-        video.srcObject = null;
-    }
+    internalStopP3DTracks();
     if (p3dRenderer) {
         p3dRenderer.clear();
     }
