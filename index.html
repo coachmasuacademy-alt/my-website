@@ -460,6 +460,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -5231,6 +5232,44 @@ async function loadCoachingVideos() {
 </div>
 </section>
 
+<section id="pose-3d-analysis-box" style="margin-top: 30px; padding:20px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); position: relative;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin:0; color:#0277bd;">🌐 3Dフォーム・レコーダー</h3>
+        <span id="p3d-status" style="font-size: 12px; color: #666;">Ready</span>
+    </div>
+
+    <div style="background:#e1f5fe; padding:15px; border-radius:8px; border:1px solid #b3e5fc; margin-bottom:15px;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
+            <button class="btn-mode" id="btn-p3d-mode" onclick="toggleP3DMode()" style="background:#546e7a;">正面/横 切替</button>
+            <button onclick="startP3D()" style="background:#0288d1; font-weight:bold;">📷 カメラ開始</button>
+            <button id="btn-p3d-rec" onclick="startP3DRecording()" style="background:#ff4444; color:white;">🔴 録画開始</button>
+            <button id="btn-p3d-stop" onclick="stopP3DRecording()" style="background:#fff; color:#333; border:1px solid #ccc; display:none;">■ 停止</button>
+            <button id="btn-p3d-play" onclick="playP3DReplay()" style="background:#4caf50; color:white; display:none;">▶ 再生</button>
+            <button onclick="stopP3D()" style="background:#424242;">⏹ 終了</button>
+        </div>
+
+        <div id="p3d-result-panel" style="background: rgba(0, 0, 0, 0.8); border-radius: 12px; padding: 10px; text-align: center; margin-bottom: 10px; color: white;">
+            <div id="p3d-label" style="font-size: 0.8rem; color: #aaa;">LIVE ANALYSIS</div>
+            <div id="p3d-score" style="font-size: 1.8rem; font-weight: bold; color: #ffeb3b;">--°</div>
+            <div id="p3d-detail" style="font-size: 0.8rem; color: #fff;">カメラを固定してください</div>
+        </div>
+
+       <div id="p3d-container" style="position: relative; width: 100%; max-width: 640px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; border: 3px solid #0288d1;">
+    <div id="p3d-canvas-holder" style="width: 100%; height: 100%;"></div>
+    
+    <video id="p3d-video-input" style="position: absolute; bottom: 10px; right: 10px; width: 120px; border: 2px solid #fff; border-radius: 4px; z-index: 10;" autoplay playsinline muted></video>
+    
+    <video id="p3d-video-replay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; display: none; z-index: 100;" controls playsinline></video>
+    
+    <div id="p3d-rec-dot" style="position: absolute; top: 10px; left: 10px; display: none; align-items: center; background: rgba(233, 30, 99, 0.7); padding: 4px 8px; border-radius: 4px; z-index: 15;">
+        <div style="width: 10px; height: 10px; background: red; border-radius: 50%; margin-right: 5px; animation: blink 1s infinite;"></div>
+        <span style="color: white; font-size: 10px; font-weight: bold;">REC (3D+VIDEO)</span>
+    </div>
+</div>
+        <p style="font-size: 11px; color: #666; margin-top: 10px; text-align: center;">※画面をドラッグして3D視点を操作できます。録画停止後に「再生」で振り返りが可能です。</p>
+    </div>
+</section>
+
     <section id="video-tagging-section" style="
   margin-top: 30px; 
   padding: 0; 
@@ -5311,6 +5350,7 @@ async function loadCoachingVideos() {
       </div>
     </section>
 </section>
+
     <section id="screen-library" class="screen-content">
       <div style="background: #e8eaf6; padding: 15px 20px; border-bottom: 1px solid #c5cae9;">
         <h2 style="color: #3f51b5; margin: 0; font-size: 22px;">
@@ -17212,6 +17252,261 @@ function stopJumpAICamera() {
     if (guideLine) guideLine.style.display = "none";
 
     console.log("Jump AI Camera Stopped.");
+}
+
+// ==========================================
+// 🌐 3Dフォーム・レコーダー (肉付けモデル版フルセット)
+// ==========================================
+let p3dScene, p3dCamera, p3dRenderer, p3dPose;
+let p3dJoints = [], p3dBones = [];
+let p3dIsRunning = false;
+let p3dCurrentMode = 'front';
+let p3dMediaRecorder;
+let p3dRecordedChunks = [];
+
+const JOINT_CONNECTIONS = [
+    [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], 
+    [11, 23], [12, 24], [23, 24],                   
+    [23, 25], [24, 26], [25, 27], [26, 28]
+];
+
+function initP3DScene() {
+    const container = document.getElementById('p3d-canvas-holder');
+    if (!container || p3dScene) return;
+
+    p3dScene = new THREE.Scene();
+    p3dScene.background = new THREE.Color(0x111111);
+
+    p3dCamera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+    p3dRenderer = new THREE.WebGLRenderer({ antialias: true });
+    p3dRenderer.setSize(container.clientWidth, container.clientHeight);
+    p3dRenderer.shadowMap.enabled = true;
+    container.appendChild(p3dRenderer.domElement);
+
+    p3dCamera.position.set(0, 1.4, 3.0);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    p3dScene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(1, 2, 3);
+    p3dScene.add(directionalLight);
+
+    p3dScene.add(new THREE.GridHelper(10, 20, 0x444444, 0x222222));
+
+    const jointMat = new THREE.MeshPhongMaterial({ color: 0xffddcc });
+    const boneMat = new THREE.MeshPhongMaterial({ color: 0xeeeeee });
+    
+    for (let i = 0; i < 33; i++) {
+        const radius = (i <= 10) ? 0.045 : 0.025;
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(radius, 16, 16), jointMat);
+        sphere.visible = false;
+        p3dScene.add(sphere);
+        p3dJoints.push(sphere);
+    }
+
+    JOINT_CONNECTIONS.forEach(() => {
+        const geo = new THREE.CylinderGeometry(0.015, 0.015, 1, 12);
+        geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 0.5, 0)); 
+        const cylinder = new THREE.Mesh(geo, boneMat);
+        cylinder.visible = false;
+        p3dScene.add(cylinder);
+        p3dBones.push(cylinder);
+    });
+
+    let isDragging = false, prevX = 0, prevY = 0;
+    container.addEventListener('mousedown', (e) => { isDragging = true; prevX = e.clientX; prevY = e.clientY; });
+    window.addEventListener('mouseup', () => isDragging = false);
+    container.addEventListener('mousemove', (e) => {
+        if(isDragging) {
+            p3dScene.rotation.y += (e.clientX - prevX) * 0.01;
+            p3dCamera.position.y += (e.clientY - prevY) * 0.01;
+            p3dCamera.lookAt(0, 1.2, 0);
+            prevX = e.clientX; prevY = e.clientY;
+        }
+    });
+}
+
+async function startP3D() {
+    if (typeof stopTracking === 'function') stopTracking();
+    if (typeof stopJumpAICamera === 'function') stopJumpAICamera();
+
+    initP3DScene();
+    const video = document.getElementById('p3d-video-input');
+    const status = document.getElementById('p3d-status');
+    
+    p3dPose = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
+    p3dPose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5 });
+    p3dPose.onResults(onP3DResults);
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: p3dCurrentMode === 'front' ? "user" : "environment", width: 640, height: 480 } 
+        });
+        video.srcObject = stream;
+        p3dIsRunning = true;
+        status.textContent = "Processing...";
+        
+        const cameraUtils = new Camera(video, {
+            onFrame: async () => { if (p3dIsRunning) await p3dPose.send({ image: video }); },
+            width: 640, height: 480
+        });
+        cameraUtils.start();
+
+        const animate = () => {
+            if (!p3dIsRunning) return;
+            p3dRenderer.render(p3dScene, p3dCamera);
+            requestAnimationFrame(animate);
+        };
+        animate();
+    } catch (e) { alert("カメラの起動に失敗しました。"); }
+}
+
+function onP3DResults(res) {
+    if (!res.poseWorldLandmarks) return;
+    const lm = res.poseWorldLandmarks;
+    const scoreEl = document.getElementById('p3d-score');
+    const detailEl = document.getElementById('p3d-detail');
+
+    lm.forEach((p, i) => {
+        if (p3dJoints[i]) {
+            p3dJoints[i].position.set(-p.x, -p.y + 1.2, -p.z);
+            p3dJoints[i].visible = true;
+        }
+    });
+
+    JOINT_CONNECTIONS.forEach((conn, i) => {
+        const jA = p3dJoints[conn[0]], jB = p3dJoints[conn[1]], bone = p3dBones[i];
+        if (jA && jB && bone) {
+            const posA = jA.position, posB = jB.position;
+            bone.position.copy(posA);
+            const dir = new THREE.Vector3().subVectors(posB, posA);
+            const len = dir.length();
+            bone.scale.set(1, len, 1);
+            if (len > 0.0001) {
+                dir.normalize();
+                bone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                bone.visible = true;
+            } else { bone.visible = false; }
+        }
+    });
+
+    if (p3dCurrentMode === 'front') {
+        const angle = Math.abs(Math.atan2(lm[12].y - lm[11].y, lm[12].x - lm[11].x) * (180 / Math.PI));
+        scoreEl.innerText = `${angle.toFixed(1)}°`;
+        detailEl.innerText = angle < 6 ? "肩：水平✅" : "肩：傾き⚠️";
+        scoreEl.style.color = angle < 6 ? "#4caf50" : "#f44336";
+    } else {
+        const back = calculateAngle3D(lm[12], lm[24], lm[26]);
+        scoreEl.innerText = `${back.toFixed(0)}°`;
+        detailEl.innerText = back < 165 ? "猫背⚠️" : (back > 195 ? "反りすぎ⚠️" : "体幹OK✅");
+        scoreEl.style.color = back < 165 ? "#ff9800" : "#4caf50";
+    }
+}
+
+function calculateAngle3D(p1, p2, p3) {
+    const v1 = new THREE.Vector3(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+    const v2 = new THREE.Vector3(p3.x - p2.x, p3.y - p2.y, p3.z - p2.z);
+    return v1.angleTo(v2) * (180 / Math.PI);
+}
+
+function toggleP3DMode() {
+    p3dCurrentMode = p3dCurrentMode === 'front' ? 'side' : 'front';
+    document.getElementById('btn-p3d-mode').innerText = p3dCurrentMode === 'front' ? '正面モード' : '横向きモード';
+}
+
+function startP3DRecording() {
+    const canvas = p3dRenderer.domElement; // 3Dが描画されているキャンバス
+    p3dRecordedChunks = [];
+
+    // Canvasからストリームを取得 (30fps)
+    const stream = canvas.captureStream(30);
+    
+    // ブラウザが対応しているMIMEタイプを選択
+    const mimeTypes = ["video/mp4", "video/webkit", "video/webm;codecs=vp9", "video/webm"];
+    const selectedType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
+    
+    try {
+        p3dMediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
+    } catch (e) {
+        alert("録画の初期化に失敗しました。");
+        return;
+    }
+
+    p3dMediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) p3dRecordedChunks.push(e.data);
+    };
+
+    p3dMediaRecorder.onstop = async () => {
+        const blob = new Blob(p3dRecordedChunks, { type: selectedType });
+        
+        // ファイル名生成（例: 3D_Analysis_20260326_2256.webm）
+        const now = new Date();
+        const timestamp = now.getFullYear() + 
+                        ("0"+(now.getMonth()+1)).slice(-2) + 
+                        ("0"+now.getDate()).slice(-2) + "_" + 
+                        ("0"+now.getHours()).slice(-2) + 
+                        ("0"+now.getMinutes()).slice(-2);
+        const ext = selectedType.includes("mp4") ? "mp4" : "webm";
+        const filename = `3D_Analysis_${timestamp}.${ext}`;
+
+        // 1. ローカルプレビュー用セット
+        const replay = document.getElementById('p3d-video-replay');
+        if (replay) {
+            replay.src = URL.createObjectURL(blob);
+            document.getElementById('btn-p3d-play').style.display = 'inline-block';
+        }
+
+        // 2. ★動画ライブラリ（IndexedDB）への保存
+        // 既存のライブラリ保存関数 saveVideoToDB があるか確認して実行
+        if (typeof saveVideoToDB === 'function') {
+            try {
+                await saveVideoToDB(blob, filename);
+                // 保存成功したらライブラリの表示を更新（タブを開いた時に最新にするため）
+                if (typeof loadLibraryFromDB === 'function') loadLibraryFromDB();
+            } catch (err) {
+                console.error("ライブラリ保存エラー:", err);
+            }
+        } else {
+            console.warn("saveVideoToDB 関数が見つかりません。");
+            // フォールバックとして直接ダウンロード
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(blob);
+            a.download = filename;
+            a.click();
+        }
+    };
+
+    p3dMediaRecorder.start();
+    
+    // UI更新
+    const recDot = document.getElementById('p3d-rec-dot');
+    if (recDot) recDot.style.display = 'flex';
+    document.getElementById('btn-p3d-rec').style.display = 'none';
+    document.getElementById('btn-p3d-stop').style.display = 'inline-block';
+}
+
+function stopP3DRecording() {
+    if (p3dMediaRecorder) p3dMediaRecorder.stop();
+    document.getElementById('p3d-rec-dot').style.display = 'none';
+    document.getElementById('btn-p3d-stop').style.display = 'none';
+    document.getElementById('btn-p3d-rec').style.display = 'inline-block';
+}
+
+function playP3DReplay() {
+    const replay = document.getElementById('p3d-video-replay');
+    replay.style.display = 'block'; // 前面に出す
+    replay.play();
+    
+    replay.onended = () => {
+        replay.style.display = 'none'; // 終わったら隠して3D画面に戻す
+    };
+}
+
+function stopP3D() {
+    p3dIsRunning = false;
+    const video = document.getElementById('p3d-video-input');
+    if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+    document.getElementById('p3d-status').textContent = "Offline";
 }
 </script>
 </body>
