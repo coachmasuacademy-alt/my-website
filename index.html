@@ -567,7 +567,7 @@
     let isProgramGenerated = false;
     let isPoseModelLoaded = false;
     let isFwModelLoaded = false;
-    
+   
 
 // --- AIジャンプ測定用変数 ---
 let jumpModeActive = false;
@@ -17283,12 +17283,13 @@ function stopJumpAICamera() {
 }
 
 // ==========================================
-// 🌐 3Dフォーム・レコーダー (肉付けモデル版フルセット)
+// 🌐 3Dフォーム・レコーダー (完成版・エラー修正済み)
 // ==========================================
 let p3dScene, p3dCamera, p3dRenderer, p3dPose;
 let p3dJoints = [], p3dBones = [];
 let p3dIsRunning = false;
 let p3dCurrentMode = 'front';
+let p3dCurrentFacing = 'environment'; // 初期値を背面(environment)に固定
 let p3dMediaRecorder;
 let p3dRecordedChunks = [];
 
@@ -17306,7 +17307,7 @@ function initP3DScene() {
     p3dScene.background = new THREE.Color(0x111111);
 
     p3dCamera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-    p3dRenderer = new THREE.WebGLRenderer({ antialias: true });
+    p3dRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     p3dRenderer.setSize(container.clientWidth, container.clientHeight);
     p3dRenderer.shadowMap.enabled = true;
     container.appendChild(p3dRenderer.domElement);
@@ -17355,7 +17356,6 @@ function initP3DScene() {
 }
 
 async function startP3D() {
-    // 他のカメラ機能を停止
     if (typeof stopTracking === 'function') stopTracking();
     if (typeof stopJumpAICamera === 'function') stopJumpAICamera();
 
@@ -17369,35 +17369,23 @@ async function startP3D() {
         p3dPose.onResults(onP3DResults);
     }
 
-    if (typeof window.p3dCurrentFacing === 'undefined') window.p3dCurrentFacing = 'environment'; 
-
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                facingMode: window.p3dCurrentFacing,
-                width: { ideal: 1280 }, 
-                height: { ideal: 720 } 
-            } 
+            video: { facingMode: p3dCurrentFacing, width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
-        
-        // --- ここからが修正・追加ポイント ---
         video.srcObject = stream;
 
-        // 内側カメラ(user)の時だけ、鏡のように左右反転させる
-        if (window.p3dCurrentFacing === 'user') {
+        if (p3dCurrentFacing === 'user') {
             video.style.transform = "scaleX(-1)"; 
         } else {
             video.style.transform = "scaleX(1)";  
         }
-        // --- ここまで ---
 
         p3dIsRunning = true;
-        status.textContent = "Running (" + (window.p3dCurrentFacing === 'user' ? 'Front' : 'Back') + ")";
+        status.textContent = "Running (" + (p3dCurrentFacing === 'user' ? 'Front' : 'Back') + ")";
         
         const cameraUtils = new Camera(video, {
-            onFrame: async () => {
-                if (p3dIsRunning) await p3dPose.send({ image: video });
-            },
+            onFrame: async () => { if (p3dIsRunning) await p3dPose.send({ image: video }); },
             width: 640, height: 480
         });
         cameraUtils.start();
@@ -17408,19 +17396,21 @@ async function startP3D() {
             requestAnimationFrame(animate);
         };
         animate();
-    } catch (e) {
-        console.error(e);
-        alert("カメラの起動に失敗しました。");
-    }
+    } catch (e) { alert("カメラの起動に失敗しました。"); }
 }
 
-function switchP3DCamera() {
-    window.p3dCurrentFacing = (window.p3dCurrentFacing === 'environment') ? 'user' : 'environment';
+async function switchP3DCamera() {
+    p3dCurrentFacing = (p3dCurrentFacing === 'environment') ? 'user' : 'environment';
     if (p3dIsRunning) {
-        // すでに動いている場合は再起動して設定を反映
-        startP3D();
+        p3dIsRunning = false;
+        const video = document.getElementById('p3d-video-input');
+        if (video && video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+            video.srcObject = null;
+        }
+        setTimeout(async () => { await startP3D(); }, 300);
     } else {
-        alert("次回の起動時は " + (window.p3dCurrentFacing === 'user' ? '内側' : '外側') + " カメラを使用します。");
+        alert("次回の起動時に反映されます。");
     }
 }
 
@@ -17478,72 +17468,28 @@ function toggleP3DMode() {
 }
 
 function startP3DRecording() {
-    const canvas = p3dRenderer.domElement; // 3Dが描画されているキャンバス
+    const canvas = p3dRenderer.domElement;
     p3dRecordedChunks = [];
-
-    // Canvasからストリームを取得 (30fps)
     const stream = canvas.captureStream(30);
-    
-    // ブラウザが対応しているMIMEタイプを選択
-    const mimeTypes = ["video/mp4", "video/webkit", "video/webm;codecs=vp9", "video/webm"];
-    const selectedType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
-    
-    try {
-        p3dMediaRecorder = new MediaRecorder(stream, { mimeType: selectedType });
-    } catch (e) {
-        alert("録画の初期化に失敗しました。");
-        return;
-    }
-
-    p3dMediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) p3dRecordedChunks.push(e.data);
-    };
-
+    const options = { mimeType: 'video/webm;codecs=vp9' };
+    p3dMediaRecorder = new MediaRecorder(stream, options);
+    p3dMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) p3dRecordedChunks.push(e.data); };
     p3dMediaRecorder.onstop = async () => {
-        const blob = new Blob(p3dRecordedChunks, { type: selectedType });
-        
-        // ファイル名生成（例: 3D_Analysis_20260326_2256.webm）
+        const blob = new Blob(p3dRecordedChunks, { type: 'video/webm' });
         const now = new Date();
-        const timestamp = now.getFullYear() + 
-                        ("0"+(now.getMonth()+1)).slice(-2) + 
-                        ("0"+now.getDate()).slice(-2) + "_" + 
-                        ("0"+now.getHours()).slice(-2) + 
-                        ("0"+now.getMinutes()).slice(-2);
-        const ext = selectedType.includes("mp4") ? "mp4" : "webm";
-        const filename = `3D_Analysis_${timestamp}.${ext}`;
-
-        // 1. ローカルプレビュー用セット
+        const filename = `3D_Analysis_${now.getTime()}.webm`;
         const replay = document.getElementById('p3d-video-replay');
         if (replay) {
             replay.src = URL.createObjectURL(blob);
             document.getElementById('btn-p3d-play').style.display = 'inline-block';
         }
-
-        // 2. ★動画ライブラリ（IndexedDB）への保存
-        // 既存のライブラリ保存関数 saveVideoToDB があるか確認して実行
         if (typeof saveVideoToDB === 'function') {
-            try {
-                await saveVideoToDB(blob, filename);
-                // 保存成功したらライブラリの表示を更新（タブを開いた時に最新にするため）
-                if (typeof loadLibraryFromDB === 'function') loadLibraryFromDB();
-            } catch (err) {
-                console.error("ライブラリ保存エラー:", err);
-            }
-        } else {
-            console.warn("saveVideoToDB 関数が見つかりません。");
-            // フォールバックとして直接ダウンロード
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = filename;
-            a.click();
+            await saveVideoToDB(blob, filename);
+            if (typeof loadLibraryFromDB === 'function') loadLibraryFromDB();
         }
     };
-
     p3dMediaRecorder.start();
-    
-    // UI更新
-    const recDot = document.getElementById('p3d-rec-dot');
-    if (recDot) recDot.style.display = 'flex';
+    document.getElementById('p3d-rec-dot').style.display = 'flex';
     document.getElementById('btn-p3d-rec').style.display = 'none';
     document.getElementById('btn-p3d-stop').style.display = 'inline-block';
 }
@@ -17557,44 +17503,23 @@ function stopP3DRecording() {
 
 function playP3DReplay() {
     const replay = document.getElementById('p3d-video-replay');
-    replay.style.display = 'block'; // 前面に出す
+    replay.style.display = 'block';
     replay.play();
-    
-    replay.onended = () => {
-        replay.style.display = 'none'; // 終わったら隠して3D画面に戻す
-    };
+    replay.onended = () => { replay.style.display = 'none'; };
 }
 
 function stopP3D() {
     p3dIsRunning = false;
-    
-    // 1. カメラストリームの停止
     const video = document.getElementById('p3d-video-input');
     if (video && video.srcObject) {
         video.srcObject.getTracks().forEach(t => t.stop());
         video.srcObject = null;
     }
-
-    // 2. 3D描画のクリア（キャンバスを真っ黒にする）
     if (p3dRenderer) {
-        p3dRenderer.clear(); // 描画をクリア
-        // 必要であれば背景色で塗りつぶす
-        p3dRenderer.setClearColor(0x000000, 1);
-        p3dRenderer.render(p3dScene, p3dCamera);
+        p3dRenderer.clear();
     }
-
-    // 3. UI表示の更新
-    const statusEl = document.getElementById('p3d-status');
-    if (statusEl) statusEl.textContent = "Offline";
-
-    // 4. 録画中の場合は強制停止
-    if (p3dMediaRecorder && p3dMediaRecorder.state !== "inactive") {
-        p3dMediaRecorder.stop();
-    }
-    
-    console.log("3D Analysis Stopped and Cleaned up.");
+    document.getElementById('p3d-status').textContent = "Offline";
 }
 </script>
 </body>
-
 </html>
