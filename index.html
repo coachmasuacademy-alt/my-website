@@ -4607,9 +4607,7 @@ async function loadCoachingVideos() {
 </div>
 
 <div style="position: relative; margin: 20px auto; max-width: 640px;">
-    <div id="p3d-overlay-container" style="position: absolute; top: 10px; left: 10px; width: 150px; height: 200px; z-index: 20; display: none; border: 2px solid #0288d1; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); pointer-events: auto;">
-        <div id="p3d-canvas-holder" style="width: 100%; height: 100%;"></div>
-    </div>
+   
 </div>
 
           <div style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
@@ -17332,17 +17330,14 @@ let is3DEvalEnabled = false;
 
 function toggle3DEvaluation() {
     is3DEvalEnabled = document.getElementById('3d-eval-toggle').checked;
-    const overlay = document.getElementById('p3d-overlay-container');
     const controls = document.getElementById('p3d-mini-controls');
     const proprioBtn = document.getElementById('btn-open-proprio'); // 追加
     
     if (is3DEvalEnabled) {
-        if (overlay) overlay.style.display = "block";
         if (controls) controls.style.display = "flex";
         if (proprioBtn) proprioBtn.style.display = "inline-block"; // ボタン出現
         initP3DScene();
     } else {
-        if (overlay) overlay.style.display = "none";
         if (controls) controls.style.display = "none";
         if (proprioBtn) proprioBtn.style.display = "none"; // ボタン消滅
         closeProprioTest(); // パネルも閉じる
