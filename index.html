@@ -4565,6 +4565,53 @@ async function loadCoachingVideos() {
             <input type="checkbox" id="strobe-toggle"> 🎞️ 画像残像
           </label>
 
+<div style="margin-bottom: 10px; padding: 10px; background: #fffde7; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #fbc02d;">
+    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+        <span style="font-weight: bold; font-size: 13px; color: #f57f17;">🚀 拡張オプション:</span>
+        
+        <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #f57f17;">
+            <input type="checkbox" id="3d-eval-toggle" onchange="toggle3DEvaluation()"> 🌐 3D姿勢評価
+        </label>
+
+        <button onclick="openProprioTest()" id="btn-open-proprio" style="font-size: 11px; padding: 2px 8px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">
+            🧠 固有感覚テスト
+        </button>
+
+        <select id="p3d-eval-mode" onchange="p3dCurrentMode = this.value" style="font-size: 11px; padding: 2px; border: 1px solid #ccc; border-radius: 4px;">
+            <option value="front">正面判定（肩の水平）</option>
+            <option value="side">横向判定（体幹の軸）</option>
+            <option value="neck">首の突出（横向き）</option>
+            <option value="hip">股関節角度</option>
+            <option value="knee">膝関節角度</option>
+        </select>
+    </div>
+
+    <div id="proprio-test-panel" style="display: none; padding: 15px; background: #f3e5f5; border-radius: 8px; border: 2px solid #9c27b0; margin-top: 5px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="color: #7b1fa2;">🧠 固有感覚テストモード</strong>
+            <button onclick="closeProprioTest()" style="background:none; border:none; color:#666; cursor:pointer; font-weight:bold;">✕</button>
+        </div>
+        
+        <div id="proprio-question-area" style="text-align: center; margin-bottom: 15px;">
+            <div id="proprio-task-text" style="font-size: 16px; font-weight: bold; color: #4a148c;">「テスト開始」を押してください</div>
+            <div style="font-size: 11px; color: #7b1fa2; margin-top: 5px;">指定された角度をピッタリ作ってみましょう</div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="btn-start-proprio" onclick="startProprioChallenge()" style="background: #9c27b0; color: white; padding: 8px 16px; border-radius: 4px; border:none; cursor:pointer;">テスト開始</button>
+            <button id="btn-judge-proprio" onclick="captureProprioAngle()" style="background: #e91e63; color: white; display: none; padding: 8px 16px; border-radius: 4px; border:none; cursor:pointer; font-weight:bold;">判定！</button>
+        </div>
+
+        <div id="proprio-result-list" style="margin-top: 10px; font-size: 12px; color: #333; max-height: 100px; overflow-y: auto; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 5px;"></div>
+    </div>
+</div>
+
+<div style="position: relative; margin: 20px auto; max-width: 640px;">
+    <div id="p3d-overlay-container" style="position: absolute; top: 10px; left: 10px; width: 150px; height: 200px; z-index: 20; display: none; border: 2px solid #0288d1; border-radius: 8px; overflow: hidden; background: rgba(0,0,0,0.5); pointer-events: auto;">
+        <div id="p3d-canvas-holder" style="width: 100%; height: 100%;"></div>
+    </div>
+</div>
+
           <div style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
             <span>間隔:密</span>
             <input type="range" id="strobe-interval" min="5" max="60" value="15" step="5" style="width: 60px;">
@@ -5230,77 +5277,6 @@ async function loadCoachingVideos() {
         <div id="jump-history-list" style="max-height:120px; overflow-y:auto; font-size:12px;"></div>
     </div>
 </div>
-</section>
-
-<section id="pose-3d-analysis-box" style="margin-top: 30px; padding:20px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); position: relative;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin:0; color:#0277bd;">🌐 3Dフォーム・レコーダー</h3>
-        <span id="p3d-status" style="font-size: 12px; color: #666;">Ready</span>
-    </div>
-
-    <div style="background:#e1f5fe; padding:15px; border-radius:8px; border:1px solid #b3e5fc; margin-bottom:15px;">
-       <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
-    <button onclick="startP3D()" style="background:#0288d1; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-weight:bold;">
-        📷 カメラ起動 (外側/内側)
-    </button>
-    <button onclick="switchP3DCamera()" style="background:#00bcd4; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">
-        🔄 カメラ切替
-    </button>
-    
-    <button class="btn-mode" id="btn-p3d-mode" onclick="toggleP3DMode()" style="background:#546e7a;">正面/横 切替</button>
-    <button id="btn-p3d-rec" onclick="startP3DRecording()" style="background:#ff4444; color:white;">🔴 録画開始</button>
-    <button id="btn-p3d-stop" onclick="stopP3DRecording()" style="background:#fff; color:#333; border:1px solid #ccc; display:none;">■ 停止</button>
-    <button id="btn-p3d-play" onclick="playP3DReplay()" style="background:#4caf50; color:white; display:none;">▶ 再生</button>
-    <button onclick="stopP3D()" style="background:#424242;">⏹ 終了</button>
-</div>
-
-        <div id="p3d-result-panel" style="background: rgba(0, 0, 0, 0.8); border-radius: 12px; padding: 10px; text-align: center; margin-bottom: 10px; color: white;">
-            <div id="p3d-label" style="font-size: 0.8rem; color: #aaa;">LIVE ANALYSIS</div>
-            <div id="p3d-score" style="font-size: 1.8rem; font-weight: bold; color: #ffeb3b;">--°</div>
-            <div id="p3d-detail" style="font-size: 0.8rem; color: #fff;">カメラを固定してください</div>
-        </div>
-
-<div id="p3d-container" style="position: relative; width: 100%; max-width: 640px; margin: 0 auto; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; border: 3px solid #0288d1;">
-    
-    <video id="p3d-video-input" style="
-        position: absolute; 
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100%; 
-        object-fit: cover; 
-        opacity: 0.3;      /* 映像の薄さ調整（0.1〜0.5がおすすめ） */
-        z-index: 1;        
-    " autoplay playsinline muted></video>
-    
-    <div id="p3d-canvas-holder" style="
-        position: absolute; 
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100%; 
-        z-index: 5; 
-        pointer-events: none; /* 下の要素の操作を邪魔しない場合はこれ、ドラッグ回転させるならauto */
-    "></div>
-    
-    <video id="p3d-video-replay" style="
-        position: absolute; 
-        top: 0; 
-        left: 0; 
-        width: 100%; 
-        height: 100%; 
-        background: #000; 
-        display: none; 
-        z-index: 100;
-    " controls playsinline></video>
-    
-    <div id="p3d-rec-dot" style="position: absolute; top: 10px; left: 10px; display: none; align-items: center; background: rgba(233, 30, 99, 0.7); padding: 4px 8px; border-radius: 4px; z-index: 15;">
-        <div style="width: 10px; height: 10px; background: red; border-radius: 50%; margin-right: 5px; animation: blink 1s infinite;"></div>
-        <span style="color: white; font-size: 10px; font-weight: bold;">REC (3D ANALYZING)</span>
-    </div>
-</div>
-        <p style="font-size: 11px; color: #666; margin-top: 10px; text-align: center;">※画面をドラッグして3D視点を操作できます。録画停止後に「再生」で振り返りが可能です。</p>
-    </div>
 </section>
 
     <section id="video-tagging-section" style="
@@ -10654,6 +10630,68 @@ function onPoseResults(results) {
             l_elbow: torqueL.elbow.toFixed(1), l_shoulder: torqueL.shoulder.toFixed(1), l_knee: torqueL.knee.toFixed(1),
             trunk: valTrunk.toFixed(1)
         });
+    }
+
+if (is3DEvalEnabled && results.poseWorldLandmarks) {
+        const worldLm = results.poseWorldLandmarks;
+        update3DModel(worldLm); 
+        
+        let evalLabel = "";
+        let evalAngle = 0;
+        let evalColor = "#4caf50";
+
+        // --- モード別の角度計算 ---
+        if (p3dCurrentMode === 'front') {
+            evalAngle = Math.abs(Math.atan2(worldLm[12].y - worldLm[11].y, worldLm[12].x - worldLm[11].x) * (180 / Math.PI));
+            evalLabel = "肩の傾き";
+            evalColor = evalAngle < 6 ? "#4caf50" : "#f44336";
+        } 
+        else if (p3dCurrentMode === 'side') {
+            evalAngle = calculateAngle3D(worldLm[12], worldLm[24], worldLm[26]);
+            evalLabel = "体幹軸";
+            evalColor = (evalAngle < 165) ? "#ff9800" : "#4caf50";
+        } 
+        else if (p3dCurrentMode === 'neck') {
+            const headX = (worldLm[7].x + worldLm[8].x) / 2;
+            const headY = (worldLm[7].y + worldLm[8].y) / 2;
+            const shoulderX = (worldLm[11].x + worldLm[12].x) / 2;
+            const shoulderY = (worldLm[11].y + worldLm[12].y) / 2;
+            evalAngle = Math.atan2(Math.abs(headX - shoulderX), Math.abs(headY - shoulderY)) * (180 / Math.PI);
+            evalLabel = "首の突出";
+            evalColor = evalAngle < 15 ? "#4caf50" : (evalAngle < 25 ? "#ff9800" : "#f44336");
+        }
+        // ★追加：股関節角度 (肩 - 腰 - 膝)
+        else if (p3dCurrentMode === 'hip') {
+            const angleR = calculateAngle3D(worldLm[12], worldLm[24], worldLm[26]);
+            const angleL = calculateAngle3D(worldLm[11], worldLm[23], worldLm[25]);
+            evalAngle = (angleR + angleL) / 2;
+            evalLabel = "股関節角度";
+            // バドミントンの構えでは 130〜160度程度がパワーを出しやすい
+            evalColor = (evalAngle < 165) ? "#4caf50" : "#ff9800";
+        }
+        // ★追加：膝関節角度 (腰 - 膝 - 足首)
+        else if (p3dCurrentMode === 'knee') {
+    const angleR = calculateAngle3D(worldLm[24], worldLm[26], worldLm[28]);
+    const angleL = calculateAngle3D(worldLm[23], worldLm[25], worldLm[27]);
+
+    // 信頼度（Visibility）が高い方を優先するか、
+    // あるいは「より膝が曲がっている方」を表示するロジック
+    // 側方なら「見えている方」＝「角度が安定している方」を採用
+    evalAngle = (Math.abs(180 - angleR) > Math.abs(180 - angleL)) ? angleR : angleL;
+
+    evalLabel = "膝関節角度(最大屈曲側)";
+    evalColor = (evalAngle < 165) ? "#4caf50" : "#f44336";
+}
+
+        // メイン画面へのテキスト描画
+        canvasCtx.fillStyle = evalColor;
+        canvasCtx.font = "bold 22px Arial";
+        const statusIcon = (evalColor === "#4caf50") ? "✅" : "⚠️";
+        canvasCtx.fillText(`${statusIcon} ${evalLabel}: ${evalAngle.toFixed(1)}°`, 20, 60);
+
+window.lastEvalAngle = evalAngle;
+
+        if (p3dRenderer) p3dRenderer.render(p3dScene, p3dCamera);
     }
 
     canvasCtx.restore();
@@ -17290,6 +17328,120 @@ function stopJumpAICamera() {
 // ==========================================
 // 🌐 3Dフォーム・レコーダー (完成版・変数名修正済み)
 // ==========================================
+let is3DEvalEnabled = false;
+
+function toggle3DEvaluation() {
+    is3DEvalEnabled = document.getElementById('3d-eval-toggle').checked;
+    const overlay = document.getElementById('p3d-overlay-container');
+    const controls = document.getElementById('p3d-mini-controls');
+    const proprioBtn = document.getElementById('btn-open-proprio'); // 追加
+    
+    if (is3DEvalEnabled) {
+        if (overlay) overlay.style.display = "block";
+        if (controls) controls.style.display = "flex";
+        if (proprioBtn) proprioBtn.style.display = "inline-block"; // ボタン出現
+        initP3DScene();
+    } else {
+        if (overlay) overlay.style.display = "none";
+        if (controls) controls.style.display = "none";
+        if (proprioBtn) proprioBtn.style.display = "none"; // ボタン消滅
+        closeProprioTest(); // パネルも閉じる
+    }
+}
+
+// --- 固有感覚テスト用データと変数 ---
+let proprioTasks = [
+    { label: "膝の屈曲（半身で）", mode: "knee", target: 135 },
+    { label: "体幹の前傾（深く）", mode: "side", target: 155 },
+    { label: "股関節のタメ", mode: "hip", target: 145 },
+    { label: "首の引き（垂直に）", mode: "neck", target: 5 }
+];
+let currentProprioIdx = 0;
+let proprioResults = [];
+let isProprioTesting = false;
+
+// テストパネルを開く
+function openProprioTest() {
+    const panel = document.getElementById('proprio-test-panel');
+    if (panel) panel.style.display = "block";
+}
+
+// テストパネルを閉じる
+function closeProprioTest() {
+    const panel = document.getElementById('proprio-test-panel');
+    if (panel) panel.style.display = "none";
+    isProprioTesting = false;
+}
+
+// 3. テスト開始ボタンの処理
+function startProprioChallenge() {
+    isProprioTesting = true;
+    currentProprioIdx = 0;
+    proprioResults = [];
+    const resultList = document.getElementById("proprio-result-list");
+    if (resultList) resultList.innerHTML = "";
+    document.getElementById("btn-start-proprio").style.display = "none";
+    document.getElementById("btn-judge-proprio").style.display = "inline-block";
+    showNextProprioTask();
+}
+
+// 4. 次の課題を表示する
+function showNextProprioTask() {
+    const taskTextEl = document.getElementById("proprio-task-text");
+    if (currentProprioIdx < proprioTasks.length) {
+        const task = proprioTasks[currentProprioIdx];
+        taskTextEl.innerHTML = `
+            <span style="color:#7b1fa2; font-size:12px;">課題 ${currentProprioIdx + 1} / ${proprioTasks.length}</span><br>
+            <strong>${task.label}</strong> を <span style="color:#e91e63;">【${task.target}°】</span> にせよ
+        `;
+        p3dCurrentMode = task.mode;
+        const modeSelect = document.getElementById("p3d-eval-mode");
+        if (modeSelect) modeSelect.value = task.mode;
+    } else {
+        finishProprioTest();
+    }
+}
+
+// 5. 判定ボタン（キャプチャ）
+function captureProprioAngle() {
+    const currentAngle = window.lastEvalAngle || 0;
+    const task = proprioTasks[currentProprioIdx];
+    const diff = Math.abs(currentAngle - task.target);
+    proprioResults.push({ label: task.label, target: task.target, actual: currentAngle, diff: diff });
+    const listEl = document.getElementById("proprio-result-list");
+    if (listEl) {
+        const color = diff < 10 ? "#2e7d32" : "#d32f2f";
+        listEl.innerHTML += `
+            <div style="border-bottom:1px solid #ddd; padding:4px; font-size:11px;">
+                Q${currentProprioIdx+1}. ${task.label}: 誤差 <span style="color:${color}; font-weight:bold;">${diff.toFixed(1)}°</span>
+            </div>
+        `;
+    }
+    currentProprioIdx++;
+    if (typeof playBeep === 'function') playBeep(600, 150);
+    showNextProprioTask();
+}
+
+// 6. 全問題終了後の評価
+function finishProprioTest() {
+    isProprioTesting = false;
+    const avgDiff = proprioResults.reduce((sum, r) => sum + r.diff, 0) / proprioResults.length;
+    let rank = "C";
+    let message = "感覚を磨きましょう";
+    if (avgDiff < 7) { rank = "S"; message = "プロレベルの固有感覚です！"; }
+    else if (avgDiff < 12) { rank = "A"; message = "素晴らしい身体操作です"; }
+    else if (avgDiff < 20) { rank = "B"; message = "あともう少し！"; }
+    document.getElementById("proprio-task-text").innerHTML = `
+        <div style="font-size:20px; color:#e91e63; font-weight:900;">総合ランク: ${rank}</div>
+        <div style="font-size:13px; color:#333;">平均誤差: ${avgDiff.toFixed(1)}°</div>
+        <div style="font-size:11px; font-weight:normal; color:#666; margin-top:5px;">${message}</div>
+    `;
+    document.getElementById("btn-start-proprio").style.display = "inline-block";
+    document.getElementById("btn-start-proprio").innerText = "もう一度テストする";
+    document.getElementById("btn-judge-proprio").style.display = "none";
+    if (typeof playSportsDrum === 'function') playSportsDrum();
+}
+
 let p3dScene, p3dCamera, p3dRenderer, p3dPose;
 let p3dJoints = [], p3dBones = [];
 let p3dIsRunning = false;
@@ -17512,6 +17664,31 @@ function calculateAngle3D(p1, p2, p3) {
 function toggleP3DMode() {
     p3dCurrentMode = p3dCurrentMode === 'front' ? 'side' : 'front';
     document.getElementById('btn-p3d-mode').innerText = p3dCurrentMode === 'front' ? '正面判定' : '横向き判定';
+}
+
+function update3DModel(lm) {
+    lm.forEach((p, i) => {
+        if (p3dJoints[i]) {
+            p3dJoints[i].position.set(-p.x, -p.y + 1.2, -p.z);
+            p3dJoints[i].visible = true;
+        }
+    });
+
+    JOINT_CONNECTIONS.forEach((conn, i) => {
+        const jA = p3dJoints[conn[0]], jB = p3dJoints[conn[1]], bone = p3dBones[i];
+        if (jA && jB && bone) {
+            const posA = jA.position, posB = jB.position;
+            bone.position.copy(posA);
+            const dir = new THREE.Vector3().subVectors(posB, posA);
+            const len = dir.length();
+            bone.scale.set(1, len, 1);
+            if (len > 0.0001) {
+                dir.normalize();
+                bone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+                bone.visible = true;
+            }
+        }
+    });
 }
 
 function startP3DRecording() {
