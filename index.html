@@ -559,7 +559,7 @@
 
     // ==============================================
     // ... 既存の定数・変数の定義
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLDjiidmFkqmMVEgWzeBq2Tz5Y5CV2DzRUfLnXO1ydmsQ-m6ZNrfcq9xby5JjXGP-ksA/exec";
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbz2Kn5SAqLTRiPnSefkpNUzWcvfE6umt1eMfYRe95kayTcxA48A1v2S5g_nmZzaWpGAug/exec";
     let sheetData = [];
     let selectedMenus = [];
     let editableName = "";
@@ -1661,90 +1661,174 @@ function extractYouTubeId(url) {
 }
 
 
-// コーチング動画の読み込みと描画
+// コーチング動画とキーワードの読み込み
+// --- コーチング理論用 グローバル変数 ---
+let allCoachingVideos = [];
+let coachingKeywords = [];
+
+// コーチング動画とキーワードの読み込み
 async function loadCoachingVideos() {
     const container = document.getElementById("videoListContainer");
     if (!container) return;
     
-    container.innerHTML = "<p style='text-align:center; padding:20px;'>動画を読み込み中...</p>";
+    container.innerHTML = "<p style='text-align:center; padding:20px;'>データを読み込み中...</p>";
 
     try {
-        const response = await fetch(SHEET_URL + "?mode=sheet&sheet=CoachingVideos&t=" + new Date().getTime());
-        const data = await response.json();
+        // 動画データとキーワードデータを並行して取得
+        const [videosRes, keywordsRes] = await Promise.all([
+            fetch(SHEET_URL + "?mode=sheet&sheet=CoachingVideos&t=" + new Date().getTime()),
+            fetch(SHEET_URL + "?mode=sheet&sheet=CoachingKeywords&t=" + new Date().getTime()).catch(() => null)
+        ]);
 
-        console.log("📊 表示処理を開始します。データ数:", data.length); 
+        const videoData = await videosRes.json();
+        allCoachingVideos = Array.isArray(videoData) ? videoData : [];
 
-        container.innerHTML = ""; // 読み込み中メッセージを消去
-
-       const categoryDefinition = [
-    { id: "cat-power",    label: "トレーニング（パワーアップ）", match: "パワーアップ" },
-    { id: "cat-speed",    label: "トレーニング（スピードアップ）", match: "スピードアップ" },
-{ id: "cat-stamina",  label: "トレーニング（スタミナアップ）", match: "スタミナアップ" },
-    { id: "cat-skill",    label: "トレーニング（スキルアップ）", match: "スキルアップ" },
-    { id: "cat-coaching", label: "コーチング", match: "コーチング" },
-    { id: "cat-recovery", label: "リカバリー", match: "リカバリー" },
-    { id: "cat-nutrition",label: "栄養", match: "栄養" },
-    { id: "cat-intl",     label: "国際", match: "国際" },
-    { id: "cat-liberal",  label: "教養", match: "教養" }
-];
-
-        let hasAnyMatch = false;
-
-        categoryDefinition.forEach(catDef => {
-            const filtered = data.filter(v => {
-                const rowCat = (v.カテゴリ || v.category || "").toString().trim();
-                return rowCat.includes(catDef.match);
-            });
-            
-            if (filtered.length > 0) {
-                hasAnyMatch = true;
-                
-                // カテゴリー見出し
-                const header = document.createElement("div");
-                header.id = catDef.id;
-                header.style.cssText = "background: #f1f8e9; padding: 12px 15px; font-weight: bold; color: #2e7d32; border-bottom: 2px solid #a5d6a7; font-size: 15px; position: sticky; top: 0; z-index: 5; margin-top:10px;";
-                header.innerText = `📁 ${catDef.label}`;
-                container.appendChild(header);
-
-                // 動画リスト生成
-                filtered.forEach(v => {
-                    const videoUrl = v.url || v["YouTube URL"] || "";
-                    const videoTitle = v.title || v.メニュー名 || "無題の動画";
-                    const videoDesc = v.description || v.説明 || "";
-                    const videoId = extractYouTubeId(videoUrl);
-                    
-                    const item = document.createElement("div");
-                    item.style.cssText = "padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: background 0.2s; background:#fff;";
-                    
-                    item.onmouseover = () => { item.style.background = "#f9fbe7"; };
-                    item.onmouseout = () => { item.style.background = "#fff"; };
-
-                    const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : "";
-                    
-                    item.innerHTML = `
-                        <div style="flex: 0 0 100px; height: 70px; background: #000; border-radius: 6px; overflow: hidden;">
-                            ${videoId ? `<img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="color:#666; font-size:10px; text-align:center; padding-top:25px;">No Image</div>`}
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; line-height: 1.4;">${videoTitle}</div>
-                            <div style="font-size: 11px; color: #777; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${videoDesc}</div>
-                        </div>
-                        <div style="color: #1a73e8; font-size: 18px;">▶</div>
-                    `;
-
-                    item.onclick = () => { if (videoUrl) window.open(videoUrl, '_blank'); };
-                    container.appendChild(item);
-                });
-            }
-        });
-
-        if (!hasAnyMatch) {
-            container.innerHTML = "<p style='color:#999; text-align:center; padding:20px;'>該当するカテゴリーの動画がありません。</p>";
+        // キーワードデータの処理（シートが存在しない等のエラーを考慮）
+        if (keywordsRes && keywordsRes.ok) {
+            const kwData = await keywordsRes.json();
+            coachingKeywords = Array.isArray(kwData) ? kwData : [];
+        } else {
+            coachingKeywords = [];
         }
+
+        console.log("📊 動画数:", allCoachingVideos.length, " キーワード数:", coachingKeywords.length);
+
+        // プルダウンメニューの生成
+        const selectEl = document.getElementById("coaching-keyword-select");
+        if (selectEl) {
+            selectEl.innerHTML = '<option value="">-- すべて表示 --</option>';
+            coachingKeywords.forEach(kw => {
+                const keywordText = kw.キーワード || kw.keyword || kw.Keyword;
+                if (keywordText) {
+                    const opt = document.createElement("option");
+                    opt.value = keywordText;
+                    opt.textContent = keywordText;
+                    selectEl.appendChild(opt);
+                }
+            });
+        }
+
+        // 全件表示で初期化
+        renderCoachingVideos(allCoachingVideos);
 
     } catch (e) {
         console.error("Coaching Load Error:", e);
         container.innerHTML = "<p style='color:red; text-align:center; padding:20px;'>データの表示中にエラーが発生しました。</p>";
+    }
+}
+
+// キーワード選択によるフィルタリング関数
+window.filterCoachingByKeyword = function() {
+    const selectEl = document.getElementById("coaching-keyword-select");
+    const descEl = document.getElementById("coaching-keyword-desc");
+    const selectedKw = selectEl.value;
+
+    // キーワードが未選択の場合はすべて表示
+    if (!selectedKw) {
+        descEl.style.display = "none";
+        renderCoachingVideos(allCoachingVideos);
+        return;
+    }
+
+    // 選択されたキーワードの説明文を表示
+    const kwData = coachingKeywords.find(k => (k.キーワード || k.keyword || k.Keyword) === selectedKw);
+    const descText = kwData ? (kwData.説明 || kwData.description || kwData.Description) : "";
+    
+    if (descText) {
+        descEl.innerHTML = `<strong style="color:#d84315;">💡 ${selectedKw}</strong><br>${descText.replace(/\\n|\n/g, '<br>')}`;
+        descEl.style.display = "block";
+    } else {
+        descEl.style.display = "none";
+    }
+
+    // 動画のフィルタリング
+    const filtered = allCoachingVideos.filter(v => {
+        // ▼ E列の description を確実に検索対象にする
+        const description = (v.description || v.説明 || "").toString().toLowerCase();
+        // 必要に応じてタイトルやカテゴリも対象にする場合は以下を結合
+        const title = (v.title || v.メニュー名 || "").toString().toLowerCase();
+        const category = (v.category || v.カテゴリ || "").toString().toLowerCase();
+        
+        const searchText = (description + " " + title + " " + category).toLowerCase();
+        
+        return searchText.includes(selectedKw.toLowerCase());
+    });
+
+    renderCoachingVideos(filtered);
+};
+
+// フィルタリング結果（または全体）のリスト描画関数
+function renderCoachingVideos(dataToRender) {
+    const container = document.getElementById("videoListContainer");
+    if (!container) return;
+
+    container.innerHTML = ""; 
+
+    const categoryDefinition = [
+        { id: "cat-power",    label: "トレーニング（パワーアップ）", match: "パワーアップ" },
+        { id: "cat-speed",    label: "トレーニング（スピードアップ）", match: "スピードアップ" },
+        { id: "cat-stamina",  label: "トレーニング（スタミナアップ）", match: "スタミナアップ" },
+        { id: "cat-skill",    label: "トレーニング（スキルアップ）", match: "スキルアップ" },
+        { id: "cat-coaching", label: "コーチング", match: "コーチング" },
+        { id: "cat-recovery", label: "リカバリー", match: "リカバリー" },
+        { id: "cat-nutrition",label: "栄養", match: "栄養" },
+        { id: "cat-intl",     label: "国際", match: "国際" },
+        { id: "cat-liberal",  label: "教養", match: "教養" }
+    ];
+
+    let hasAnyMatch = false;
+
+    // カテゴリーごとにループして、該当する動画を描画
+    categoryDefinition.forEach(catDef => {
+        const filtered = dataToRender.filter(v => {
+            const rowCat = (v.カテゴリ || v.category || "").toString().trim();
+            return rowCat.includes(catDef.match);
+        });
+        
+        if (filtered.length > 0) {
+            hasAnyMatch = true;
+            
+            // カテゴリー見出し
+            const header = document.createElement("div");
+            header.id = catDef.id;
+            header.style.cssText = "background: #f1f8e9; padding: 12px 15px; font-weight: bold; color: #2e7d32; border-bottom: 2px solid #a5d6a7; font-size: 15px; position: sticky; top: 0; z-index: 5; margin-top:10px;";
+            header.innerText = `📁 ${catDef.label} (${filtered.length}件)`;
+            container.appendChild(header);
+
+            // 動画リスト生成
+            filtered.forEach(v => {
+                const videoUrl = v.url || v["YouTube URL"] || "";
+                const videoTitle = v.title || v.メニュー名 || "無題の動画";
+                const videoDesc = v.description || v.説明 || "";
+                const videoId = extractYouTubeId(videoUrl);
+                
+                const item = document.createElement("div");
+                item.style.cssText = "padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: background 0.2s; background:#fff;";
+                
+                item.onmouseover = () => { item.style.background = "#f9fbe7"; };
+                item.onmouseout = () => { item.style.background = "#fff"; };
+
+                const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : "";
+                
+                item.innerHTML = `
+                    <div style="flex: 0 0 100px; height: 70px; background: #000; border-radius: 6px; overflow: hidden;">
+                        ${videoId ? `<img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="color:#666; font-size:10px; text-align:center; padding-top:25px;">No Image</div>`}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; line-height: 1.4;">${videoTitle}</div>
+                        <div style="font-size: 11px; color: #777; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${videoDesc}</div>
+                    </div>
+                    <div style="color: #1a73e8; font-size: 18px;">▶</div>
+                `;
+
+                item.onclick = () => { if (videoUrl) window.open(videoUrl, '_blank'); };
+                container.appendChild(item);
+            });
+        }
+    });
+
+    if (!hasAnyMatch) {
+        container.innerHTML = "<p style='color:#999; text-align:center; padding:30px;'>条件に一致する動画がありません。</p>";
     }
 }
 
@@ -3069,6 +3153,15 @@ async function loadCoachingVideos() {
     <button onclick="scrollToCategory('cat-liberal')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">📚 教養</button>
 </div>
 
+<div style="background: #f9fbe7; padding: 15px; border-radius: 8px; border: 1px solid #c5e1a5; margin-bottom: 20px;">
+      <label for="coaching-keyword-select" style="font-weight: bold; color: #2e7d32; font-size: 14px;">🔍 キーワードで探す:</label>
+      <select id="coaching-keyword-select" onchange="filterCoachingByKeyword()" style="width: 100%; padding: 10px; margin-top: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px;">
+        <option value="">-- すべて表示 --</option>
+      </select>
+      <div id="coaching-keyword-desc" style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px; font-size: 13px; color: #333; display: none; border-left: 4px solid #ff9800; line-height: 1.5;">
+      </div>
+    </div>
+
     <div id="videoListContainer" style="background: #fff; border-radius: 8px; border: 1px solid #eee; overflow: hidden;">
       <p style="padding: 20px; text-align: center; color: #999;">読み込み中...</p>
     </div>
@@ -3302,10 +3395,13 @@ async function loadCoachingVideos() {
             </table>
         </div>
 
-        <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">📈 現在の順位表</h4>
-        <div id="league-ranking-container" style="overflow-x: auto;"></div>
-        
-        <p style="font-size:11px; color:#666; margin-top:10px;">※順位決定優先度：1.勝数 / 2.得失点差 / 3.総得点</p>
+       <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">⭐ 星取表（対戦表）</h4>
+        <div id="league-matrix-container" style="overflow-x: auto; margin-bottom: 20px;"></div>
+
+        <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">📈 現在の順位表</h4>
+        <div id="league-ranking-container" style="overflow-x: auto;"></div>
+        
+        <p style="font-size:11px; color:#666; margin-top:10px;">※順位決定優先度：1.勝数 / 2.得失点差 / 3.総得点</p>
     </div>
 </div>
 
@@ -6729,7 +6825,7 @@ async function loadCoachingVideos() {
         var suggestedMenusData = [];
 
         // もしSHEET_URLが定義されていない場合の予備
-        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyLDjiidmFkqmMVEgWzeBq2Tz5Y5CV2DzRUfLnXO1ydmsQ-m6ZNrfcq9xby5JjXGP-ksA/exec";
+        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbz2Kn5SAqLTRiPnSefkpNUzWcvfE6umt1eMfYRe95kayTcxA48A1v2S5g_nmZzaWpGAug/exec";
 
         // ✅ 1. Gemini API呼び出し関数
 
@@ -17090,56 +17186,144 @@ function updateLScore(idx, playerNum, val) {
 
 // 順位表の更新
 function updateLeagueRanking() {
-    let stats = {};
-    lPlayers.forEach(p => stats[p] = { name:p, win:0, lose:0, pointF:0, pointA:0 });
+    let stats = {};
+    lPlayers.forEach(p => stats[p] = { name:p, win:0, lose:0, pointF:0, pointA:0 });
 
-    lMatches.forEach(m => {
-        const s1 = parseInt(m.s1);
-        const s2 = parseInt(m.s2);
-        if (!isNaN(s1) && !isNaN(s2)) {
-            stats[m.p1].pointF += s1; stats[m.p1].pointA += s2;
-            stats[m.p2].pointF += s2; stats[m.p2].pointA += s1;
-            if (s1 > s2) { stats[m.p1].win++; stats[m.p2].lose++; }
-            else if (s2 > s1) { stats[m.p2].win++; stats[m.p1].lose++; }
-        }
-    });
+    lMatches.forEach(m => {
+        const s1 = parseInt(m.s1);
+        const s2 = parseInt(m.s2);
+        if (!isNaN(s1) && !isNaN(s2)) {
+            stats[m.p1].pointF += s1; stats[m.p1].pointA += s2;
+            stats[m.p2].pointF += s2; stats[m.p2].pointA += s1;
+            if (s1 > s2) { stats[m.p1].win++; stats[m.p2].lose++; }
+            else if (s2 > s1) { stats[m.p2].win++; stats[m.p1].lose++; }
+        }
+    });
 
-    let ranking = Object.values(stats).sort((a, b) => {
-        if (b.win !== a.win) return b.win - a.win;
-        const diffA = a.pointF - a.pointA;
-        const diffB = b.pointF - b.pointA;
-        if (diffB !== diffA) return diffB - diffA;
-        return b.pointF - a.pointF;
-    });
+    let ranking = Object.values(stats).sort((a, b) => {
+        if (b.win !== a.win) return b.win - a.win;
+        const diffA = a.pointF - a.pointA;
+        const diffB = b.pointF - b.pointA;
+        if (diffB !== diffA) return diffB - diffA;
+        return b.pointF - a.pointF;
+    });
+
+    let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b;">
+            <thead style="background:#00796b; color:#fff;">
+                <tr>
+                    <th style="padding:8px;">順位</th>
+                    <th style="padding:8px; text-align:left;">名前</th>
+                    <th style="padding:8px;">勝-敗</th>
+                    <th style="padding:8px;">得失点差</th>
+                    <th style="padding:8px;">総得点</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    ranking.forEach((r, i) => {
+        const diff = r.pointF - r.pointA;
+        html += `
+            <tr style="background:${i%2===0?'#fff':'#f1f8e9'};">
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${i + 1}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; text-align:left; font-weight:bold;">${r.name}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.win}勝 ${r.lose}敗</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; color:${diff>0?'green':(diff<0?'red':'#333')}">${diff>0?'+'+diff:diff}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.pointF}</td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table>`;
+    document.getElementById("league-ranking-container").innerHTML = html;
+
+    // ▼▼▼ この1行を追加 ▼▼▼
+    renderLeagueMatrix(ranking);
+}
+
+// ▼▼▼ updateLeagueRanking関数の直下にこの新しい関数を丸ごと追加 ▼▼▼
+// 星取表の描画
+function renderLeagueMatrix(ranking) {
+    if (lPlayers.length === 0) return;
+
+    // 現在の順位順にプレイヤーを並べる
+    const sortedPlayers = ranking.map(r => r.name);
 
     let html = `
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b; min-width: 400px; white-space: nowrap;">
             <thead style="background:#00796b; color:#fff;">
                 <tr>
-                    <th style="padding:8px;">順位</th>
-                    <th style="padding:8px; text-align:left;">名前</th>
-                    <th style="padding:8px;">勝-敗</th>
-                    <th style="padding:8px;">得失点差</th>
-                    <th style="padding:8px;">総得点</th>
+                    <th style="padding:8px; border:1px solid #ddd; position: sticky; left: 0; background: #00796b; z-index: 2;">名前</th>
+    `;
+    
+    // ヘッダー行（対戦相手）
+    sortedPlayers.forEach(p => {
+        html += `<th style="padding:8px; border:1px solid #ddd;">${p}</th>`;
+    });
+    html += `
                 </tr>
             </thead>
             <tbody>
     `;
 
-    ranking.forEach((r, i) => {
-        const diff = r.pointF - r.pointA;
-        html += `
-            <tr style="background:${i%2===0?'#fff':'#f1f8e9'};">
-                <td style="padding:10px; border-bottom:1px solid #ddd;">${i + 1}</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd; text-align:left; font-weight:bold;">${r.name}</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.win}勝 ${r.lose}敗</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd; color:${diff>0?'green':(diff<0?'red':'#333')}">${diff>0?'+'+diff:diff}</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.pointF}</td>
-            </tr>
-        `;
+    // 各行（自分自身 vs 各相手）
+    sortedPlayers.forEach((p1, rowIndex) => {
+        const bg = rowIndex % 2 === 0 ? '#fff' : '#f1f8e9';
+        html += `<tr>`;
+        // 左端の名前はスクロールしても追従するように sticky 指定
+        html += `<td style="padding:10px; border:1px solid #ddd; font-weight:bold; position: sticky; left: 0; background: ${bg}; z-index: 1; text-align:left;">${p1}</td>`;
+
+        sortedPlayers.forEach(p2 => {
+            if (p1 === p2) {
+                // 自分自身との交差セル
+                html += `<td style="padding:10px; border:1px solid #ddd; background:#eee;">-</td>`;
+            } else {
+                // p1 と p2 の試合結果を検索
+                const match = lMatches.find(m => (m.p1 === p1 && m.p2 === p2) || (m.p1 === p2 && m.p2 === p1));
+                
+                if (match && match.s1 !== "" && match.s2 !== "") {
+                    // 結果が入力されている場合
+                    const s1 = parseInt(match.s1);
+                    const s2 = parseInt(match.s2);
+                    let mark = "";
+                    let scoreText = "";
+
+                    if (match.p1 === p1) {
+                        // p1 が左側のプレイヤーとして登録されていた場合
+                        if (s1 > s2) mark = "<span style='color:#d32f2f; font-weight:bold; font-size:16px;'>○</span>";
+                        else if (s1 < s2) mark = "<span style='color:#1976d2; font-weight:bold; font-size:16px;'>●</span>";
+                        else mark = "<span style='color:#388e3c; font-weight:bold; font-size:16px;'>△</span>";
+                        scoreText = `${s1}-${s2}`;
+                    } else {
+                        // p1 が右側のプレイヤーとして登録されていた場合
+                        if (s2 > s1) mark = "<span style='color:#d32f2f; font-weight:bold; font-size:16px;'>○</span>";
+                        else if (s2 < s1) mark = "<span style='color:#1976d2; font-weight:bold; font-size:16px;'>●</span>";
+                        else mark = "<span style='color:#388e3c; font-weight:bold; font-size:16px;'>△</span>";
+                        scoreText = `${s2}-${s1}`;
+                    }
+                    html += `<td style="padding:5px; border:1px solid #ddd; background: ${bg};">
+                                <div style="margin-bottom:2px;">${mark}</div>
+                                <div style="font-size:11px; color:#666;">${scoreText}</div>
+                             </td>`;
+                } else if (match) {
+                    // 試合予定はあるが結果未入力
+                    html += `<td style="padding:10px; border:1px solid #ddd; background: ${bg}; color:#aaa; font-size:11px;">未</td>`;
+                } else {
+                    // 試合予定がない（通常はないですが念のため）
+                    html += `<td style="padding:10px; border:1px solid #ddd; background: ${bg};"></td>`;
+                }
+            }
+        });
+        html += `</tr>`;
     });
+
     html += `</tbody></table>`;
-    document.getElementById("league-ranking-container").innerHTML = html;
+    
+    // HTMLに出力
+    const container = document.getElementById("league-matrix-container");
+    if (container) {
+        container.innerHTML = html;
+    }
 }
 
 // 💾 ブラウザ保存・削除
