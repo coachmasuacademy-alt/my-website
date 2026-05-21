@@ -200,10 +200,26 @@
 
     /* New CSS for Navigation and Screen Management (Homepage Layout) */
     .screen-content {
-      display: none;
-      /* 全ての機能画面をデフォルトで非表示 */
-      padding: 10px 0;
-    }
+  display: none;
+  padding: 10px 0; /* padding-bottom を減らす */
+  min-height: auto; /* 最小高さを自動に */
+}
+
+#league-management-box {
+  margin-top: 10px; /* 上の余白を減らす */
+  padding: 10px;    /* 全体の余白を調整 */
+}
+
+/* 順位表コンテナの余白を調整 */
+#league-ranking-container {
+  margin-top: 5px;  /* 順位表の上の余白を詰める */
+  overflow-x: auto;
+}
+
+/* 既存の空白原因になりそうな min-height を解除 */
+#map-visual-container {
+  min-height: 200px; /* 300pxから少し小さく調整 */
+}
 
     .screen-content.active {
       display: block;
@@ -17186,58 +17202,73 @@ function updateLScore(idx, playerNum, val) {
 
 // 順位表の更新
 function updateLeagueRanking() {
-    let stats = {};
-    lPlayers.forEach(p => stats[p] = { name:p, win:0, lose:0, pointF:0, pointA:0 });
+    let stats = {};
+    lPlayers.forEach(p => stats[p] = { name:p, win:0, lose:0, pointF:0, pointA:0 });
 
-    lMatches.forEach(m => {
-        const s1 = parseInt(m.s1);
-        const s2 = parseInt(m.s2);
-        if (!isNaN(s1) && !isNaN(s2)) {
-            stats[m.p1].pointF += s1; stats[m.p1].pointA += s2;
-            stats[m.p2].pointF += s2; stats[m.p2].pointA += s1;
-            if (s1 > s2) { stats[m.p1].win++; stats[m.p2].lose++; }
-            else if (s2 > s1) { stats[m.p2].win++; stats[m.p1].lose++; }
-        }
-    });
+    let hasMatch = false; // 試合結果が1つでもあるか確認するフラグ
+    lMatches.forEach(m => {
+        const s1 = parseInt(m.s1);
+        const s2 = parseInt(m.s2);
+        if (!isNaN(s1) && !isNaN(s2)) {
+            hasMatch = true; // 結果あり
+            stats[m.p1].pointF += s1; stats[m.p1].pointA += s2;
+            stats[m.p2].pointF += s2; stats[m.p2].pointA += s1;
+            if (s1 > s2) { stats[m.p1].win++; stats[m.p2].lose++; }
+            else if (s2 > s1) { stats[m.p2].win++; stats[m.p1].lose++; }
+        }
+    });
 
-    let ranking = Object.values(stats).sort((a, b) => {
-        if (b.win !== a.win) return b.win - a.win;
-        const diffA = a.pointF - a.pointA;
-        const diffB = b.pointF - b.pointA;
-        if (diffB !== diffA) return diffB - diffA;
-        return b.pointF - a.pointF;
-    });
+    const container = document.getElementById("league-ranking-container");
+    const matrixContainer = document.getElementById("league-matrix-container");
 
-    let html = `
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b;">
-            <thead style="background:#00796b; color:#fff;">
-                <tr>
-                    <th style="padding:8px;">順位</th>
-                    <th style="padding:8px; text-align:left;">名前</th>
-                    <th style="padding:8px;">勝-敗</th>
-                    <th style="padding:8px;">得失点差</th>
-                    <th style="padding:8px;">総得点</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
+    // 試合結果がまだなければ表示を消す
+    if (!hasMatch) {
+        if (container) container.style.display = "none";
+        if (matrixContainer) matrixContainer.style.display = "none";
+        return; 
+    }
 
-    ranking.forEach((r, i) => {
-        const diff = r.pointF - r.pointA;
-        html += `
-            <tr style="background:${i%2===0?'#fff':'#f1f8e9'};">
-                <td style="padding:10px; border-bottom:1px solid #ddd;">${i + 1}</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd; text-align:left; font-weight:bold;">${r.name}</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.win}勝 ${r.lose}敗</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd; color:${diff>0?'green':(diff<0?'red':'#333')}">${diff>0?'+'+diff:diff}</td>
-                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.pointF}</td>
-            </tr>
-        `;
-    });
-    html += `</tbody></table>`;
-    document.getElementById("league-ranking-container").innerHTML = html;
+    // 表示がある場合は表示する
+    if (container) container.style.display = "block";
+    if (matrixContainer) matrixContainer.style.display = "block";
 
-    // ▼▼▼ この1行を追加 ▼▼▼
+    let ranking = Object.values(stats).sort((a, b) => {
+        if (b.win !== a.win) return b.win - a.win;
+        const diffA = a.pointF - a.pointA;
+        const diffB = b.pointF - b.pointA;
+        if (diffB !== diffA) return diffB - diffA;
+        return b.pointF - a.pointF;
+    });
+
+    let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b;">
+            <thead style="background:#00796b; color:#fff;">
+                <tr>
+                    <th style="padding:8px;">順位</th>
+                    <th style="padding:8px; text-align:left;">名前</th>
+                    <th style="padding:8px;">勝-敗</th>
+                    <th style="padding:8px;">得失点差</th>
+                    <th style="padding:8px;">総得点</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    ranking.forEach((r, i) => {
+        const diff = r.pointF - r.pointA;
+        html += `
+            <tr style="background:${i%2===0?'#fff':'#f1f8e9'};">
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${i + 1}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; text-align:left; font-weight:bold;">${r.name}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.win}勝 ${r.lose}敗</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd; color:${diff>0?'green':(diff<0?'red':'#333')}">${diff>0?'+'+diff:diff}</td>
+                <td style="padding:10px; border-bottom:1px solid #ddd;">${r.pointF}</td>
+            </tr>
+        `;
+    });
+    html += `</tbody></table>`;
+    
+    container.innerHTML = html;
     renderLeagueMatrix(ranking);
 }
 
