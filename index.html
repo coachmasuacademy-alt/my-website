@@ -200,26 +200,10 @@
 
     /* New CSS for Navigation and Screen Management (Homepage Layout) */
     .screen-content {
-  display: none;
-  padding: 10px 0; /* padding-bottom を減らす */
-  min-height: auto; /* 最小高さを自動に */
-}
-
-#league-management-box {
-  margin-top: 10px; /* 上の余白を減らす */
-  padding: 10px;    /* 全体の余白を調整 */
-}
-
-/* 順位表コンテナの余白を調整 */
-#league-ranking-container {
-  margin-top: 5px;  /* 順位表の上の余白を詰める */
-  overflow-x: auto;
-}
-
-/* 既存の空白原因になりそうな min-height を解除 */
-#map-visual-container {
-  min-height: 200px; /* 300pxから少し小さく調整 */
-}
+      display: none;
+      /* 全ての機能画面をデフォルトで非表示 */
+      padding: 10px 0;
+    }
 
     .screen-content.active {
       display: block;
@@ -575,7 +559,7 @@
 
     // ==============================================
     // ... 既存の定数・変数の定義
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbz2Kn5SAqLTRiPnSefkpNUzWcvfE6umt1eMfYRe95kayTcxA48A1v2S5g_nmZzaWpGAug/exec";
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLDjiidmFkqmMVEgWzeBq2Tz5Y5CV2DzRUfLnXO1ydmsQ-m6ZNrfcq9xby5JjXGP-ksA/exec";
     let sheetData = [];
     let selectedMenus = [];
     let editableName = "";
@@ -1677,174 +1661,85 @@ function extractYouTubeId(url) {
 }
 
 
-// コーチング動画とキーワードの読み込み
-// --- コーチング理論用 グローバル変数 ---
-let allCoachingVideos = [];
-let coachingKeywords = [];
-
-// コーチング動画とキーワードの読み込み
+// コーチング動画の読み込みと描画
 async function loadCoachingVideos() {
     const container = document.getElementById("videoListContainer");
     if (!container) return;
     
-    container.innerHTML = "<p style='text-align:center; padding:20px;'>データを読み込み中...</p>";
+    container.innerHTML = "<p style='text-align:center; padding:20px;'>動画を読み込み中...</p>";
 
     try {
-        // 動画データとキーワードデータを並行して取得
-        const [videosRes, keywordsRes] = await Promise.all([
-            fetch(SHEET_URL + "?mode=sheet&sheet=CoachingVideos&t=" + new Date().getTime()),
-            fetch(SHEET_URL + "?mode=sheet&sheet=CoachingKeywords&t=" + new Date().getTime()).catch(() => null)
-        ]);
+        const response = await fetch(SHEET_URL + "?mode=sheet&sheet=CoachingVideos&t=" + new Date().getTime());
+        const data = await response.json();
 
-        const videoData = await videosRes.json();
-        allCoachingVideos = Array.isArray(videoData) ? videoData : [];
+        console.log("📊 表示処理を開始します。データ数:", data.length); 
 
-        // キーワードデータの処理（シートが存在しない等のエラーを考慮）
-        if (keywordsRes && keywordsRes.ok) {
-            const kwData = await keywordsRes.json();
-            coachingKeywords = Array.isArray(kwData) ? kwData : [];
-        } else {
-            coachingKeywords = [];
-        }
+        container.innerHTML = ""; // 読み込み中メッセージを消去
 
-        console.log("📊 動画数:", allCoachingVideos.length, " キーワード数:", coachingKeywords.length);
+        const categoryDefinition = [
+            { id: "cat-coaching", label: "コーチング", match: "コーチング" },
+            { id: "cat-training", label: "トレーニング", match: "トレーニング" },
+            { id: "cat-overseas", label: "海外", match: "海外" },
+            { id: "cat-reflection", label: "課題の考察", match: "課題の考察" }
+        ];
 
-        // プルダウンメニューの生成
-        const selectEl = document.getElementById("coaching-keyword-select");
-        if (selectEl) {
-            selectEl.innerHTML = '<option value="">-- すべて表示 --</option>';
-            coachingKeywords.forEach(kw => {
-                const keywordText = kw.キーワード || kw.keyword || kw.Keyword;
-                if (keywordText) {
-                    const opt = document.createElement("option");
-                    opt.value = keywordText;
-                    opt.textContent = keywordText;
-                    selectEl.appendChild(opt);
-                }
+        let hasAnyMatch = false;
+
+        categoryDefinition.forEach(catDef => {
+            const filtered = data.filter(v => {
+                const rowCat = (v.カテゴリ || v.category || "").toString().trim();
+                return rowCat.includes(catDef.match);
             });
-        }
+            
+            if (filtered.length > 0) {
+                hasAnyMatch = true;
+                
+                // カテゴリー見出し
+                const header = document.createElement("div");
+                header.id = catDef.id;
+                header.style.cssText = "background: #f1f8e9; padding: 12px 15px; font-weight: bold; color: #2e7d32; border-bottom: 2px solid #a5d6a7; font-size: 15px; position: sticky; top: 0; z-index: 5; margin-top:10px;";
+                header.innerText = `📁 ${catDef.label}`;
+                container.appendChild(header);
 
-        // 全件表示で初期化
-        renderCoachingVideos(allCoachingVideos);
+                // 動画リスト生成
+                filtered.forEach(v => {
+                    const videoUrl = v.url || v["YouTube URL"] || "";
+                    const videoTitle = v.title || v.メニュー名 || "無題の動画";
+                    const videoDesc = v.description || v.説明 || "";
+                    const videoId = extractYouTubeId(videoUrl);
+                    
+                    const item = document.createElement("div");
+                    item.style.cssText = "padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: background 0.2s; background:#fff;";
+                    
+                    item.onmouseover = () => { item.style.background = "#f9fbe7"; };
+                    item.onmouseout = () => { item.style.background = "#fff"; };
+
+                    const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : "";
+                    
+                    item.innerHTML = `
+                        <div style="flex: 0 0 100px; height: 70px; background: #000; border-radius: 6px; overflow: hidden;">
+                            ${videoId ? `<img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="color:#666; font-size:10px; text-align:center; padding-top:25px;">No Image</div>`}
+                        </div>
+                        <div style="flex: 1;">
+                            <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; line-height: 1.4;">${videoTitle}</div>
+                            <div style="font-size: 11px; color: #777; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${videoDesc}</div>
+                        </div>
+                        <div style="color: #1a73e8; font-size: 18px;">▶</div>
+                    `;
+
+                    item.onclick = () => { if (videoUrl) window.open(videoUrl, '_blank'); };
+                    container.appendChild(item);
+                });
+            }
+        });
+
+        if (!hasAnyMatch) {
+            container.innerHTML = "<p style='color:#999; text-align:center; padding:20px;'>該当するカテゴリーの動画がありません。</p>";
+        }
 
     } catch (e) {
         console.error("Coaching Load Error:", e);
         container.innerHTML = "<p style='color:red; text-align:center; padding:20px;'>データの表示中にエラーが発生しました。</p>";
-    }
-}
-
-// キーワード選択によるフィルタリング関数
-window.filterCoachingByKeyword = function() {
-    const selectEl = document.getElementById("coaching-keyword-select");
-    const descEl = document.getElementById("coaching-keyword-desc");
-    const selectedKw = selectEl.value;
-
-    // キーワードが未選択の場合はすべて表示
-    if (!selectedKw) {
-        descEl.style.display = "none";
-        renderCoachingVideos(allCoachingVideos);
-        return;
-    }
-
-    // 選択されたキーワードの説明文を表示
-    const kwData = coachingKeywords.find(k => (k.キーワード || k.keyword || k.Keyword) === selectedKw);
-    const descText = kwData ? (kwData.説明 || kwData.description || kwData.Description) : "";
-    
-    if (descText) {
-        descEl.innerHTML = `<strong style="color:#d84315;">💡 ${selectedKw}</strong><br>${descText.replace(/\\n|\n/g, '<br>')}`;
-        descEl.style.display = "block";
-    } else {
-        descEl.style.display = "none";
-    }
-
-    // 動画のフィルタリング
-    const filtered = allCoachingVideos.filter(v => {
-        // ▼ E列の description を確実に検索対象にする
-        const description = (v.description || v.説明 || "").toString().toLowerCase();
-        // 必要に応じてタイトルやカテゴリも対象にする場合は以下を結合
-        const title = (v.title || v.メニュー名 || "").toString().toLowerCase();
-        const category = (v.category || v.カテゴリ || "").toString().toLowerCase();
-        
-        const searchText = (description + " " + title + " " + category).toLowerCase();
-        
-        return searchText.includes(selectedKw.toLowerCase());
-    });
-
-    renderCoachingVideos(filtered);
-};
-
-// フィルタリング結果（または全体）のリスト描画関数
-function renderCoachingVideos(dataToRender) {
-    const container = document.getElementById("videoListContainer");
-    if (!container) return;
-
-    container.innerHTML = ""; 
-
-    const categoryDefinition = [
-        { id: "cat-power",    label: "トレーニング（パワーアップ）", match: "パワーアップ" },
-        { id: "cat-speed",    label: "トレーニング（スピードアップ）", match: "スピードアップ" },
-        { id: "cat-stamina",  label: "トレーニング（スタミナアップ）", match: "スタミナアップ" },
-        { id: "cat-skill",    label: "トレーニング（スキルアップ）", match: "スキルアップ" },
-        { id: "cat-coaching", label: "コーチング", match: "コーチング" },
-        { id: "cat-recovery", label: "リカバリー", match: "リカバリー" },
-        { id: "cat-nutrition",label: "栄養", match: "栄養" },
-        { id: "cat-intl",     label: "国際", match: "国際" },
-        { id: "cat-liberal",  label: "教養", match: "教養" }
-    ];
-
-    let hasAnyMatch = false;
-
-    // カテゴリーごとにループして、該当する動画を描画
-    categoryDefinition.forEach(catDef => {
-        const filtered = dataToRender.filter(v => {
-            const rowCat = (v.カテゴリ || v.category || "").toString().trim();
-            return rowCat.includes(catDef.match);
-        });
-        
-        if (filtered.length > 0) {
-            hasAnyMatch = true;
-            
-            // カテゴリー見出し
-            const header = document.createElement("div");
-            header.id = catDef.id;
-            header.style.cssText = "background: #f1f8e9; padding: 12px 15px; font-weight: bold; color: #2e7d32; border-bottom: 2px solid #a5d6a7; font-size: 15px; position: sticky; top: 0; z-index: 5; margin-top:10px;";
-            header.innerText = `📁 ${catDef.label} (${filtered.length}件)`;
-            container.appendChild(header);
-
-            // 動画リスト生成
-            filtered.forEach(v => {
-                const videoUrl = v.url || v["YouTube URL"] || "";
-                const videoTitle = v.title || v.メニュー名 || "無題の動画";
-                const videoDesc = v.description || v.説明 || "";
-                const videoId = extractYouTubeId(videoUrl);
-                
-                const item = document.createElement("div");
-                item.style.cssText = "padding: 15px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; cursor: pointer; transition: background 0.2s; background:#fff;";
-                
-                item.onmouseover = () => { item.style.background = "#f9fbe7"; };
-                item.onmouseout = () => { item.style.background = "#fff"; };
-
-                const thumbUrl = videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : "";
-                
-                item.innerHTML = `
-                    <div style="flex: 0 0 100px; height: 70px; background: #000; border-radius: 6px; overflow: hidden;">
-                        ${videoId ? `<img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;">` : `<div style="color:#666; font-size:10px; text-align:center; padding-top:25px;">No Image</div>`}
-                    </div>
-                    <div style="flex: 1;">
-                        <div style="font-weight: bold; font-size: 14px; color: #333; margin-bottom: 4px; line-height: 1.4;">${videoTitle}</div>
-                        <div style="font-size: 11px; color: #777; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">${videoDesc}</div>
-                    </div>
-                    <div style="color: #1a73e8; font-size: 18px;">▶</div>
-                `;
-
-                item.onclick = () => { if (videoUrl) window.open(videoUrl, '_blank'); };
-                container.appendChild(item);
-            });
-        }
-    });
-
-    if (!hasAnyMatch) {
-        container.innerHTML = "<p style='color:#999; text-align:center; padding:30px;'>条件に一致する動画がありません。</p>";
     }
 }
 
@@ -2590,127 +2485,18 @@ function renderCoachingVideos(dataToRender) {
   <button id="nav-training" onclick="showScreen('training', this)">1. トレーニング計画</button>
   <button id="nav-analysis" onclick="showScreen('analysis', this)">2. パフォーマンス分析</button>
   <button id="nav-tactics" onclick="showScreen('tactics', this)">3. ゲーム</button>
-  <button id="nav-courtboard" onclick="showScreen('courtboard', this)">4. コートボード</button>
-  <button id="nav-beginner" onclick="showScreen('beginner', this)">5. 初心者指導</button>
-  <button id="nav-coaching" onclick="showScreen('coaching', this)">6. コーチング理論</button>
-  <button id="nav-learning" onclick="showScreen('learning', this)">7. 知識・スキル学習</button>
-  <button id="nav-utility" onclick="showScreen('utility', this)">8. ユーティリティ</button>
-  <button id="nav-studio" onclick="showScreen('studio', this)">9. ビデオスタジオ</button>
-  <button id="nav-library" onclick="showScreen('library', this); loadLibraryFromDB(); updateStorageInfo();">10. 動画ライブラリ</button>
-  <button id="nav-course" onclick="showScreen('course', this)">11. 講習会用 (Login)</button>
+  <button id="nav-beginner" onclick="showScreen('beginner', this)">4. 初心者指導</button>
+  <button id="nav-coaching" onclick="showScreen('coaching', this)">5. コーチング理論</button>
+  <button id="nav-learning" onclick="showScreen('learning', this)">6. 知識・スキル学習</button>
+  <button id="nav-utility" onclick="showScreen('utility', this)">7. ユーティリティ</button>
+  <button id="nav-studio" onclick="showScreen('studio', this)">8. ビデオスタジオ</button>
+  <button id="nav-library" onclick="showScreen('library', this); loadLibraryFromDB(); updateStorageInfo();">9. 動画ライブラリ</button>
+  <button id="nav-course" onclick="showScreen('course', this)">10. 講習会用 (Login)</button>
 </nav>
   <div class="status-message" id="statusMessage" style="margin: 10px 0; font-weight: bold;">データ取得中...</div>
 
   <section id="screen-home" class="screen-content active">
-    <div style="
-        margin-bottom: 25px;
-        padding: 20px;
-        background: linear-gradient(to bottom, #e3f2fd, #bbdefb);
-        border: 2px solid #2196f3; 
-        border-radius: 12px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        font-family: 'Noto Sans JP', sans-serif;
-    ">
-      <h3
-        style="margin: 0 0 15px 0; color: #0d47a1; display: flex; align-items: center; gap: 8px; font-size: 18px; border-bottom: 1px dashed #1976d2; padding-bottom: 10px;">
-        📱 【新機能】アプリとしてインストール可能になりました！
-      </h3>
-
-      <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 15px;">
-        「ホーム画面に追加」を行うことで、ブラウザの枠が消え、全画面のアプリとして快適にご利用いただけるようになりました。<br>
-        <strong>⚠️ ただし、データの引き継ぎに関して重要な注意点があります。</strong>
-      </p>
-
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
-        <div
-          style="background: rgba(255, 255, 255, 0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #757575;">
-          <div style="font-weight: bold; color: #424242; margin-bottom: 4px;">🅰️ 今まで使っていたアイコン (ブラウザ版)</div>
-          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #333;">
-            <li><strong>画面：</strong> 上下にブラウザの枠（アドレスバーなど）が表示されます。</li>
-            <li><strong>データ：</strong> <span
-                style="color: #d32f2f; font-weight: bold;">これまでの保存データ（練習メニューや配置）はここに残っています。</span></li>
-          </ul>
-        </div>
-
-        <div
-          style="background: rgba(255, 255, 255, 0.8); padding: 12px; border-radius: 8px; border-left: 5px solid #00acc1;">
-          <div style="font-weight: bold; color: #006064; margin-bottom: 4px;">🅱️ 新しく追加するアイコン (アプリ版)</div>
-          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #333;">
-            <li><strong>画面：</strong> 全画面で広く使えます（アプリモード）。</li>
-            <li><strong>データ：</strong> <span style="color: #d32f2f; font-weight: bold;">空っぽの状態からスタートします。</span><br><span
-                style="font-size: 11px; color: #666;">※スマホの仕様上、ブラウザのデータは引き継がれません。</span></li>
-          </ul>
-        </div>
-      </div>
-
-      <p style="font-size: 13px; color: #333; background: #fff; padding: 10px; border-radius: 6px;">
-        <strong>💡 おすすめの移行方法：</strong><br>
-        過去のデータを確認したい時は「🅰️ 古いアイコン」を使い、これからの新しい練習作成は「🅱️ 新しいアイコン」を使うように使い分けてください。<br>
-        （※メニューなどは「共有テキストをコピー」機能などを使い、手動で移すことは可能です）
-      </p>
-
-      <div style="text-align: center; margin-top: 20px;">
-        <p style="font-weight: bold; color: #0d47a1; margin-bottom: 5px;">📥 インストール方法</p>
-        <p style="font-size: 12px; color: #555;">
-          <strong>iPhone (Safari):</strong> 画面下の共有ボタン <span style="font-size:16px;">🛫</span> → 「ホーム画面に追加」<br>
-          <strong>Android (Chrome):</strong> 右上のメニュー <span style="font-size:16px;">︙</span> → 「アプリをインストール」
-        </p>
-      </div>
-    </div>
-
-
-    <h2 style="color: #1a237e; margin-top: 0;">Smart Coach Badminton へようこそ</h2>
-
-    <div id="home-youtube-request-section" style="
-        margin-bottom: 25px;
-        padding: 20px;
-        background: linear-gradient(to bottom, #fffde7, #fff9c4);
-        border: 2px solid #fbc02d; 
-        border-radius: 12px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        font-family: 'Noto Sans JP', sans-serif;
-    ">
-      <h3
-        style="margin: 0 0 15px 0; color: #f57f17; display: flex; align-items: center; gap: 8px; font-size: 18px; border-bottom: 1px dashed #f9a825; padding-bottom: 10px;">
-        🔔 【重要】今後の大幅アップデートとご協力のお願い
-      </h3>
-      <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 15px;">
-        いつも当アプリをご利用いただきありがとうございます。<br>
-        今後のアップデートにて、皆様のトレーニングライフをより強力にサポートする新機能を実装予定です。
-      </p>
-      <div
-        style="background: rgba(255, 255, 255, 0.7); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #ff9800;">
-        <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #333; font-weight: bold;">
-          <li style="margin-bottom: 8px;">🔐 個人データのクラウド管理（ID・パスワードによる保護と機種変更対応）</li>
-          <li>🤖 AIによるゲーム・トレーニング分析＆アドバイス機能</li>
-        </ul>
-      </div>
-      <p style="font-size: 14px; color: #333; line-height: 1.7; margin-bottom: 20px;">
-        これらの高度な機能を<strong
-          style="color: #d32f2f; font-size: 16px; background: yellow;">「完全無料」</strong>で皆様に提供し続けるため、開発費用の確保としてYouTubeチャンネルの収益化を目指しております。<br>
-        皆様のチャンネル登録が、そのままアプリの進化（開発費）に繋がります。より良いアプリを無料で作り続けていくために、ぜひチャンネル登録でのご支援をお願いいたします。
-      </p>
-      <div style="text-align: center;">
-        <a href="https://www.youtube.com/@MASUBadmintonAcademy?sub_confirmation=1" target="_blank" style="
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
-                background: #d32f2f;
-                color: white;
-                text-decoration: none;
-                padding: 12px 35px;
-                border-radius: 30px;
-                font-weight: bold;
-                font-size: 16px;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-                transition: transform 0.2s, background 0.2s;
-            " onmouseover="this.style.transform='scale(1.05)'; this.style.background='#b71c1c'"
-          onmouseout="this.style.transform='scale(1)'; this.style.background='#d32f2f'">
-          <span style="font-size: 20px;">▶</span> YouTubeチャンネル登録して応援する
-        </a>
-        <p style="font-size: 11px; color: #666; margin-top: 8px;">※リンクをクリックするとYouTubeが開きます</p>
-      </div>
-    </div>
+    <!-- インストール案内、Welcomeメッセージ、YouTube登録お願い部分は削除しました -->
 
     <h3 style="color: #1a237e; border-bottom: 1px solid #ccc; padding-bottom: 5px;">機能カテゴリ一覧</h3>
 
@@ -2728,272 +2514,48 @@ function renderCoachingVideos(dataToRender) {
     </div>
 
     <div class="category-card" onclick="showScreen('tactics', document.getElementById('nav-tactics'))">
-      <h4>3. ゲーム</h4>
+      <h4>3. 戦術・コート関連シミュレーション</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">
-        リーグ戦のスケジュール作成や結果管理、グループ分けなどを行います。</p>
-    </div>
-
-    <div class="category-card" onclick="showScreen('courtboard', document.getElementById('nav-courtboard'))">
-      <h4>4. コートボード</h4>
-      <p style="margin: 0; font-size: 13px; color: #555;">
-        戦術ボード（手書き・矢印）でプレーの意図を共有。コート配置シミュレーターで、体育館のコートや人を自由に配置・管理できます。</p>
+        戦術ボード（手書き・矢印）でプレーの意図を共有。コート配置シミュレーターで、体育館のコートや人を自由に配置・管理できます。（コート描画、コート配置シミュレーター）</p>
     </div>
 
     <div class="category-card" onclick="showScreen('beginner', document.getElementById('nav-beginner'))">
-      <h4>5. 初心者指導</h4>
+      <h4>4. 初心者指導</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">
         バドミントン初心者に必要なルールや技術を、動画レッスンとルール学習シミュレーターで体系的に学習できます。（初心者向け動画レッスン、ルール学習シミュレーター）</p>
     </div>
 
-    <div class="category-card" onclick="showScreen('coaching', document.getElementById('nav-coaching'))">
-      <h4>6. コーチング理論</h4>
-      <p style="margin: 0; font-size: 13px; color: #555;">
-        コーチング理論ライブラリで指導者のスキルアップをサポートします。</p>
-    </div>
-
     <div class="category-card" onclick="showScreen('learning', document.getElementById('nav-learning'))">
-      <h4>7. 知識・スキル学習</h4>
-      <p style="margin: 0; font-size: 13px; color: #555;">技術・戦術の理論クイズ、動画を見て行う理解度チェック、バドミントン特化の英会話フレーズ学習機能を提供します。（Video Learning＆Check、Badminton English Learning、Badminton Theory Quiz）</p>
+      <h4>5. 知識・スキル学習</h4>
+      <p style="margin: 0; font-size: 13px; color: #555;">技術・戦術の理論クイズ、動画を見て行う理解度チェック、バドミントン特化の英会話フレーズ学習機能を提供します。（Video
+        Learning＆Check、Badminton English Learning、Badminton Theory Quiz）</p>
     </div>
 
     <div class="category-card" onclick="showScreen('utility', document.getElementById('nav-utility'))">
-      <h4>8. ユーティリティ・その他</h4>
+      <h4>6. ユーティリティ・その他</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">
         フィジカル強化のモチベーションを維持する「日本一周の旅」マップ、プログラムタイマー、公平な抽選・グループ分けツールなどの便利機能。（日本一周フィジカル強化の旅、グループワーク）</p>
     </div>
 
     <div class="category-card" onclick="showScreen('studio', document.getElementById('nav-studio'))">
-      <h4>9. ビデオスタジオ</h4>
+      <h4>7. ビデオスタジオ</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">教材や分析画面を操作しながら音声を吹き込み、授業動画を作成します。画面共有とカメラワイプを合成して録画できます。</p>
     </div>
 
-    <div class="category-card" onclick="showScreen('library', document.getElementById('nav-library')); loadLibraryFromDB(); updateStorageInfo();">
-      <h4>10. 動画ライブラリ</h4>
+    <div class="category-card"
+      onclick="showScreen('library', document.getElementById('nav-library')); loadLibraryFromDB();">
+      <h4>8. 動画ライブラリ</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">
         録画した授業動画などが自動的に保存されます。オフライン環境でも再生や削除、PCへの書き出しが可能です。
       </p>
     </div>
 
     <div class="category-card" onclick="showScreen('course', document.getElementById('nav-course'))">
-      <h4>11. 講習会用</h4>
+      <h4>9. 講習会用</h4>
       <p style="margin: 0; font-size: 13px; color: #555;">
         指導者・講師向けの機能です。受講生への資料QRコード共有や、受講生からの感想・振り返り（掲示板）を一元管理できます。（受講生への資料共有、振り返り）</p>
     </div>
   </section>
-
-<section id="screen-courtboard" class="screen-content">
-<div id="tactics-board-box"
-      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-      <div style="margin-bottom: 15px;">
-        <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード</h3>
-      </div>
-
-      <div id="tactics-content" style="display:block;">
-        <div
-          style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <button id="btn-t-save" onclick="saveTacticsToBrowser()"
-            style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
-          <button id="btn-t-restore" onclick="loadTacticsFromBrowser()"
-            style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
-          <button id="btn-t-delete" onclick="clearTacticsBrowserData()"
-            style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
-          <span id="tactics-local-status" style="font-size:12px; color:#e65100;"></span>
-        </div>
-
-        <div
-          style="margin-bottom: 8px; font-size: 14px; font-weight: bold; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-          <label style="cursor: pointer;">
-            <input type="radio" name="game-mode" value="doubles" checked onchange="switchGameMode('doubles')">
-            <span id="lbl-doubles">ダブルス (4人)</span>
-          </label>
-          <label style="cursor: pointer;">
-            <input type="radio" name="game-mode" value="singles" onchange="switchGameMode('singles')">
-            <span id="lbl-singles">シングルス (2人)</span>
-          </label>
-          <label style="cursor: pointer;">
-            <input type="radio" name="game-mode" value="custom" onchange="switchGameMode('custom')">
-            <span id="lbl-custom">変則 (自由設定)</span>
-          </label>
-        </div>
-
-        <div id="custom-tactic-settings"
-          style="display: none; background: #fff3e0; padding: 8px; border-radius: 4px; margin-bottom: 10px; align-items: center; gap: 10px;">
-          <label style="font-size:13px; color:#d32f2f;">
-            Red: <input type="number" id="custom-red-count" value="1" min="1" max="10"
-              style="width: 40px; padding: 2px;">
-          </label>
-          <label style="font-size:13px; color:#1976d2;">
-            Blue: <input type="number" id="custom-blue-count" value="2" min="1" max="10"
-              style="width: 40px; padding: 2px;">
-          </label>
-          <button id="btn-apply-custom" onclick="resetTacticPositions()"
-            style="font-size: 12px; padding: 4px 8px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            配置適用
-          </button>
-        </div>
-
-        <div id="fixed-name-inputs"
-          style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="color:red; font-weight:bold;">Red:</span>
-            <input type="text" id="input-name-A" placeholder="A" value="A" oninput="updatePlayerLabels()"
-              style="width:70px; text-align:center;">
-            <span id="container-name-B">
-              <input type="text" id="input-name-B" placeholder="B" value="B" oninput="updatePlayerLabels()"
-                style="width:70px; text-align:center;">
-            </span>
-          </div>
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="color:blue; font-weight:bold;">Blue:</span>
-            <input type="text" id="input-name-X" placeholder="X" value="X" oninput="updatePlayerLabels()"
-              style="width:70px; text-align:center;">
-            <span id="container-name-Y">
-              <input type="text" id="input-name-Y" placeholder="Y" value="Y" oninput="updatePlayerLabels()"
-                style="width:70px; text-align:center;">
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="move" checked
-            onchange="setTacticMode('move')"> <span id="lbl-move">✋ 移動</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="draw"
-            onchange="setTacticMode('draw')"> <span id="lbl-pen">✏️ ペン</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="arrow"
-            onchange="setTacticMode('arrow')"> <span id="lbl-arrow">↗️ 矢印</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="text"
-            onchange="setTacticMode('text')"> <span id="lbl-text">📝 文字</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="eraser"
-            onchange="setTacticMode('eraser')"> <span id="lbl-eraser">🧽 消しゴム</span></label>
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <button id="btn-t-reset" onclick="resetTacticPositions()"
-          style="background:#ff9800; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">リセット</button>
-        <button id="btn-t-clear" onclick="clearTacticLines()"
-          style="background:#e53935; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">書き込み消去</button>
-        <button id="btn-t-saveimg" onclick="saveTacticsImage()"
-          style="background:#3f51b5; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">画像保存</button>
-      </div>
-
-      <div onclick="toggleTacticsCourt()"
-        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
-        <span id="court-toggle-icon">▼</span> <span id="court-toggle-text">コートを表示 / Open Court</span>
-      </div>
-
-      <div id="tactics-court-area" style="display:none; margin-top:15px;">
-        <div id="tactics-canvas-container"
-          style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; border: 2px solid #333;">
-          <canvas id="tacticsCanvas" width="400" height="550"
-            style="width:100%; display:block; background: #2e7d32; cursor: grab;"></canvas>
-        </div>
-        <p style="font-size:12px; color:#666; text-align:center; margin-top:5px;">
-          ※<span id="txt-hint">矢印：ドラッグ / 文字：タップして入力 / 移動：ドラッグ</span>
-        </p>
-      </div>
-    </div>
-    </div>
-
-<div id="court-allocation-box"
-      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-      <h3 id="court-allocation-title" style="margin-bottom:10px; color:#00796b;">コート配置シミュレーター</h3>
-
-      <div
-        style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <button id="btn-l-save" onclick="saveLayoutToBrowser()"
-          style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
-        <button id="btn-l-restore" onclick="loadLayoutFromBrowser()"
-          style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
-        <button id="btn-l-delete" onclick="clearLayoutBrowserData()"
-          style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
-        <span id="layout-local-status" style="font-size:12px; color:#e65100;"></span>
-      </div>
-      <div
-        style="background:#fff; padding:5px 0; margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid #eee; padding-bottom:10px;">
-        <span id="lbl-new-create" style="font-weight:bold; color:#333; font-size:13px;">① 新規作成:</span>
-        <label style="font-size:13px;"><span id="lbl-court-count">コート</span> <input type="number" id="init-court-count"
-            value="2" min="0" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
-        <label style="font-size:13px;"><span id="lbl-player-count">人数</span> <input type="number" id="init-player-count"
-            value="10" min="1" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
-        <button id="btn-init-layout" onclick="initGymLayout()"
-          style="background:#fff; color:#00796b; border:1px solid #00796b; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">生成
-          / リセット</button>
-      </div>
-
-      <div onclick="toggleLayoutBuilder()"
-        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
-        <span id="layout-toggle-icon">▼</span> <span id="layout-toggle-text">レイアウト編集エリアを開く / Open Layout</span>
-      </div>
-
-      <div id="layout-builder-content" style="display:none; margin-top:15px;">
-
-        <div style="background:#f5f5f5; padding:10px; border-radius:6px; border:1px solid #ddd; margin-bottom:10px;">
-
-          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <div style="display:flex; gap:5px;">
-              <button id="btn-add-spot" onclick="addSpotToFloor(50, 50)"
-                style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">＋
-                〇追加</button>
-              <button id="btn-expand-floor" onclick="toggleFloorHeight()"
-                style="background:#00897b; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">↕
-                拡張</button>
-            </div>
-            <button id="btn-l-saveimg" onclick="saveGymImage()"
-              style="background:#3f51b5; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">📷
-              画像保存</button>
-          </div>
-
-          <hr style="border:0; border-top:1px solid #ccc; margin:5px 0 10px 0;">
-
-          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px;">
-            <label
-              style="display:flex; align-items:center; gap:5px; background:#fff; padding:5px 10px; border:1px solid #999; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">
-              <input type="checkbox" id="chk-select-mode" onchange="toggleSelectMode(this)">
-              <span id="lbl-select-mode">☑️ 選択モード</span>
-            </label>
-
-            <div id="align-buttons" style="display:flex; gap:5px; opacity:0.5; pointer-events:none;">
-              <button id="btn-align-top" onclick="alignSelected('top')"
-                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬆️
-                上揃え</button>
-              <button id="btn-align-left" onclick="alignSelected('left')"
-                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬅️
-                左揃え</button>
-              <button id="btn-align-dist" onclick="alignSelected('distribute')"
-                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">↔️
-                横等間隔</button>
-              <button id="btn-l-clear-select" onclick="clearSelection()"
-                style="background:#ef5350; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">選択解除</button>
-            </div>
-          </div>
-          <p style="font-size:11px; color:#d32f2f; margin:5px 0 0 0; display:none;" id="select-mode-msg">
-            ※要素をクリックして選択してください（赤枠がつきます）
-          </p>
-        </div>
-
-        <div
-          style="background:#fff3e0; padding:8px; border-radius:4px; border:1px solid #ffe0b2; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
-          <button id="btn-start-order" onclick="startOrderingMode()"
-            style="background:#333; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">🔢
-            クリックで番号を振る</button>
-          <span id="ordering-status" style="font-size:12px; color:#d32f2f; font-weight:bold; display:none;">●
-            1番から順にクリック</span>
-          <button id="btn-end-order" onclick="endOrderingMode()"
-            style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px; display:none;">完了</button>
-        </div>
-
-        <div id="gym-floor"
-          style="position: relative; width: 100%; height: 400px; background: #e0e0e0; border: 2px solid #999; border-radius: 4px; overflow: hidden; transition: height 0.3s ease;">
-          <p id="layout-hint-text"
-            style="position:absolute; top:5px; left:5px; margin:0; font-size:11px; color:#666; pointer-events:none;">
-            要素をドラッグして移動
-          </p>
-        </div>
-      </div>
-    </div>
-</section>
-
 
   <section id="screen-beginner" class="screen-content">
     <section id="beginner-instruction-section" style="
@@ -3147,35 +2709,11 @@ function renderCoachingVideos(dataToRender) {
       カテゴリーを選択するか、下にスクロールして閲覧してください。
     </p>
 
-    <div style="
-    display: flex; 
-    flex-wrap: wrap; 
-    gap: 8px; 
-    margin-bottom: 20px; 
-    padding-bottom: 5px; 
-    justify-content: center;
-">
-    <!-- 各ボタンの幅を調整するため、width または flex を指定 -->
-    <button onclick="scrollToCategory('cat-power')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">💪 パワーアップ</button>
-    <button onclick="scrollToCategory('cat-speed')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">⚡ スピードアップ</button>
-<button onclick="scrollToCategory('cat-stamina')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">🏃 スタミナアップ</button>
-    <button onclick="scrollToCategory('cat-skill')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">🎯 スキルアップ</button>
-    
-    <button onclick="scrollToCategory('cat-coaching')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">💡 コーチング論</button>
-    <button onclick="scrollToCategory('cat-recovery')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">🧘 リカバリー</button>
-    <button onclick="scrollToCategory('cat-nutrition')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">🍎 栄養</button>
-    
-    <button onclick="scrollToCategory('cat-intl')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">🌏 国際</button>
-    <button onclick="scrollToCategory('cat-liberal')" style="flex: 0 0 calc(33.3% - 10px); padding: 8px 5px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">📚 教養</button>
-</div>
-
-<div style="background: #f9fbe7; padding: 15px; border-radius: 8px; border: 1px solid #c5e1a5; margin-bottom: 20px;">
-      <label for="coaching-keyword-select" style="font-weight: bold; color: #2e7d32; font-size: 14px;">🔍 キーワードで探す:</label>
-      <select id="coaching-keyword-select" onchange="filterCoachingByKeyword()" style="width: 100%; padding: 10px; margin-top: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px;">
-        <option value="">-- すべて表示 --</option>
-      </select>
-      <div id="coaching-keyword-desc" style="margin-top: 10px; padding: 10px; background: #fff; border-radius: 4px; font-size: 13px; color: #333; display: none; border-left: 4px solid #ff9800; line-height: 1.5;">
-      </div>
+    <div style="display: flex; overflow-x: auto; gap: 8px; margin-bottom: 20px; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
+      <button onclick="scrollToCategory('cat-coaching')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">コーチング</button>
+      <button onclick="scrollToCategory('cat-training')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">トレーニング</button>
+      <button onclick="scrollToCategory('cat-overseas')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">海外</button>
+      <button onclick="scrollToCategory('cat-reflection')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">課題の考察</button>
     </div>
 
     <div id="videoListContainer" style="background: #fff; border-radius: 8px; border: 1px solid #eee; overflow: hidden;">
@@ -3371,6 +2909,217 @@ function renderCoachingVideos(dataToRender) {
   </section>
 
   <section id="screen-tactics" class="screen-content">
+    <div id="tactics-board-box"
+      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
+      <div style="margin-bottom: 15px;">
+        <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード</h3>
+      </div>
+
+      <div id="tactics-content" style="display:block;">
+        <div
+          style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <button id="btn-t-save" onclick="saveTacticsToBrowser()"
+            style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+          <button id="btn-t-restore" onclick="loadTacticsFromBrowser()"
+            style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+          <button id="btn-t-delete" onclick="clearTacticsBrowserData()"
+            style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+          <span id="tactics-local-status" style="font-size:12px; color:#e65100;"></span>
+        </div>
+
+        <div
+          style="margin-bottom: 8px; font-size: 14px; font-weight: bold; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+          <label style="cursor: pointer;">
+            <input type="radio" name="game-mode" value="doubles" checked onchange="switchGameMode('doubles')">
+            <span id="lbl-doubles">ダブルス (4人)</span>
+          </label>
+          <label style="cursor: pointer;">
+            <input type="radio" name="game-mode" value="singles" onchange="switchGameMode('singles')">
+            <span id="lbl-singles">シングルス (2人)</span>
+          </label>
+          <label style="cursor: pointer;">
+            <input type="radio" name="game-mode" value="custom" onchange="switchGameMode('custom')">
+            <span id="lbl-custom">変則 (自由設定)</span>
+          </label>
+        </div>
+
+        <div id="custom-tactic-settings"
+          style="display: none; background: #fff3e0; padding: 8px; border-radius: 4px; margin-bottom: 10px; align-items: center; gap: 10px;">
+          <label style="font-size:13px; color:#d32f2f;">
+            Red: <input type="number" id="custom-red-count" value="1" min="1" max="10"
+              style="width: 40px; padding: 2px;">
+          </label>
+          <label style="font-size:13px; color:#1976d2;">
+            Blue: <input type="number" id="custom-blue-count" value="2" min="1" max="10"
+              style="width: 40px; padding: 2px;">
+          </label>
+          <button id="btn-apply-custom" onclick="resetTacticPositions()"
+            style="font-size: 12px; padding: 4px 8px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            配置適用
+          </button>
+        </div>
+
+        <div id="fixed-name-inputs"
+          style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="color:red; font-weight:bold;">Red:</span>
+            <input type="text" id="input-name-A" placeholder="A" value="A" oninput="updatePlayerLabels()"
+              style="width:70px; text-align:center;">
+            <span id="container-name-B">
+              <input type="text" id="input-name-B" placeholder="B" value="B" oninput="updatePlayerLabels()"
+                style="width:70px; text-align:center;">
+            </span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="color:blue; font-weight:bold;">Blue:</span>
+            <input type="text" id="input-name-X" placeholder="X" value="X" oninput="updatePlayerLabels()"
+              style="width:70px; text-align:center;">
+            <span id="container-name-Y">
+              <input type="text" id="input-name-Y" placeholder="Y" value="Y" oninput="updatePlayerLabels()"
+                style="width:70px; text-align:center;">
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="move" checked
+            onchange="setTacticMode('move')"> <span id="lbl-move">✋ 移動</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="draw"
+            onchange="setTacticMode('draw')"> <span id="lbl-pen">✏️ ペン</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="arrow"
+            onchange="setTacticMode('arrow')"> <span id="lbl-arrow">↗️ 矢印</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="text"
+            onchange="setTacticMode('text')"> <span id="lbl-text">📝 文字</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="eraser"
+            onchange="setTacticMode('eraser')"> <span id="lbl-eraser">🧽 消しゴム</span></label>
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <button id="btn-t-reset" onclick="resetTacticPositions()"
+          style="background:#ff9800; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">リセット</button>
+        <button id="btn-t-clear" onclick="clearTacticLines()"
+          style="background:#e53935; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">書き込み消去</button>
+        <button id="btn-t-saveimg" onclick="saveTacticsImage()"
+          style="background:#3f51b5; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">画像保存</button>
+      </div>
+
+      <div onclick="toggleTacticsCourt()"
+        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
+        <span id="court-toggle-icon">▼</span> <span id="court-toggle-text">コートを表示 / Open Court</span>
+      </div>
+
+      <div id="tactics-court-area" style="display:none; margin-top:15px;">
+        <div id="tactics-canvas-container"
+          style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; border: 2px solid #333;">
+          <canvas id="tacticsCanvas" width="400" height="550"
+            style="width:100%; display:block; background: #2e7d32; cursor: grab;"></canvas>
+        </div>
+        <p style="font-size:12px; color:#666; text-align:center; margin-top:5px;">
+          ※<span id="txt-hint">矢印：ドラッグ / 文字：タップして入力 / 移動：ドラッグ</span>
+        </p>
+      </div>
+    </div>
+    </div>
+
+    <div id="court-allocation-box"
+      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
+      <h3 id="court-allocation-title" style="margin-bottom:10px; color:#00796b;">コート配置シミュレーター</h3>
+
+      <div
+        style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button id="btn-l-save" onclick="saveLayoutToBrowser()"
+          style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+        <button id="btn-l-restore" onclick="loadLayoutFromBrowser()"
+          style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+        <button id="btn-l-delete" onclick="clearLayoutBrowserData()"
+          style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+        <span id="layout-local-status" style="font-size:12px; color:#e65100;"></span>
+      </div>
+      <div
+        style="background:#fff; padding:5px 0; margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid #eee; padding-bottom:10px;">
+        <span id="lbl-new-create" style="font-weight:bold; color:#333; font-size:13px;">① 新規作成:</span>
+        <label style="font-size:13px;"><span id="lbl-court-count">コート</span> <input type="number" id="init-court-count"
+            value="2" min="0" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
+        <label style="font-size:13px;"><span id="lbl-player-count">人数</span> <input type="number" id="init-player-count"
+            value="10" min="1" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
+        <button id="btn-init-layout" onclick="initGymLayout()"
+          style="background:#fff; color:#00796b; border:1px solid #00796b; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">生成
+          / リセット</button>
+      </div>
+
+      <div onclick="toggleLayoutBuilder()"
+        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
+        <span id="layout-toggle-icon">▼</span> <span id="layout-toggle-text">レイアウト編集エリアを開く / Open Layout</span>
+      </div>
+
+      <div id="layout-builder-content" style="display:none; margin-top:15px;">
+
+        <div style="background:#f5f5f5; padding:10px; border-radius:6px; border:1px solid #ddd; margin-bottom:10px;">
+
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; gap:5px;">
+              <button id="btn-add-spot" onclick="addSpotToFloor(50, 50)"
+                style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">＋
+                〇追加</button>
+              <button id="btn-expand-floor" onclick="toggleFloorHeight()"
+                style="background:#00897b; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">↕
+                拡張</button>
+            </div>
+            <button id="btn-l-saveimg" onclick="saveGymImage()"
+              style="background:#3f51b5; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">📷
+              画像保存</button>
+          </div>
+
+          <hr style="border:0; border-top:1px solid #ccc; margin:5px 0 10px 0;">
+
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px;">
+            <label
+              style="display:flex; align-items:center; gap:5px; background:#fff; padding:5px 10px; border:1px solid #999; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">
+              <input type="checkbox" id="chk-select-mode" onchange="toggleSelectMode(this)">
+              <span id="lbl-select-mode">☑️ 選択モード</span>
+            </label>
+
+            <div id="align-buttons" style="display:flex; gap:5px; opacity:0.5; pointer-events:none;">
+              <button id="btn-align-top" onclick="alignSelected('top')"
+                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬆️
+                上揃え</button>
+              <button id="btn-align-left" onclick="alignSelected('left')"
+                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬅️
+                左揃え</button>
+              <button id="btn-align-dist" onclick="alignSelected('distribute')"
+                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">↔️
+                横等間隔</button>
+              <button id="btn-l-clear-select" onclick="clearSelection()"
+                style="background:#ef5350; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">選択解除</button>
+            </div>
+          </div>
+          <p style="font-size:11px; color:#d32f2f; margin:5px 0 0 0; display:none;" id="select-mode-msg">
+            ※要素をクリックして選択してください（赤枠がつきます）
+          </p>
+        </div>
+
+        <div
+          style="background:#fff3e0; padding:8px; border-radius:4px; border:1px solid #ffe0b2; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+          <button id="btn-start-order" onclick="startOrderingMode()"
+            style="background:#333; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">🔢
+            クリックで番号を振る</button>
+          <span id="ordering-status" style="font-size:12px; color:#d32f2f; font-weight:bold; display:none;">●
+            1番から順にクリック</span>
+          <button id="btn-end-order" onclick="endOrderingMode()"
+            style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px; display:none;">完了</button>
+        </div>
+
+        <div id="gym-floor"
+          style="position: relative; width: 100%; height: 400px; background: #e0e0e0; border: 2px solid #999; border-radius: 4px; overflow: hidden; transition: height 0.3s ease;">
+          <p id="layout-hint-text"
+            style="position:absolute; top:5px; left:5px; margin:0; font-size:11px; color:#666; pointer-events:none;">
+            要素をドラッグして移動
+          </p>
+        </div>
+      </div>
+    </div>
+
 <div id="league-management-box" style="margin-top: 30px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h3 style="margin:0; color:#00796b;">🏆 リーグ戦マネージャー</h3>
@@ -3411,13 +3160,10 @@ function renderCoachingVideos(dataToRender) {
             </table>
         </div>
 
-       <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">⭐ 星取表（対戦表）</h4>
-        <div id="league-matrix-container" style="overflow-x: auto; margin-bottom: 20px;"></div>
-
-        <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">📈 現在の順位表</h4>
-        <div id="league-ranking-container" style="overflow-x: auto;"></div>
-        
-        <p style="font-size:11px; color:#666; margin-top:10px;">※順位決定優先度：1.勝数 / 2.得失点差 / 3.総得点</p>
+        <h4 style="color:#00796b; border-left:4px solid #00796b; padding-left:10px; margin:25px 0 10px 0;">📈 現在の順位表</h4>
+        <div id="league-ranking-container" style="overflow-x: auto;"></div>
+        
+        <p style="font-size:11px; color:#666; margin-top:10px;">※順位決定優先度：1.勝数 / 2.得失点差 / 3.総得点</p>
     </div>
 </div>
 
@@ -3812,9 +3558,6 @@ function renderCoachingVideos(dataToRender) {
   </script>
 
   <section id="screen-utility" class="screen-content">
-
-
-
     <section id="daily-challenge-section" style="
     margin-top: 30px;
     padding: 0;
@@ -4107,26 +3850,78 @@ function renderCoachingVideos(dataToRender) {
       border-radius: 10px; 
       box-shadow: 0 4px 8px rgba(0,0,0,0.05);
   ">
-      <h3 id="program-timer-title" style="margin-bottom:8px; color:#00796b;">プログラムタイマー</h3>
+      <style>
+        /* タイマー用レイアウトCSS */
+        .timer-layout {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+        .timer-settings {
+          flex: 1;
+        }
+        .timer-display-area {
+          text-align: center;
+          background: #f0f4f8;
+          border: 2px solid #b0bec5;
+          border-radius: 12px;
+          padding: 30px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+        }
+        .timer-display-area h1 {
+          font-size: 80px;
+          margin: 15px 0;
+          color: #00796b;
+          font-family: monospace;
+          line-height: 1;
+        }
+        .timer-display-area h2, .timer-display-area h3 {
+          margin: 0;
+          color: #555;
+        }
+        
+        /* PC画面（幅768px以上）の時は横並びにして、文字を特大にする */
+        @media (min-width: 768px) {
+          .timer-layout {
+            flex-direction: row;
+          }
+          .timer-display-area {
+            flex: 1.2;
+            min-width: 350px;
+          }
+          .timer-display-area h1 {
+            font-size: 130px; /* 大画面表示 */
+          }
+        }
+      </style>
 
-      <div id="steps-container" class="steps"></div>
-      <button id="add-step" type="button">＋ ステップ追加</button>
+      <div class="timer-layout">
+        <div class="timer-settings">
+          <h3 id="program-timer-title" style="margin-bottom:15px; color:#00796b; margin-top:0;">プログラムタイマー</h3>
 
-      <div class="set-group" style="margin-top:10px; margin-bottom:15px;">
-        <label id="set-count-label" for="set-count">セット数：</label>
-        <input type="number" id="set-count" min="1">
-      </div>
+          <div id="steps-container" class="steps"></div>
+          <button id="add-step" type="button" style="margin-bottom:15px;">＋ ステップ追加</button>
 
-      <div style="display:flex; gap:10px; margin-bottom:15px;">
-        <button id="start-timer" type="button">▶ スタート</button>
-        <button id="stop-timer" type="button">■ ストップ</button>
-        <button id="reset-timer" type="button">⟳ リセット</button>
-      </div>
+          <div class="set-group" style="margin-bottom:20px; padding: 10px; background: #fafafa; border: 1px solid #ddd; border-radius: 6px;">
+            <label id="set-count-label" for="set-count" style="font-weight:bold;">セット数：</label>
+            <input type="number" id="set-count" min="1" value="1" style="width:60px; padding:5px; text-align:center;">
+          </div>
 
-      <div id="timer-display" class="timer-display">
-        <h2 id="current-set">Set 1 / 3</h2>
-        <h1 id="time-left">00:00</h1>
-        <h3 id="step-info">Step 1</h3>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button id="start-timer" type="button" style="background:#4caf50; color:white; font-size:16px; padding:10px 20px;">▶ スタート</button>
+            <button id="stop-timer" type="button" style="background:#f44336; color:white; font-size:16px; padding:10px 20px;">■ ストップ</button>
+            <button id="reset-timer" type="button" style="background:#757575; color:white; font-size:16px; padding:10px 20px;">⟳ リセット</button>
+          </div>
+        </div>
+
+        <div id="timer-display" class="timer-display-area">
+          <h2 id="current-set">Set 1 / 1</h2>
+          <h1 id="time-left">00:00</h1>
+          <h3 id="step-info">Step 1</h3>
+        </div>
       </div>
     </section>
     <div
@@ -6841,7 +6636,7 @@ function renderCoachingVideos(dataToRender) {
         var suggestedMenusData = [];
 
         // もしSHEET_URLが定義されていない場合の予備
-        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbz2Kn5SAqLTRiPnSefkpNUzWcvfE6umt1eMfYRe95kayTcxA48A1v2S5g_nmZzaWpGAug/exec";
+        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyLDjiidmFkqmMVEgWzeBq2Tz5Y5CV2DzRUfLnXO1ydmsQ-m6ZNrfcq9xby5JjXGP-ksA/exec";
 
         // ✅ 1. Gemini API呼び出し関数
 
@@ -7276,30 +7071,43 @@ function renderCoachingVideos(dataToRender) {
           addPTimerStep();
         }
 
-        function addPTimerStep() {
+       function addPTimerStep() {
           pTimerStepCount++;
           const container = document.getElementById("steps-container");
           if (!container) return;
           const div = document.createElement("div");
-          div.style.marginBottom = "5px";
+          div.style.marginBottom = "10px";
+          div.style.display = "flex";
+          div.style.alignItems = "center";
+          div.style.gap = "5px";
           div.innerHTML = `
-        <input type="number" class="step-input" placeholder="秒数" style="width:80px; padding:5px;">
-        <button type="button" onclick="this.parentElement.remove()" style="background:#f44336; padding:5px;">削除</button>
-    `;
+            <input type="number" class="step-input-min" placeholder="分" min="0" style="width:60px; padding:6px; border:1px solid #ccc; border-radius:4px; text-align:center;"> 分
+            <input type="number" class="step-input-sec" placeholder="秒" min="0" max="59" style="width:60px; padding:6px; border:1px solid #ccc; border-radius:4px; text-align:center;"> 秒
+            <button type="button" onclick="this.parentElement.remove()" style="background:#ef5350; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; margin-left:10px;">削除</button>
+          `;
           container.appendChild(div);
         }
 
         function startPTimer() {
           if (pTimerTimeout) return;
           pTimerSteps = [];
-          document.querySelectorAll(".step-input").forEach(input => {
-            const val = parseInt(input.value);
-            if (val && val > 0) pTimerSteps.push(val);
+          
+          // 分と秒の各inputから値を取得し、秒数に換算して配列に格納
+          const stepContainers = document.querySelectorAll("#steps-container > div");
+          stepContainers.forEach(div => {
+            const minInput = div.querySelector(".step-input-min");
+            const secInput = div.querySelector(".step-input-sec");
+            const m = parseInt(minInput.value) || 0;
+            const s = parseInt(secInput.value) || 0;
+            const totalSec = (m * 60) + s;
+            
+            if (totalSec > 0) pTimerSteps.push(totalSec);
           });
+          
           pTimerTotalSets = parseInt(document.getElementById("set-count").value) || 1;
 
           if (pTimerSteps.length === 0) {
-            alert("ステップ（秒数）を入力してください。");
+            alert("ステップ（時間）を入力してください。");
             return;
           }
           pTimerCurrentSet = 1;
@@ -17205,32 +17013,16 @@ function updateLeagueRanking() {
     let stats = {};
     lPlayers.forEach(p => stats[p] = { name:p, win:0, lose:0, pointF:0, pointA:0 });
 
-    let hasMatch = false; // 試合結果が1つでもあるか確認するフラグ
     lMatches.forEach(m => {
         const s1 = parseInt(m.s1);
         const s2 = parseInt(m.s2);
         if (!isNaN(s1) && !isNaN(s2)) {
-            hasMatch = true; // 結果あり
             stats[m.p1].pointF += s1; stats[m.p1].pointA += s2;
             stats[m.p2].pointF += s2; stats[m.p2].pointA += s1;
             if (s1 > s2) { stats[m.p1].win++; stats[m.p2].lose++; }
             else if (s2 > s1) { stats[m.p2].win++; stats[m.p1].lose++; }
         }
     });
-
-    const container = document.getElementById("league-ranking-container");
-    const matrixContainer = document.getElementById("league-matrix-container");
-
-    // 試合結果がまだなければ表示を消す
-    if (!hasMatch) {
-        if (container) container.style.display = "none";
-        if (matrixContainer) matrixContainer.style.display = "none";
-        return; 
-    }
-
-    // 表示がある場合は表示する
-    if (container) container.style.display = "block";
-    if (matrixContainer) matrixContainer.style.display = "block";
 
     let ranking = Object.values(stats).sort((a, b) => {
         if (b.win !== a.win) return b.win - a.win;
@@ -17267,94 +17059,7 @@ function updateLeagueRanking() {
         `;
     });
     html += `</tbody></table>`;
-    
-    container.innerHTML = html;
-    renderLeagueMatrix(ranking);
-}
-
-// ▼▼▼ updateLeagueRanking関数の直下にこの新しい関数を丸ごと追加 ▼▼▼
-// 星取表の描画
-function renderLeagueMatrix(ranking) {
-    if (lPlayers.length === 0) return;
-
-    // 現在の順位順にプレイヤーを並べる
-    const sortedPlayers = ranking.map(r => r.name);
-
-    let html = `
-        <table style="width:100%; border-collapse:collapse; font-size:13px; text-align:center; border:2px solid #00796b; min-width: 400px; white-space: nowrap;">
-            <thead style="background:#00796b; color:#fff;">
-                <tr>
-                    <th style="padding:8px; border:1px solid #ddd; position: sticky; left: 0; background: #00796b; z-index: 2;">名前</th>
-    `;
-    
-    // ヘッダー行（対戦相手）
-    sortedPlayers.forEach(p => {
-        html += `<th style="padding:8px; border:1px solid #ddd;">${p}</th>`;
-    });
-    html += `
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    // 各行（自分自身 vs 各相手）
-    sortedPlayers.forEach((p1, rowIndex) => {
-        const bg = rowIndex % 2 === 0 ? '#fff' : '#f1f8e9';
-        html += `<tr>`;
-        // 左端の名前はスクロールしても追従するように sticky 指定
-        html += `<td style="padding:10px; border:1px solid #ddd; font-weight:bold; position: sticky; left: 0; background: ${bg}; z-index: 1; text-align:left;">${p1}</td>`;
-
-        sortedPlayers.forEach(p2 => {
-            if (p1 === p2) {
-                // 自分自身との交差セル
-                html += `<td style="padding:10px; border:1px solid #ddd; background:#eee;">-</td>`;
-            } else {
-                // p1 と p2 の試合結果を検索
-                const match = lMatches.find(m => (m.p1 === p1 && m.p2 === p2) || (m.p1 === p2 && m.p2 === p1));
-                
-                if (match && match.s1 !== "" && match.s2 !== "") {
-                    // 結果が入力されている場合
-                    const s1 = parseInt(match.s1);
-                    const s2 = parseInt(match.s2);
-                    let mark = "";
-                    let scoreText = "";
-
-                    if (match.p1 === p1) {
-                        // p1 が左側のプレイヤーとして登録されていた場合
-                        if (s1 > s2) mark = "<span style='color:#d32f2f; font-weight:bold; font-size:16px;'>○</span>";
-                        else if (s1 < s2) mark = "<span style='color:#1976d2; font-weight:bold; font-size:16px;'>●</span>";
-                        else mark = "<span style='color:#388e3c; font-weight:bold; font-size:16px;'>△</span>";
-                        scoreText = `${s1}-${s2}`;
-                    } else {
-                        // p1 が右側のプレイヤーとして登録されていた場合
-                        if (s2 > s1) mark = "<span style='color:#d32f2f; font-weight:bold; font-size:16px;'>○</span>";
-                        else if (s2 < s1) mark = "<span style='color:#1976d2; font-weight:bold; font-size:16px;'>●</span>";
-                        else mark = "<span style='color:#388e3c; font-weight:bold; font-size:16px;'>△</span>";
-                        scoreText = `${s2}-${s1}`;
-                    }
-                    html += `<td style="padding:5px; border:1px solid #ddd; background: ${bg};">
-                                <div style="margin-bottom:2px;">${mark}</div>
-                                <div style="font-size:11px; color:#666;">${scoreText}</div>
-                             </td>`;
-                } else if (match) {
-                    // 試合予定はあるが結果未入力
-                    html += `<td style="padding:10px; border:1px solid #ddd; background: ${bg}; color:#aaa; font-size:11px;">未</td>`;
-                } else {
-                    // 試合予定がない（通常はないですが念のため）
-                    html += `<td style="padding:10px; border:1px solid #ddd; background: ${bg};"></td>`;
-                }
-            }
-        });
-        html += `</tr>`;
-    });
-
-    html += `</tbody></table>`;
-    
-    // HTMLに出力
-    const container = document.getElementById("league-matrix-container");
-    if (container) {
-        container.innerHTML = html;
-    }
+    document.getElementById("league-ranking-container").innerHTML = html;
 }
 
 // 💾 ブラウザ保存・削除
