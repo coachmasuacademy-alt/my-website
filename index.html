@@ -1677,10 +1677,15 @@ async function loadCoachingVideos() {
         container.innerHTML = ""; // 読み込み中メッセージを消去
 
         const categoryDefinition = [
+            { id: "cat-lecture", label: "講義", match: "講義" },
             { id: "cat-coaching", label: "コーチング", match: "コーチング" },
-            { id: "cat-training", label: "トレーニング", match: "トレーニング" },
-            { id: "cat-overseas", label: "海外", match: "海外" },
-            { id: "cat-reflection", label: "課題の考察", match: "課題の考察" }
+            { id: "cat-training-skill", label: "トレーニング（スキルアップ）", match: "トレーニング（スキルアップ）" },
+            { id: "cat-training-speed", label: "トレーニング（スピードアップ）", match: "トレーニング（スピードアップ）" },
+            { id: "cat-training-power", label: "トレーニング（パワーアップ）", match: "トレーニング（パワーアップ）" },
+            { id: "cat-training-stamina", label: "トレーニング（スタミナアップ）", match: "トレーニング（スタミナアップ）" },
+            { id: "cat-recovery", label: "リカバリー", match: "リカバリー" },
+            { id: "cat-international", label: "国際", match: "国際" },
+            { id: "cat-culture", label: "教養", match: "教養" }
         ];
 
         let hasAnyMatch = false;
@@ -2709,11 +2714,16 @@ async function loadCoachingVideos() {
       カテゴリーを選択するか、下にスクロールして閲覧してください。
     </p>
 
-    <div style="display: flex; overflow-x: auto; gap: 8px; margin-bottom: 20px; padding-bottom: 5px; -webkit-overflow-scrolling: touch;">
+   <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding-bottom: 5px;">
+      <button onclick="scrollToCategory('cat-lecture')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">講義</button>
       <button onclick="scrollToCategory('cat-coaching')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">コーチング</button>
-      <button onclick="scrollToCategory('cat-training')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">トレーニング</button>
-      <button onclick="scrollToCategory('cat-overseas')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">海外</button>
-      <button onclick="scrollToCategory('cat-reflection')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">課題の考察</button>
+      <button onclick="scrollToCategory('cat-training-skill')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">トレーニング（スキルアップ）</button>
+      <button onclick="scrollToCategory('cat-training-speed')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">トレーニング（スピードアップ）</button>
+      <button onclick="scrollToCategory('cat-training-power')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">トレーニング（パワーアップ）</button>
+      <button onclick="scrollToCategory('cat-training-stamina')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">トレーニング（スタミナアップ）</button>
+      <button onclick="scrollToCategory('cat-recovery')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">リカバリー</button>
+      <button onclick="scrollToCategory('cat-international')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">国際</button>
+      <button onclick="scrollToCategory('cat-culture')" style="flex:0 0 auto; width:auto; padding:8px 15px; font-size:12px; background:#e8f5e9; color:#2e7d32; border:1px solid #c8e6c9; border-radius:20px; cursor:pointer;">教養</button>
     </div>
 
     <div id="videoListContainer" style="background: #fff; border-radius: 8px; border: 1px solid #eee; overflow: hidden;">
