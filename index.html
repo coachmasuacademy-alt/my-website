@@ -559,7 +559,7 @@
 
     // ==============================================
     // ... 既存の定数・変数の定義
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbyLDjiidmFkqmMVEgWzeBq2Tz5Y5CV2DzRUfLnXO1ydmsQ-m6ZNrfcq9xby5JjXGP-ksA/exec";
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbxeB3N-MKhiGIN8anCnFDExwmWxRTOOEHEjrjLHbSAh_plEETi6IyD8z2-bszgS3N2G_A/exec";
     let sheetData = [];
     let selectedMenus = [];
     let editableName = "";
@@ -1765,11 +1765,21 @@ async function loadCoachingVideos() {
 
       try {
         const res = await fetch(SHEET_URL + "?sheet=Knowledge&t=" + new Date().getTime());
-        const data = await res.json();
+        
+        // 追加: まずテキストとしてデータを受け取る
+        const text = await res.text();
+
+        // 追加: 返ってきたデータがHTML（エラー画面）だった場合の処理
+        if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+          console.error("HTMLが返却されました。GASの権限やURLを確認してください。返却内容:", text);
+          throw new Error("データではなくエラー画面(HTML)が返却されました");
+        }
+
+        // テキストをJSONに変換
+        const data = JSON.parse(text);
 
         if (data.error || !data.length) {
           console.warn("Sheet data not found, using dummy data.");
-          // ...（ダミーデータ部分は省略可）...
           allKnowledgeData = []; // データがない場合
         } else {
           allKnowledgeData = data;
@@ -1783,7 +1793,7 @@ async function loadCoachingVideos() {
 
       } catch (e) {
         console.error("Knowledge Load Error:", e);
-        statusEl.textContent = "データ取得エラー（Knowledgeシートを確認してください）";
+        statusEl.textContent = "データ取得エラー（GASのURLや権限を確認してください）";
       }
     }
 
@@ -1945,24 +1955,37 @@ async function loadCoachingVideos() {
     }
 
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => { // ★ ここに async を追加
       console.log("DOM完全読み込み完了: 各機能の初期化を開始します");
 
-      // 1. データの読み込み
-      try {
-        loadSheet();
-        loadEnglishPhrases();
-        loadQuizData();
-        loadKnowledgeData();
-        loadVideoQuizData();
-      } catch (e) { console.error("データ読み込みエラー:", e); }
+      // 少しだけ待機する関数（サーバーの負荷をさらに下げるためのクッション）
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-      // 2. タイマー機能のセットアップ（★ここを強化）
+      // 1. データの読み込み（★ await を付けて「順番に」実行する）
+      try {
+        await loadSheet();
+        await sleep(300); // 0.3秒待つ
+        
+        await loadEnglishPhrases();
+        await sleep(300); 
+        
+        await loadQuizData();
+        await sleep(300); 
+        
+        await loadKnowledgeData();
+        await sleep(300); 
+        
+        await loadVideoQuizData();
+      } catch (e) { 
+        console.error("データ読み込みエラー:", e); 
+      }
+
+      // 2. タイマー機能のセットアップ
       if (typeof setupProgramTimer === 'function') {
         setupProgramTimer();
         console.log("タイマーセットアップ完了");
       } else {
-        console.error("setupProgramTimer 関数が見つかりません。コードの貼り付け位置を確認してください。");
+        console.error("setupProgramTimer 関数が見つかりません。");
       }
 
       // 3. 各種イベントリスナーの設定
@@ -6646,7 +6669,7 @@ async function loadCoachingVideos() {
         var suggestedMenusData = [];
 
         // もしSHEET_URLが定義されていない場合の予備
-        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyLDjiidmFkqmMVEgWzeBq2Tz5Y5CV2DzRUfLnXO1ydmsQ-m6ZNrfcq9xby5JjXGP-ksA/exec";
+        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxeB3N-MKhiGIN8anCnFDExwmWxRTOOEHEjrjLHbSAh_plEETi6IyD8z2-bszgS3N2G_A/exec";
 
         // ✅ 1. Gemini API呼び出し関数
 
@@ -7395,39 +7418,50 @@ async function loadCoachingVideos() {
 
         // 1. データ読み込み（共通）
         async function loadQuizData() {
-          const qStatus = document.getElementById("quiz-status-msg");
-          const lStatus = document.getElementById("listening-status-msg");
-          const qBtn = document.getElementById("start-quiz-btn");
-          const lBtn = document.getElementById("start-listening-btn");
+  const qStatus = document.getElementById("quiz-status-msg");
+  const lStatus = document.getElementById("listening-status-msg");
+  const qBtn = document.getElementById("start-quiz-btn");
+  const lBtn = document.getElementById("start-listening-btn");
 
-          // 両方のステータス更新
-          if (qStatus) qStatus.textContent = "データを取得中...";
-          if (lStatus) lStatus.textContent = "データを取得中...";
+  // 両方のステータス更新
+  if (qStatus) qStatus.textContent = "データを取得中...";
+  if (lStatus) lStatus.textContent = "データを取得中...";
 
-          try {
-            const res = await fetch(SHEET_URL + "?sheet=Quiz&t=" + new Date().getTime());
-            const data = await res.json();
+  try {
+    const res = await fetch(SHEET_URL + "?sheet=Quiz&t=" + new Date().getTime());
+    
+    // ▼▼▼ 修正箇所：まずテキストとして受け取り、HTMLエラー画面かチェックする ▼▼▼
+    const text = await res.text();
+    
+    if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+      console.error("HTMLが返却されました。GASの権限やURLを確認してください。返却内容:", text);
+      throw new Error("データではなくエラー画面(HTML)が返却されました");
+    }
 
-            if (data.error || !data.length) {
-              throw new Error(data.error || "データが空です");
-            }
+    // HTMLでなければJSONとしてパース
+    const data = JSON.parse(text);
+    // ▲▲▲ 修正箇所ここまで ▲▲▲
 
-            quizData = data;
-            const msg = `準備完了 (全${quizData.length}問)`;
+    if (data.error || !data.length) {
+      throw new Error(data.error || "データが空です");
+    }
 
-            if (qStatus) qStatus.textContent = msg;
-            if (lStatus) lStatus.textContent = msg;
+    quizData = data;
+    const msg = `準備完了 (全${quizData.length}問)`;
 
-            if (qBtn) { qBtn.disabled = false; qBtn.style.opacity = "1"; }
-            if (lBtn) { lBtn.disabled = false; lBtn.style.opacity = "1"; }
+    if (qStatus) qStatus.textContent = msg;
+    if (lStatus) lStatus.textContent = msg;
 
-          } catch (error) {
-            console.error("Quiz Load Error:", error);
-            const errMsg = "データ取得エラー";
-            if (qStatus) qStatus.textContent = errMsg;
-            if (lStatus) lStatus.textContent = errMsg;
-          }
-        }
+    if (qBtn) { qBtn.disabled = false; qBtn.style.opacity = "1"; }
+    if (lBtn) { lBtn.disabled = false; lBtn.style.opacity = "1"; }
+
+  } catch (error) {
+    console.error("Quiz Load Error:", error);
+    const errMsg = "データ取得エラー（GASのURL等を確認してください）";
+    if (qStatus) qStatus.textContent = errMsg;
+    if (lStatus) lStatus.textContent = errMsg;
+  }
+}
 
         // 2. 開始処理（モード指定）
         function startQuiz(mode = 'normal') {
