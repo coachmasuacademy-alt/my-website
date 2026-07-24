@@ -584,6 +584,19 @@ let prevKneeAngle = 0; // 前フレームの角度（角速度の計算に使用
 let jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 }; // 1回のジャンプ中の最大値を保持
 let lastFrameTime = 0; // フレーム間の時間差計算用
 
+// --- リフティング計測用変数 ---
+let isLiftingModeActive = false;
+let liftingCount = 0;
+let liftingWristPath = []; // 軌跡保存用
+let liftingPrevY = 0;
+let liftingDirection = 'down'; // 'up' or 'down'
+let liftingThreshold = 0.02; // 上下動と判定する閾値
+let liftingStartTime = 0;
+let liftingPrevPos = null; // 速度計算用（前フレームの座標）
+let liftingPrevTime = 0;   // 速度計算用（前フレームの時間）
+let liftingMaxSpeed = 0;   // 最大速度記録用
+let liftingSpeedHistory = []; // 平均速度計算用
+
     // ログイン処理
     async function loginWithPassword() {
       const passwordInput = document.getElementById("passwordInput");
@@ -4561,7 +4574,12 @@ async function loadCoachingVideos() {
             <option value="hip">股関節角度</option>
             <option value="knee">膝関節角度</option>
         </select>
+
+<button onclick="toggleLiftingPanel()" id="btn-open-lifting" style="font-size: 11px; padding: 2px 8px; background: #009688; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            🎾 リフティング評価
+        </button>
     </div>
+   
 
     <div id="proprio-test-panel" style="display: none; padding: 15px; background: #f3e5f5; border-radius: 8px; border: 2px solid #9c27b0; margin-top: 5px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -4582,6 +4600,37 @@ async function loadCoachingVideos() {
         <div id="proprio-result-list" style="margin-top: 10px; font-size: 12px; color: #333; max-height: 100px; overflow-y: auto; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 5px;"></div>
     </div>
 </div>
+
+<div id="lifting-test-panel" style="display: none; padding: 15px; background: #e0f2f1; border-radius: 8px; border: 2px solid #009688; margin-top: 5px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <strong style="color: #00796b;">🎾 リフティング（ブレ）評価モード</strong>
+            <button onclick="toggleLiftingPanel()" style="background:none; border:none; color:#666; cursor:pointer; font-weight:bold;">✕</button>
+        </div>
+        <p style="font-size: 11px; color: #00796b; margin: 0 0 10px 0;">
+            ラケットを持つ手の上下動で回数をカウントし、手首の軌跡の「ブレ」から安定性を評価します。
+        </p>
+        <div style="display:flex; gap:8px; justify-content:center; margin-bottom:15px;">
+            <button onclick="startLiftingMeasurement()" style="background:#009688; color:white; font-weight:bold; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">▶ 計測スタート</button>
+            <button onclick="stopLiftingMeasurement()" style="background:#e53935; color:white; font-weight:bold; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">■ ストップ＆評価</button>
+        </div>
+        
+        <div style="text-align:center; display:flex; justify-content:space-around;">
+            <div>
+                <div style="font-size:11px; color:#666;">連続回数</div>
+                <div id="val-lifting-count" style="font-size:32px; font-weight:bold; color:#00796b; font-family:monospace;">0</div>
+            </div>
+            <!-- ▼ 手の速度を追加 ▼ -->
+            <div>
+                <div style="font-size:11px; color:#666;">手の速度</div>
+                <div id="val-lifting-speed-container" style="font-size:32px; font-weight:bold; color:#d32f2f; font-family:monospace;"><span id="val-lifting-speed">0.0</span><span style="font-size:14px; color:#555;"> m/s</span></div>
+            </div>
+            <!-- ▲ 追加ここまで ▲ -->
+            <div>
+                <div style="font-size:11px; color:#666;">安定度スコア</div>
+                <div id="val-lifting-score" style="font-size:32px; font-weight:bold; color:#ff9800; font-family:monospace;">-</div>
+            </div>
+        </div>
+    </div>
 
 <div style="position: relative; margin: 20px auto; max-width: 640px;">
    
@@ -5253,6 +5302,7 @@ async function loadCoachingVideos() {
     </div>
 </div>
 </section>
+
 
     <section id="video-tagging-section" style="
   margin-top: 30px; 
@@ -10692,6 +10742,8 @@ window.lastEvalAngle = evalAngle;
 
         if (p3dRenderer) p3dRenderer.render(p3dScene, p3dCamera);
     }
+
+processLiftingAI(results);
 
     canvasCtx.restore();
 }
@@ -17324,6 +17376,189 @@ function stopJumpAICamera() {
     console.log("Jump AI Camera Stopped.");
 }
 
+// ==========================================
+// 🎾 リフティング評価ロジック
+// ==========================================
+// リフティングパネルの開閉
+function toggleLiftingPanel() {
+    const panel = document.getElementById('lifting-test-panel');
+    if (panel) {
+        if (panel.style.display === "none") {
+            panel.style.display = "block";
+            // 固有感覚テストパネルが開いていたら閉じるなど、必要に応じて排他制御
+            const proprioPanel = document.getElementById('proprio-test-panel');
+            if(proprioPanel) proprioPanel.style.display = "none";
+        } else {
+            panel.style.display = "none";
+            // パネルを閉じる際に計測中ならストップする
+            if(isLiftingModeActive) stopLiftingMeasurement();
+        }
+    }
+}
+
+function startLiftingMeasurement() {
+    isLiftingModeActive = true;
+    liftingCount = 0;
+    liftingWristPath = [];
+    liftingPrevY = 0;
+    liftingDirection = 'down';
+    liftingStartTime = performance.now();
+    
+    // ▼ 速度計算用の初期化 ▼
+    liftingPrevPos = null;
+    liftingPrevTime = performance.now();
+    liftingMaxSpeed = 0;          // 追加: 最大速度リセット
+    liftingSpeedHistory = [];     // 追加: 履歴リセット
+
+    document.getElementById("val-lifting-count").textContent = "0";
+    document.getElementById("val-lifting-score").textContent = "-";
+    // ▼ 修正: 表示枠を初期状態のリアルタイムメーターに戻す
+    const speedContainer = document.getElementById("val-lifting-speed-container");
+    if(speedContainer) speedContainer.innerHTML = '<span id="val-lifting-speed">0.0</span><span style="font-size:14px; color:#555;"> m/s</span>';
+    
+    if (!isCameraRunning) {
+        startCamera();
+    }
+}
+
+function stopLiftingMeasurement() {
+    isLiftingModeActive = false;
+    let score = evaluateLiftingStability();
+    document.getElementById("val-lifting-score").textContent = score > 0 ? score.toFixed(1) + "点" : "-";
+    
+    // ▼ 追加: 最大・平均速度の計算と表示 ▼
+    let avgSpeed = 0;
+    if (liftingSpeedHistory.length > 0) {
+        let sum = liftingSpeedHistory.reduce((a, b) => a + b, 0);
+        avgSpeed = sum / liftingSpeedHistory.length;
+    }
+    
+    const speedContainer = document.getElementById("val-lifting-speed-container");
+    if (speedContainer && liftingMaxSpeed > 0) {
+        speedContainer.innerHTML = `
+            <div style="font-size:22px; color:#d32f2f;">Max: ${liftingMaxSpeed.toFixed(1)} <span style="font-size:11px;">m/s</span></div>
+            <div style="font-size:14px; color:#555;">Avg: ${avgSpeed.toFixed(1)} m/s</div>
+        `;
+    }
+    // ▲ 追加ここまで ▲
+
+    if(score >= 80) {
+        alert("素晴らしい安定性です！前腕の無駄な力みがなく、ラケット面が安定しています。");
+    } else if (score > 0) {
+        alert("手首の軌跡にブレがあります。ラケットの面を一定に保つよう意識しましょう。");
+    }
+}
+
+function evaluateLiftingStability() {
+    if (liftingWristPath.length < 10) return 0;
+    let sumX = 0, sumY = 0;
+    liftingWristPath.forEach(p => { sumX += p.x; sumY += p.y; });
+    const meanX = sumX / liftingWristPath.length;
+    
+    let varianceX = 0;
+    liftingWristPath.forEach(p => { varianceX += Math.pow(p.x - meanX, 2); });
+    varianceX /= liftingWristPath.length;
+
+    let penalty = varianceX * 1000; 
+    let score = 100 - penalty;
+    return Math.max(0, Math.min(100, score));
+}
+
+function processLiftingAI(results) {
+    if (!isLiftingModeActive || !results.poseLandmarks) return;
+
+    const lm = results.poseLandmarks;
+    const wrist = lm[15].y < lm[16].y ? lm[15] : lm[16]; 
+
+    if (wrist.visibility < 0.5) return;
+
+    const currentX = wrist.x;
+    const currentY = wrist.y;
+    liftingWristPath.push({ x: currentX, y: currentY });
+
+    // ▼▼▼ 手の速度計算ロジック ▼▼▼
+    const worldLm = results.poseWorldLandmarks;
+    if (worldLm) {
+        // ラケットを持っている手首のインデックス（15:左, 16:右）を取得
+        const wristIndex = lm[15].y < lm[16].y ? 15 : 16;
+        const worldWrist = worldLm[wristIndex];
+
+        // X, Y, Zの3D実空間座標（近似メートル）を取得
+        const currentWorldPos = { x: worldWrist.x, y: worldWrist.y, z: worldWrist.z };
+        const now = performance.now();
+
+        if (liftingPrevPos && liftingPrevTime > 0) {
+            const dt = (now - liftingPrevTime) / 1000; // 時間差（秒）
+            if (dt > 0 && dt < 0.5) { // 0.5秒以上のラグは無視（ノイズ対策）
+                // 3次元空間での移動距離（メートル）
+                const dx = currentWorldPos.x - liftingPrevPos.x;
+                const dy = currentWorldPos.y - liftingPrevPos.y;
+                const dz = currentWorldPos.z - liftingPrevPos.z;
+                const distMeters = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                
+                // 物理速度 (m/s)
+                const currentSpeedMPS = distMeters / dt;
+
+if (currentSpeedMPS > liftingMaxSpeed) {
+                    liftingMaxSpeed = currentSpeedMPS;
+                }
+                liftingSpeedHistory.push(currentSpeedMPS);
+                
+                // スムージング処理（表示のチラつきを抑える）
+                const elSpeed = document.getElementById("val-lifting-speed");
+                if (elSpeed) {
+                    const prevDisp = parseFloat(elSpeed.textContent) || 0;
+                    const smoothSpeed = (prevDisp * 0.8) + (currentSpeedMPS * 0.2);
+                    elSpeed.textContent = smoothSpeed.toFixed(1);
+                }
+            }
+        }
+        // 今回の3D座標と時間を記録
+        liftingPrevPos = currentWorldPos;
+        liftingPrevTime = now;
+    }
+    // ▲▲▲ 手の速度計算ここまで ▲▲▲
+
+    // --- 回数カウントロジック ---
+    if (liftingDirection === 'down') {
+        if (currentY < liftingPrevY - liftingThreshold) {
+            liftingDirection = 'up';
+            liftingCount++;
+            document.getElementById("val-lifting-count").textContent = liftingCount;
+            if (typeof playBeep === 'function') playBeep(600, 100);
+        }
+    } else {
+        if (currentY > liftingPrevY + liftingThreshold) {
+            liftingDirection = 'down';
+        }
+    }
+    liftingPrevY = currentY;
+
+    // --- 描画処理 ---
+    const canvas = document.getElementById('output_canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.save();
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(0, 255, 255, 0.6)";
+    ctx.lineWidth = 3;
+    
+    const pathLimit = Math.max(0, liftingWristPath.length - 100);
+    for (let i = pathLimit; i < liftingWristPath.length; i++) {
+        const px = liftingWristPath[i].x * canvas.width;
+        const py = liftingWristPath[i].y * canvas.height;
+        if (i === pathLimit) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    
+    ctx.beginPath();
+    ctx.arc(wrist.x * canvas.width, wrist.y * canvas.height, 8, 0, Math.PI*2);
+    ctx.fillStyle = "#ffeb3b";
+    ctx.fill();
+    ctx.restore();
+}
 // ==========================================
 // 🌐 3Dフォーム・レコーダー (完成版・変数名修正済み)
 // ==========================================
