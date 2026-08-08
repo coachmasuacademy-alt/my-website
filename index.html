@@ -559,7 +559,7 @@
 
     // ==============================================
     // ... 既存の定数・変数の定義
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbxeB3N-MKhiGIN8anCnFDExwmWxRTOOEHEjrjLHbSAh_plEETi6IyD8z2-bszgS3N2G_A/exec";
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbyXm2IqiLQdDG9jrbAJ5Aol9qKg7gBNehGWLnmrTE3H-KLVhC49PfNwAd-UukCYhOuFtg/exec";
     let sheetData = [];
     let selectedMenus = [];
     let editableName = "";
@@ -6718,10 +6718,7 @@ async function loadCoachingVideos() {
         // 変数の初期化
         var suggestedMenusData = [];
 
-        // もしSHEET_URLが定義されていない場合の予備
-        const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbxeB3N-MKhiGIN8anCnFDExwmWxRTOOEHEjrjLHbSAh_plEETi6IyD8z2-bszgS3N2G_A/exec";
-
-        // ✅ 1. Gemini API呼び出し関数
+       // ✅ 1. Gemini API呼び出し関数
 
         // API通信
         window.analyzeAndSuggest = async function () {
@@ -6751,34 +6748,76 @@ async function loadCoachingVideos() {
         </div>`;
 
           try {
-            const targetUrl = (typeof SHEET_URL !== 'undefined') ? SHEET_URL : DEFAULT_GAS_URL;
-            const requestUrl = `${targetUrl}?mode=ai&text=${encodeURIComponent(text)}`;
+           const requestUrl = `${SHEET_URL}?mode=ai&text=${encodeURIComponent(text)}`;
 
             // API通信
             const res = await fetch(requestUrl);
             let jsonString = await res.text();
 
-            // クリーニング処理
-            jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "");
-            const firstOpen = jsonString.indexOf('{');
-            const lastClose = jsonString.lastIndexOf('}');
-            if (firstOpen !== -1 && lastClose !== -1) {
-              jsonString = jsonString.substring(firstOpen, lastClose + 1);
+console.log("📦 GASから届いた生のデータ:", jsonString);
+
+            // もしエラー画面（HTML）が返ってきていたら弾く
+            if (jsonString.trim().startsWith("<!DOCTYPE") || jsonString.trim().startsWith("<html")) {
+              output.innerHTML = `⚠️ GASのURLまたは権限エラーが発生しました。<br>F12キーでコンソールを確認してください。`;
+              return;
             }
 
+           // JSONのパース（解読）処理
             let data;
             try {
-              data = JSON.parse(jsonString);
-            } catch (e) {
-              console.error("JSON Parse Error:", jsonString);
-              output.innerHTML = `⚠️ データ読み込みエラーが発生しました。`;
+              // 1段階目：GASからの返答をパース
+              let parsedOnce;
+              try {
+                parsedOnce = JSON.parse(jsonString);
+              } catch(e) {
+                parsedOnce = jsonString; // 既に文字列として崩れている場合はそのまま使う
+              }
+              
+              if (typeof parsedOnce === 'string') {
+                  // Markdown記法(```json など)を除去
+                  let innerString = parsedOnce.replace(/^```[a-z]*\n?/gm, "").replace(/```$/gm, "").trim();
+                  
+                  let firstBrace = innerString.indexOf('{');
+                  let firstBracket = innerString.indexOf('[');
+                  let firstOpen = (firstBrace !== -1 && firstBracket !== -1) ? Math.min(firstBrace, firstBracket) : Math.max(firstBrace, firstBracket);
+
+                  let lastBrace = innerString.lastIndexOf('}');
+                  let lastBracket = innerString.lastIndexOf(']');
+                  let lastClose = Math.max(lastBrace, lastBracket);
+
+                  let parseSuccess = false;
+                  
+                  // 🔥ここが最強の修正：後ろのカッコから順に「正しいJSON」になるまで何度も解読を試す
+                  while (lastClose > firstOpen) {
+                      try {
+                          let candidate = innerString.substring(firstOpen, lastClose + 1);
+                          data = JSON.parse(candidate);
+                          parseSuccess = true;
+                          break; // 成功したらループを抜ける！
+                      } catch (e) {
+                          // 失敗したら、AIの余計なテキストだと判断して「もう1つ前のカッコ」を探す
+                          lastBrace = innerString.lastIndexOf('}', lastClose - 1);
+                          lastBracket = innerString.lastIndexOf(']', lastClose - 1);
+                          lastClose = Math.max(lastBrace, lastBracket);
+                      }
+                  }
+                  
+                  if (!parseSuccess) {
+                      throw new Error("有効なデータが見つかりませんでした。");
+                  }
+              } else {
+                  data = parsedOnce;
+              }
+              
+            } catch (parseError) {
+              console.error("❌ JSON Parse Error:", parseError.message);
+              console.error("📦 問題の文字列:", jsonString);
+              output.innerHTML = `⚠️ データ読み込みエラーが発生しました。<br><span style="font-size:12px;color:red;">原因: ${parseError.message}</span>`;
               return;
             }
 
             // エラーチェック
             if (data.error) {
-              console.error("API Error Response:", data.error);
-
               if (typeof data.error === 'string' && (data.error.includes("429") || data.error.includes("quota"))) {
                 output.innerHTML = `
                     <div style="color: #c62828; background: #ffebee; padding: 15px; border-radius: 8px; border: 1px solid #ef5350;">
@@ -6795,18 +6834,65 @@ async function loadCoachingVideos() {
               return;
             }
 
-            // 成功時の処理（リスト表示）
+         // 成功時の処理（リスト表示）
             let parsedMenus = [];
-            let adviceText = data.advice || "";
+            let adviceText = data.advice || data.message || data.comment || "";
 
-            if (data.suggested_menus && Array.isArray(data.suggested_menus)) {
-              parsedMenus = data.suggested_menus.map(m => ({
-                category: m.category || m.step || "AI提案",
-                name: m.name,
-                note: m.note || m.reason || "",
-                url: m.url || m.video_url || ""
-              }));
+            // AIの出力ブレに対応する最強の配列抽出ロジック
+            let menuArray = [];
+            if (Array.isArray(data)) {
+              menuArray = data;
+            } else if (data && typeof data === 'object') {
+              // オブジェクトの中に配列が隠れている場合
+              menuArray = data.suggested_menus || data.menus || data.menu || data.data || data.list || [];
+              
+              // もし配列が見つからず、単一のメニューデータだった場合は配列で包む
+              if (menuArray.length === 0 && (data.name || data["メニュー名"] || data.category || data["カテゴリ"])) {
+                  menuArray = [data];
+              }
             }
+
+            // 0件（空っぽ）の場合の処理
+            if (!Array.isArray(menuArray) || menuArray.length === 0) {
+              console.warn("⚠️ AIから空のデータが返されました:", data);
+              output.innerHTML = `
+                <div style="padding: 10px; color: #333;">
+                  ⚠️ 条件に合うメニューが見つかりませんでした。<br>
+                  <span style="font-size:12px;color:#666;">
+                    ※過去のテスト結果が一時保存(キャッシュ)されている可能性があります。<br>
+                    <strong>入力する課題の文章を今までと全く違うものに変えて（例：「試合後半でバテない体力が欲しい」など）再度お試しください。</strong>
+                  </span>
+                </div>`;
+              return;
+            }
+
+            // 配列のデータを画面表示用に成形
+           parsedMenus = menuArray.map(m => {
+              let mName = m.name || m.メニュー名 || m.title || "名称不明";
+              let mCat = m.category || m.カテゴリ || m.step || "AI提案";
+              let mNote = m.note || m.説明 || m.reason || "";
+              let mUrl = m.url || m.video_url || m["YouTube URL"] || "";
+
+              // 🌟 AIのミス対策：元データ(sheetData)から本物のURLを検索して確実に上書きする
+              if (typeof sheetData !== 'undefined' && sheetData.length > 0) {
+                const realData = sheetData.find(item => item["メニュー名"] === mName);
+                if (realData) {
+                  // 大文字小文字が正確な本物のURLを適用
+                  if (realData["YouTube URL"]) mUrl = realData["YouTube URL"];
+                  // カテゴリも念のため本物で補正
+                  if (realData["カテゴリ"]) mCat = realData["カテゴリ"];
+                  // AIが説明をサボった場合は本物の説明を入れる
+                  if (!mNote && realData["説明"]) mNote = realData["説明"];
+                }
+              }
+
+              return {
+                category: mCat,
+                name: mName,
+                note: mNote,
+                url: mUrl
+              };
+            });
 
             suggestedMenusData = parsedMenus.map(m => ({
               category: m.category,
@@ -6861,9 +6947,9 @@ async function loadCoachingVideos() {
 
           } catch (e) {
             console.error("AI Analyze Error:", e);
-            output.innerHTML = `<div style="color:red; padding:10px;">⚠️ エラー: ${e.message}</div>`;
+            output.innerHTML = `<div style="color:red; padding:10px;">⚠️ 通信エラー: ${e.message}</div>`;
           }
-        };
+};
 
         // ✅ 2. 選択した提案メニューをリストに追加する関数
         window.addSuggestedMenus = function () {
