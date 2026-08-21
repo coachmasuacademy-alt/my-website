@@ -4529,9 +4529,9 @@ async function loadCoachingVideos() {
               style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
           <label style="font-size: 13px;">ラケット(g): <input type="number" id="bio-racket" value="85"
               style="width:50px; padding: 4px; border: 1px solid #ccc; border-radius: 4px;"></label>
-        </div>
+        </div>      
 
-        <div
+<div
           style="margin-bottom: 10px; padding: 10px; background: #e3f2fd; border-radius: 4px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; border: 1px solid #90caf9;">
           <span style="font-weight: bold; font-size: 13px; color: #0277bd;">👁️ 表示設定:</span>
 
@@ -4555,103 +4555,67 @@ async function loadCoachingVideos() {
             <input type="checkbox" id="strobe-toggle"> 🎞️ 画像残像
           </label>
 
-<div style="margin-bottom: 10px; padding: 10px; background: #fffde7; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #fbc02d;">
-    <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
-        <span style="font-weight: bold; font-size: 13px; color: #f57f17;">🚀 拡張オプション:</span>
-        
-        <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #f57f17;">
-            <input type="checkbox" id="3d-eval-toggle" onchange="toggle3DEvaluation()"> 🌐 3D姿勢評価
-        </label>
-
-        <button onclick="openProprioTest()" id="btn-open-proprio" style="font-size: 11px; padding: 2px 8px; background: #9c27b0; color: white; border: none; border-radius: 4px; cursor: pointer; display: none;">
-            🧠 固有感覚テスト
-        </button>
-
-        <select id="p3d-eval-mode" onchange="p3dCurrentMode = this.value" style="font-size: 11px; padding: 2px; border: 1px solid #ccc; border-radius: 4px;">
-            <option value="front">正面判定（肩の水平）</option>
-            <option value="side">横向判定（体幹の軸）</option>
-            <option value="neck">首の突出（横向き）</option>
-            <option value="hip">股関節角度</option>
-            <option value="knee">膝関節角度</option>
-        </select>
-
-<button onclick="toggleLiftingPanel()" id="btn-open-lifting" style="font-size: 11px; padding: 2px 8px; background: #009688; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            🎾 リフティング評価
-        </button>
-    </div>
-   
-
-    <div id="proprio-test-panel" style="display: none; padding: 15px; background: #f3e5f5; border-radius: 8px; border: 2px solid #9c27b0; margin-top: 5px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong style="color: #7b1fa2;">🧠 固有感覚テストモード</strong>
-            <button onclick="closeProprioTest()" style="background:none; border:none; color:#666; cursor:pointer; font-weight:bold;">✕</button>
-        </div>
-        
-        <div id="proprio-question-area" style="text-align: center; margin-bottom: 15px;">
-            <div id="proprio-task-text" style="font-size: 16px; font-weight: bold; color: #4a148c;">「テスト開始」を押してください</div>
-            <div style="font-size: 11px; color: #7b1fa2; margin-top: 5px;">指定された角度をピッタリ作ってみましょう</div>
-        </div>
-
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="btn-start-proprio" onclick="startProprioChallenge()" style="background: #9c27b0; color: white; padding: 8px 16px; border-radius: 4px; border:none; cursor:pointer;">テスト開始</button>
-            <button id="btn-judge-proprio" onclick="captureProprioAngle()" style="background: #e91e63; color: white; display: none; padding: 8px 16px; border-radius: 4px; border:none; cursor:pointer; font-weight:bold;">判定！</button>
-        </div>
-
-        <div id="proprio-result-list" style="margin-top: 10px; font-size: 12px; color: #333; max-height: 100px; overflow-y: auto; background: rgba(255,255,255,0.5); border-radius: 4px; padding: 5px;"></div>
-    </div>
-</div>
-
-<div id="lifting-test-panel" style="display: none; padding: 15px; background: #e0f2f1; border-radius: 8px; border: 2px solid #009688; margin-top: 5px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <strong style="color: #00796b;">🎾 リフティング（ブレ）評価モード</strong>
-            <button onclick="toggleLiftingPanel()" style="background:none; border:none; color:#666; cursor:pointer; font-weight:bold;">✕</button>
-        </div>
-        <p style="font-size: 11px; color: #00796b; margin: 0 0 10px 0;">
-            ラケットを持つ手の上下動で回数をカウントし、手首の軌跡の「ブレ」から安定性を評価します。
-        </p>
-        <div style="display:flex; gap:8px; justify-content:center; margin-bottom:15px;">
-            <button onclick="startLiftingMeasurement()" style="background:#009688; color:white; font-weight:bold; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">▶ 計測スタート</button>
-            <button onclick="stopLiftingMeasurement()" style="background:#e53935; color:white; font-weight:bold; padding:6px 12px; border:none; border-radius:4px; cursor:pointer;">■ ストップ＆評価</button>
-        </div>
-        
-        <div style="text-align:center; display:flex; justify-content:space-around;">
-            <div>
-                <div style="font-size:11px; color:#666;">連続回数</div>
-                <div id="val-lifting-count" style="font-size:32px; font-weight:bold; color:#00796b; font-family:monospace;">0</div>
-            </div>
-            <!-- ▼ 手の速度を追加 ▼ -->
-            <div>
-                <div style="font-size:11px; color:#666;">手の速度</div>
-                <div id="val-lifting-speed-container" style="font-size:32px; font-weight:bold; color:#d32f2f; font-family:monospace;"><span id="val-lifting-speed">0.0</span><span style="font-size:14px; color:#555;"> m/s</span></div>
-            </div>
-            <!-- ▲ 追加ここまで ▲ -->
-            <div>
-                <div style="font-size:11px; color:#666;">安定度スコア</div>
-                <div id="val-lifting-score" style="font-size:32px; font-weight:bold; color:#ff9800; font-family:monospace;">-</div>
-            </div>
-        </div>
-    </div>
-
-<div style="position: relative; margin: 20px auto; max-width: 640px;">
-   
-</div>
-
-          <div style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
+          <!-- 画像残像の設定パラメータ（表示設定枠の中に含める） -->
+          <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; margin-left: 10px;">
             <span>間隔:密</span>
             <input type="range" id="strobe-interval" min="5" max="60" value="15" step="5" style="width: 60px;">
             <span>疎</span>
           </div>
 
-          <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; margin-left: 5px;">
+          <div style="display: flex; align-items: center; gap: 5px; font-size: 12px;">
             <span>枚数:少</span>
             <input type="range" id="strobe-count" min="10" max="100" value="50" step="10" style="width: 60px;">
             <span>多</span>
           </div>
 
           <button onclick="clearStrobeData()"
-            style="font-size: 12px; padding: 3px 8px; background: #e91e63; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            style="font-size: 12px; padding: 4px 10px; background: #e91e63; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
             🗑️ 消去
           </button>
+        </div>
+
+        <!-- 拡張オプション（独立した黄色い枠にする） -->
+        <div style="margin-bottom: 10px; padding: 10px; background: #fffde7; border-radius: 4px; display: flex; flex-direction: column; gap: 8px; border: 1px solid #fbc02d;">
+          <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+            <span style="font-weight: bold; font-size: 13px; color: #f57f17;">🚀 拡張オプション:</span>
+            
+            <label style="cursor: pointer; font-size: 13px; font-weight: bold; color: #f57f17;">
+              <input type="checkbox" id="3d-eval-toggle" onchange="toggle3DEvaluation()"> 🌐 3D姿勢評価(猫背・スマホ首)
+            </label>
+                  
+            <button onclick="toggleLiftingPanel()" id="btn-open-lifting" style="font-size: 12px; padding: 4px 12px; background: #009688; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+              🎾 リフティング評価
+            </button>
+          </div>
+       
+          <div id="lifting-test-panel" style="display: none; padding: 15px; background: #e0f2f1; border-radius: 8px; border: 2px solid #009688; margin-top: 5px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+              <strong style="color: #00796b;">🎾 リフティング（ブレ）評価モード</strong>
+              <button onclick="toggleLiftingPanel()" style="background:none; border:none; color:#666; cursor:pointer; font-weight:bold; font-size:16px;">✕</button>
+            </div>
+            <p style="font-size: 12px; color: #00796b; margin: 0 0 10px 0;">
+              ラケットを持つ手の上下動で回数をカウントし、手首の軌跡の「ブレ」から安定性を評価します。
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center; margin-bottom:15px;">
+              <button onclick="startLiftingMeasurement()" style="background:#009688; color:white; font-weight:bold; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">▶ 計測スタート</button>
+              <button onclick="stopLiftingMeasurement()" style="background:#e53935; color:white; font-weight:bold; padding:8px 16px; border:none; border-radius:4px; cursor:pointer;">■ ストップ＆評価</button>
+            </div>
+            
+            <div style="text-align:center; display:flex; justify-content:space-around;">
+              <div>
+                <div style="font-size:12px; color:#666;">連続回数</div>
+                <div id="val-lifting-count" style="font-size:32px; font-weight:bold; color:#00796b; font-family:monospace;">0</div>
+              </div>
+              <div>
+                <div style="font-size:12px; color:#666;">手の速度</div>
+                <div id="val-lifting-speed-container" style="font-size:32px; font-weight:bold; color:#d32f2f; font-family:monospace;"><span id="val-lifting-speed">0.0</span><span style="font-size:14px; color:#555;"> m/s</span></div>
+              </div>
+              <div>
+                <div style="font-size:12px; color:#666;">安定度スコア</div>
+                <div id="val-lifting-score" style="font-size:32px; font-weight:bold; color:#ff9800; font-family:monospace;">-</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div style="margin-bottom: 15px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
@@ -10769,65 +10733,32 @@ function onPoseResults(results) {
 
 if (is3DEvalEnabled && results.poseWorldLandmarks) {
         const worldLm = results.poseWorldLandmarks;
-        update3DModel(worldLm); 
         
-        let evalLabel = "";
-        let evalAngle = 0;
-        let evalColor = "#4caf50";
+        // 1. 体幹軸の計算
+        const trunkAngle = calculateAngle3D(worldLm[12], worldLm[24], worldLm[26]);
+        const trunkColor = (trunkAngle < 165) ? "#ff9800" : "#4caf50";
+        const trunkIcon = (trunkColor === "#4caf50") ? "✅" : "⚠️";
 
-        // --- モード別の角度計算 ---
-        if (p3dCurrentMode === 'front') {
-            evalAngle = Math.abs(Math.atan2(worldLm[12].y - worldLm[11].y, worldLm[12].x - worldLm[11].x) * (180 / Math.PI));
-            evalLabel = "肩の傾き";
-            evalColor = evalAngle < 6 ? "#4caf50" : "#f44336";
-        } 
-        else if (p3dCurrentMode === 'side') {
-            evalAngle = calculateAngle3D(worldLm[12], worldLm[24], worldLm[26]);
-            evalLabel = "体幹軸";
-            evalColor = (evalAngle < 165) ? "#ff9800" : "#4caf50";
-        } 
-        else if (p3dCurrentMode === 'neck') {
-            const headX = (worldLm[7].x + worldLm[8].x) / 2;
-            const headY = (worldLm[7].y + worldLm[8].y) / 2;
-            const shoulderX = (worldLm[11].x + worldLm[12].x) / 2;
-            const shoulderY = (worldLm[11].y + worldLm[12].y) / 2;
-            evalAngle = Math.atan2(Math.abs(headX - shoulderX), Math.abs(headY - shoulderY)) * (180 / Math.PI);
-            evalLabel = "首の突出";
-            evalColor = evalAngle < 15 ? "#4caf50" : (evalAngle < 25 ? "#ff9800" : "#f44336");
-        }
-        // ★追加：股関節角度 (肩 - 腰 - 膝)
-        else if (p3dCurrentMode === 'hip') {
-            const angleR = calculateAngle3D(worldLm[12], worldLm[24], worldLm[26]);
-            const angleL = calculateAngle3D(worldLm[11], worldLm[23], worldLm[25]);
-            evalAngle = (angleR + angleL) / 2;
-            evalLabel = "股関節角度";
-            // バドミントンの構えでは 130〜160度程度がパワーを出しやすい
-            evalColor = (evalAngle < 165) ? "#4caf50" : "#ff9800";
-        }
-        // ★追加：膝関節角度 (腰 - 膝 - 足首)
-        else if (p3dCurrentMode === 'knee') {
-    const angleR = calculateAngle3D(worldLm[24], worldLm[26], worldLm[28]);
-    const angleL = calculateAngle3D(worldLm[23], worldLm[25], worldLm[27]);
+        // 2. 首の突出の計算
+        const headX = (worldLm[7].x + worldLm[8].x) / 2;
+        const headY = (worldLm[7].y + worldLm[8].y) / 2;
+        const shoulderX = (worldLm[11].x + worldLm[12].x) / 2;
+        const shoulderY = (worldLm[11].y + worldLm[12].y) / 2;
+        const neckAngle = Math.atan2(Math.abs(headX - shoulderX), Math.abs(headY - shoulderY)) * (180 / Math.PI);
+        const neckColor = neckAngle < 15 ? "#4caf50" : (neckAngle < 25 ? "#ff9800" : "#f44336");
+        const neckIcon = (neckColor === "#4caf50") ? "✅" : "⚠️";
 
-    // 信頼度（Visibility）が高い方を優先するか、
-    // あるいは「より膝が曲がっている方」を表示するロジック
-    // 側方なら「見えている方」＝「角度が安定している方」を採用
-    evalAngle = (Math.abs(180 - angleR) > Math.abs(180 - angleL)) ? angleR : angleL;
-
-    evalLabel = "膝関節角度(最大屈曲側)";
-    evalColor = (evalAngle < 165) ? "#4caf50" : "#f44336";
-}
-
-        // メイン画面へのテキスト描画
-        canvasCtx.fillStyle = evalColor;
+        // メイン画面へのテキスト描画 (上下に並べて表示)
         canvasCtx.font = "bold 22px Arial";
-        const statusIcon = (evalColor === "#4caf50") ? "✅" : "⚠️";
-        canvasCtx.fillText(`${statusIcon} ${evalLabel}: ${evalAngle.toFixed(1)}°`, 20, 60);
-
-window.lastEvalAngle = evalAngle;
-
-        if (p3dRenderer) p3dRenderer.render(p3dScene, p3dCamera);
-    }
+        
+        // 上段：体幹軸（猫背）
+        canvasCtx.fillStyle = trunkColor;
+        canvasCtx.fillText(`${trunkIcon} 体幹軸(猫背): ${trunkAngle.toFixed(1)}°`, 20, 60);
+        
+        // 下段：首の突出（スマホ首）
+        canvasCtx.fillStyle = neckColor;
+        canvasCtx.fillText(`${neckIcon} 首の突出(スマホ首): ${neckAngle.toFixed(1)}°`, 20, 90);
+}
 
 processLiftingAI(results);
 
@@ -17652,42 +17583,6 @@ let is3DEvalEnabled = false;
 
 function toggle3DEvaluation() {
     is3DEvalEnabled = document.getElementById('3d-eval-toggle').checked;
-    const controls = document.getElementById('p3d-mini-controls');
-    const proprioBtn = document.getElementById('btn-open-proprio'); // 追加
-    
-    if (is3DEvalEnabled) {
-        if (controls) controls.style.display = "flex";
-        if (proprioBtn) proprioBtn.style.display = "inline-block"; // ボタン出現
-        initP3DScene();
-    } else {
-        if (controls) controls.style.display = "none";
-        if (proprioBtn) proprioBtn.style.display = "none"; // ボタン消滅
-        closeProprioTest(); // パネルも閉じる
-    }
-}
-
-// --- 固有感覚テスト用データと変数 ---
-let proprioTasks = [
-    { label: "膝の屈曲（半身で）", mode: "knee", target: 135 },
-    { label: "体幹の前傾（深く）", mode: "side", target: 155 },
-    { label: "股関節のタメ", mode: "hip", target: 145 },
-    { label: "首の引き（垂直に）", mode: "neck", target: 5 }
-];
-let currentProprioIdx = 0;
-let proprioResults = [];
-let isProprioTesting = false;
-
-// テストパネルを開く
-function openProprioTest() {
-    const panel = document.getElementById('proprio-test-panel');
-    if (panel) panel.style.display = "block";
-}
-
-// テストパネルを閉じる
-function closeProprioTest() {
-    const panel = document.getElementById('proprio-test-panel');
-    if (panel) panel.style.display = "none";
-    isProprioTesting = false;
 }
 
 // 3. テスト開始ボタンの処理
@@ -17702,77 +17597,6 @@ function startProprioChallenge() {
     showNextProprioTask();
 }
 
-// 4. 次の課題を表示する
-function showNextProprioTask() {
-    const taskTextEl = document.getElementById("proprio-task-text");
-    if (currentProprioIdx < proprioTasks.length) {
-        const task = proprioTasks[currentProprioIdx];
-        taskTextEl.innerHTML = `
-            <span style="color:#7b1fa2; font-size:12px;">課題 ${currentProprioIdx + 1} / ${proprioTasks.length}</span><br>
-            <strong>${task.label}</strong> を <span style="color:#e91e63;">【${task.target}°】</span> にせよ
-        `;
-        p3dCurrentMode = task.mode;
-        const modeSelect = document.getElementById("p3d-eval-mode");
-        if (modeSelect) modeSelect.value = task.mode;
-    } else {
-        finishProprioTest();
-    }
-}
-
-// 5. 判定ボタン（キャプチャ）
-function captureProprioAngle() {
-    const currentAngle = window.lastEvalAngle || 0;
-    const task = proprioTasks[currentProprioIdx];
-    const diff = Math.abs(currentAngle - task.target);
-    proprioResults.push({ label: task.label, target: task.target, actual: currentAngle, diff: diff });
-    const listEl = document.getElementById("proprio-result-list");
-    if (listEl) {
-        const color = diff < 10 ? "#2e7d32" : "#d32f2f";
-        listEl.innerHTML += `
-            <div style="border-bottom:1px solid #ddd; padding:4px; font-size:11px;">
-                Q${currentProprioIdx+1}. ${task.label}: 誤差 <span style="color:${color}; font-weight:bold;">${diff.toFixed(1)}°</span>
-            </div>
-        `;
-    }
-    currentProprioIdx++;
-    if (typeof playBeep === 'function') playBeep(600, 150);
-    showNextProprioTask();
-}
-
-// 6. 全問題終了後の評価
-function finishProprioTest() {
-    isProprioTesting = false;
-    const avgDiff = proprioResults.reduce((sum, r) => sum + r.diff, 0) / proprioResults.length;
-    let rank = "C";
-    let message = "感覚を磨きましょう";
-    if (avgDiff < 7) { rank = "S"; message = "プロレベルの固有感覚です！"; }
-    else if (avgDiff < 12) { rank = "A"; message = "素晴らしい身体操作です"; }
-    else if (avgDiff < 20) { rank = "B"; message = "あともう少し！"; }
-    document.getElementById("proprio-task-text").innerHTML = `
-        <div style="font-size:20px; color:#e91e63; font-weight:900;">総合ランク: ${rank}</div>
-        <div style="font-size:13px; color:#333;">平均誤差: ${avgDiff.toFixed(1)}°</div>
-        <div style="font-size:11px; font-weight:normal; color:#666; margin-top:5px;">${message}</div>
-    `;
-    document.getElementById("btn-start-proprio").style.display = "inline-block";
-    document.getElementById("btn-start-proprio").innerText = "もう一度テストする";
-    document.getElementById("btn-judge-proprio").style.display = "none";
-    if (typeof playSportsDrum === 'function') playSportsDrum();
-}
-
-let p3dScene, p3dCamera, p3dRenderer, p3dPose;
-let p3dJoints = [], p3dBones = [];
-let p3dIsRunning = false;
-let p3dCurrentMode = 'front';
-// ★ 変数名を p3dFacingMode に統一し、初期値を背面(environment)に固定
-let p3dFacingMode = 'environment'; 
-let p3dMediaRecorder;
-let p3dRecordedChunks = [];
-
-const JOINT_CONNECTIONS = [
-    [11, 12], [11, 13], [13, 15], [12, 14], [14, 16], 
-    [11, 23], [12, 24], [23, 24],                   
-    [23, 25], [24, 26], [25, 27], [26, 28]
-];
 
 function initP3DScene() {
     const container = document.getElementById('p3d-canvas-holder');
@@ -17830,147 +17654,6 @@ function initP3DScene() {
     });
 }
 
-// 自身のカメラトラックを確実に停止する内部関数
-function internalStopP3DTracks() {
-    const video = document.getElementById('p3d-video-input');
-    if (video && video.srcObject) {
-        video.srcObject.getTracks().forEach(track => track.stop());
-        video.srcObject = null;
-    }
-}
-
-async function startP3D() {
-    console.log("Starting 3D Camera with facingMode:", p3dFacingMode);
-
-    // 1. 他のカメラを完全に停止
-    if (typeof stopTracking === 'function') stopTracking();
-    if (typeof stopJumpAICamera === 'function') stopJumpAICamera();
-    internalStopP3DTracks();
-
-    initP3DScene();
-    const video = document.getElementById('p3d-video-input');
-    const status = document.getElementById('p3d-status');
-    
-    if (!p3dPose) {
-        p3dPose = new Pose({ locateFile: (f) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
-        p3dPose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5 });
-        p3dPose.onResults(onP3DResults);
-    }
-
-    try {
-        // カメラ映像の取得
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-                facingMode: p3dFacingMode, 
-                width: { ideal: 1280 }, 
-                height: { ideal: 720 } 
-            } 
-        });
-        video.srcObject = stream;
-
-        // ★重要: 映像の準備ができるまで待機するプロミス
-        await new Promise((resolve) => {
-            video.onloadedmetadata = () => {
-                // 解像度が確定してから再生
-                video.play().then(resolve);
-            };
-        });
-
-        // 映像サイズが0でないことを最終確認
-        if (video.videoWidth === 0 || video.videoHeight === 0) {
-            throw new Error("Video dimensions are 0. Camera may not be ready.");
-        }
-
-        // 内側カメラ(user)の時だけ左右反転
-        if (p3dFacingMode === 'user') {
-            video.style.transform = "scaleX(-1)"; 
-        } else {
-            video.style.transform = "scaleX(1)";  
-        }
-
-        p3dIsRunning = true;
-        status.textContent = "Active (" + (p3dFacingMode === 'user' ? 'Front' : 'Back') + ")";
-        
-        // MediaPipeへの送信を開始（videoが確実に動いている状態）
-        const cameraUtils = new Camera(video, {
-            onFrame: async () => {
-                // エラー防止: 実行中でない、またはビデオが読み込めていない場合はスキップ
-                if (!p3dIsRunning || video.paused || video.ended) return;
-                try {
-                    await p3dPose.send({ image: video });
-                } catch (err) {
-                    console.warn("MediaPipe ignore frame:", err);
-                }
-            },
-            width: 640, height: 480
-        });
-        cameraUtils.start();
-
-        const animate = () => {
-            if (!p3dIsRunning) return;
-            p3dRenderer.render(p3dScene, p3dCamera);
-            requestAnimationFrame(animate);
-        };
-        animate();
-
-    } catch (e) { 
-        console.error("Camera Start Error:", e);
-        alert("カメラの起動に失敗しました。カメラの許可設定を確認してください。"); 
-    }
-}
-
-function switchP3DCamera() {
-    // p3dFacingModeを切り替える
-    p3dFacingMode = (p3dFacingMode === 'environment') ? 'user' : 'environment';
-    
-    if (p3dIsRunning) {
-        startP3D(); // 実行中なら再起動して反映
-    } else {
-        alert("次回の起動時は " + (p3dFacingMode === 'user' ? '内側' : '外側') + " カメラで開始します。");
-    }
-}
-
-function onP3DResults(res) {
-    if (!res.poseWorldLandmarks) return;
-    const lm = res.poseWorldLandmarks;
-    const scoreEl = document.getElementById('p3d-score');
-    const detailEl = document.getElementById('p3d-detail');
-
-    lm.forEach((p, i) => {
-        if (p3dJoints[i]) {
-            p3dJoints[i].position.set(-p.x, -p.y + 1.2, -p.z);
-            p3dJoints[i].visible = true;
-        }
-    });
-
-    JOINT_CONNECTIONS.forEach((conn, i) => {
-        const jA = p3dJoints[conn[0]], jB = p3dJoints[conn[1]], bone = p3dBones[i];
-        if (jA && jB && bone) {
-            const posA = jA.position, posB = jB.position;
-            bone.position.copy(posA);
-            const dir = new THREE.Vector3().subVectors(posB, posA);
-            const len = dir.length();
-            bone.scale.set(1, len, 1);
-            if (len > 0.0001) {
-                dir.normalize();
-                bone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-                bone.visible = true;
-            } else { bone.visible = false; }
-        }
-    });
-
-    if (p3dCurrentMode === 'front') {
-        const angle = Math.abs(Math.atan2(lm[12].y - lm[11].y, lm[12].x - lm[11].x) * (180 / Math.PI));
-        scoreEl.innerText = `${angle.toFixed(1)}°`;
-        detailEl.innerText = angle < 6 ? "肩：水平✅" : "肩：傾き⚠️";
-        scoreEl.style.color = angle < 6 ? "#4caf50" : "#f44336";
-    } else {
-        const back = calculateAngle3D(lm[12], lm[24], lm[26]);
-        scoreEl.innerText = `${back.toFixed(0)}°`;
-        detailEl.innerText = back < 165 ? "猫背⚠️" : (back > 195 ? "反りすぎ⚠️" : "体幹OK✅");
-        scoreEl.style.color = back < 165 ? "#ff9800" : "#4caf50";
-    }
-}
 
 function calculateAngle3D(p1, p2, p3) {
     const v1 = new THREE.Vector3(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
@@ -17978,10 +17661,6 @@ function calculateAngle3D(p1, p2, p3) {
     return v1.angleTo(v2) * (180 / Math.PI);
 }
 
-function toggleP3DMode() {
-    p3dCurrentMode = p3dCurrentMode === 'front' ? 'side' : 'front';
-    document.getElementById('btn-p3d-mode').innerText = p3dCurrentMode === 'front' ? '正面判定' : '横向き判定';
-}
 
 function update3DModel(lm) {
     lm.forEach((p, i) => {
@@ -18008,55 +17687,6 @@ function update3DModel(lm) {
     });
 }
 
-function startP3DRecording() {
-    const canvas = p3dRenderer.domElement;
-    p3dRecordedChunks = [];
-    const stream = canvas.captureStream(30);
-    const options = { mimeType: 'video/webm;codecs=vp9' };
-    p3dMediaRecorder = new MediaRecorder(stream, options);
-    p3dMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) p3dRecordedChunks.push(e.data); };
-    p3dMediaRecorder.onstop = async () => {
-        const blob = new Blob(p3dRecordedChunks, { type: 'video/webm' });
-        const now = new Date();
-        const filename = `3D_Analysis_${now.getTime()}.webm`;
-        const replay = document.getElementById('p3d-video-replay');
-        if (replay) {
-            replay.src = URL.createObjectURL(blob);
-            document.getElementById('btn-p3d-play').style.display = 'inline-block';
-        }
-        if (typeof saveVideoToDB === 'function') {
-            await saveVideoToDB(blob, filename);
-            if (typeof loadLibraryFromDB === 'function') loadLibraryFromDB();
-        }
-    };
-    p3dMediaRecorder.start();
-    document.getElementById('p3d-rec-dot').style.display = 'flex';
-    document.getElementById('btn-p3d-rec').style.display = 'none';
-    document.getElementById('btn-p3d-stop').style.display = 'inline-block';
-}
-
-function stopP3DRecording() {
-    if (p3dMediaRecorder) p3dMediaRecorder.stop();
-    document.getElementById('p3d-rec-dot').style.display = 'none';
-    document.getElementById('btn-p3d-stop').style.display = 'none';
-    document.getElementById('btn-p3d-rec').style.display = 'inline-block';
-}
-
-function playP3DReplay() {
-    const replay = document.getElementById('p3d-video-replay');
-    replay.style.display = 'block';
-    replay.play();
-    replay.onended = () => { replay.style.display = 'none'; };
-}
-
-function stopP3D() {
-    p3dIsRunning = false;
-    internalStopP3DTracks();
-    if (p3dRenderer) {
-        p3dRenderer.clear();
-    }
-    document.getElementById('p3d-status').textContent = "Offline";
-}
 </script>
 </body>
 </html>
