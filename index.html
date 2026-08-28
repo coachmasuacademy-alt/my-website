@@ -7002,6 +7002,32 @@ console.log("📦 GASから届いた生のデータ:", jsonString);
           osc.stop(now + duration / 1000);
         }
 
+function playTimerAlarm() {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          const now = audioCtx.currentTime;
+
+          // 「ピピピッ」を1秒間隔で3回繰り返す（合計約3秒）
+          for (let i = 0; i < 3; i++) {
+            let offset = now + i * 1.0; 
+            for (let j = 0; j < 3; j++) {
+              let t = offset + j * 0.15; // 0.15秒間隔の連続音
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = "sine"; 
+              osc.frequency.setValueAtTime(1200, t); // 高くて目立つ音
+              
+              gain.gain.setValueAtTime(0.8, t);
+              gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+              
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              
+              osc.start(t);
+              osc.stop(t + 0.15);
+            }
+          }
+        }
+
         // --- プログラムタイマー制御用 ---
         let pTimerStepCount = 0;
         let pTimerTimeout = null;
@@ -7068,17 +7094,21 @@ console.log("📦 GASから届いた生のデータ:", jsonString);
           }
           pTimerCurrentSet = 1;
           pTimerCurrentStep = 0;
-          runPTimerNext();
+          
+          // 最初（スタートボタンを押した瞬間）だけは短い音を鳴らす
+          if (typeof playSportsDrum === 'function') playSportsDrum();
+
+          runPTimerNext(true); // 初回スタートフラグを渡す
         }
 
-        function runPTimerNext() {
+        function runPTimerNext(isInitialStart = false) {
           if (pTimerCurrentStep >= pTimerSteps.length) {
-            if (typeof playBuzz === 'function') playBuzz(800, 800);
             pTimerCurrentSet++;
             pTimerCurrentStep = 0;
             if (pTimerCurrentSet > pTimerTotalSets) {
               document.getElementById("time-left").textContent = "終了";
-              if (typeof playBuzz === 'function') playBuzz(1000, 1000);
+              // すべて終了した時に3秒アラーム
+              if (typeof playTimerAlarm === 'function') playTimerAlarm();
               pTimerTimeout = null;
               return;
             }
@@ -7087,7 +7117,12 @@ console.log("📦 GASから届いた生のデータ:", jsonString);
           const t = (translations && translations[currentLang]) ? translations[currentLang] : { currentSet: "Set", currentStep: "Step" };
           document.getElementById("current-set").textContent = `${t.currentSet || 'Set'} ${pTimerCurrentSet} / ${pTimerTotalSets}`;
           document.getElementById("step-info").textContent = `${t.currentStep || 'Step'} ${pTimerCurrentStep + 1}`;
-          if (typeof playSportsDrum === 'function') playSportsDrum();
+          
+          // 初回スタート時以外（ステップやセットの切り替え時）に3秒アラーム
+          if (!isInitialStart) {
+             if (typeof playTimerAlarm === 'function') playTimerAlarm();
+          }
+          
           tickPTimer();
         }
 
@@ -7098,7 +7133,8 @@ console.log("📦 GASから届いた生のデータ:", jsonString);
             pTimerTimeout = setTimeout(tickPTimer, 1000);
           } else {
             pTimerCurrentStep++;
-            runPTimerNext();
+            // 次のステップへ移行（初回ではないため false）
+            runPTimerNext(false);
           }
         }
 
