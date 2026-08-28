@@ -434,16 +434,6 @@
       }
     }
 
-.jump-res-card {
-    background:#fafafa; 
-    border:1px solid #ddd; 
-    padding:10px 5px; 
-    border-radius:8px; 
-    font-size:12px; 
-    text-align:center; 
-    font-weight:bold;
-    color: #444;
-}
   </style>
 
   <script src="https://www.gstatic.com/charts/loader.js"></script>
@@ -569,20 +559,6 @@
     let isFwModelLoaded = false;
    
 
-// --- AIジャンプ測定用変数 ---
-let jumpModeActive = false;
-let isJumpAirborne = false;
-let jumpTakeoffTime = 0;
-let jumpGroundY = 0;
-let jumpFacingMode = 'environment';
-let prevWristPos = { x: 0, y: 0 };
-let isJumpMeasuring = false; 
-let latestJumpAnkleY = null;
-
-let jumpLog = []; // 時系列データ保存用（CSV出力に使用）
-let prevKneeAngle = 0; // 前フレームの角度（角速度の計算に使用）
-let jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 }; // 1回のジャンプ中の最大値を保持
-let lastFrameTime = 0; // フレーム間の時間差計算用
 
 // --- リフティング計測用変数 ---
 let isLiftingModeActive = false;
@@ -2532,7 +2508,7 @@ async function loadCoachingVideos() {
   <button id="nav-utility" onclick="showScreen('utility', this)">7. ユーティリティ</button>
   <button id="nav-studio" onclick="showScreen('studio', this)">8. ビデオスタジオ</button>
   <button id="nav-library" onclick="showScreen('library', this); loadLibraryFromDB(); updateStorageInfo();">9. 動画ライブラリ</button>
-  <button id="nav-course" onclick="showScreen('course', this)">10. 講習会用 (Login)</button>
+  
 </nav>
   <div class="status-message" id="statusMessage" style="margin: 10px 0; font-weight: bold;">データ取得中...</div>
 
@@ -2589,12 +2565,6 @@ async function loadCoachingVideos() {
       <p style="margin: 0; font-size: 13px; color: #555;">
         録画した授業動画などが自動的に保存されます。オフライン環境でも再生や削除、PCへの書き出しが可能です。
       </p>
-    </div>
-
-    <div class="category-card" onclick="showScreen('course', document.getElementById('nav-course'))">
-      <h4>9. 講習会用</h4>
-      <p style="margin: 0; font-size: 13px; color: #555;">
-        指導者・講師向けの機能です。受講生への資料QRコード共有や、受講生からの感想・振り返り（掲示板）を一元管理できます。（受講生への資料共有、振り返り）</p>
     </div>
   </section>
 
@@ -2955,216 +2925,7 @@ async function loadCoachingVideos() {
   </section>
 
   <section id="screen-tactics" class="screen-content">
-    <div id="tactics-board-box"
-      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-      <div style="margin-bottom: 15px;">
-        <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード</h3>
-      </div>
-
-      <div id="tactics-content" style="display:block;">
-        <div
-          style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-          <button id="btn-t-save" onclick="saveTacticsToBrowser()"
-            style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
-          <button id="btn-t-restore" onclick="loadTacticsFromBrowser()"
-            style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
-          <button id="btn-t-delete" onclick="clearTacticsBrowserData()"
-            style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
-          <span id="tactics-local-status" style="font-size:12px; color:#e65100;"></span>
-        </div>
-
-        <div
-          style="margin-bottom: 8px; font-size: 14px; font-weight: bold; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-          <label style="cursor: pointer;">
-            <input type="radio" name="game-mode" value="doubles" checked onchange="switchGameMode('doubles')">
-            <span id="lbl-doubles">ダブルス (4人)</span>
-          </label>
-          <label style="cursor: pointer;">
-            <input type="radio" name="game-mode" value="singles" onchange="switchGameMode('singles')">
-            <span id="lbl-singles">シングルス (2人)</span>
-          </label>
-          <label style="cursor: pointer;">
-            <input type="radio" name="game-mode" value="custom" onchange="switchGameMode('custom')">
-            <span id="lbl-custom">変則 (自由設定)</span>
-          </label>
-        </div>
-
-        <div id="custom-tactic-settings"
-          style="display: none; background: #fff3e0; padding: 8px; border-radius: 4px; margin-bottom: 10px; align-items: center; gap: 10px;">
-          <label style="font-size:13px; color:#d32f2f;">
-            Red: <input type="number" id="custom-red-count" value="1" min="1" max="10"
-              style="width: 40px; padding: 2px;">
-          </label>
-          <label style="font-size:13px; color:#1976d2;">
-            Blue: <input type="number" id="custom-blue-count" value="2" min="1" max="10"
-              style="width: 40px; padding: 2px;">
-          </label>
-          <button id="btn-apply-custom" onclick="resetTacticPositions()"
-            style="font-size: 12px; padding: 4px 8px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            配置適用
-          </button>
-        </div>
-
-        <div id="fixed-name-inputs"
-          style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="color:red; font-weight:bold;">Red:</span>
-            <input type="text" id="input-name-A" placeholder="A" value="A" oninput="updatePlayerLabels()"
-              style="width:70px; text-align:center;">
-            <span id="container-name-B">
-              <input type="text" id="input-name-B" placeholder="B" value="B" oninput="updatePlayerLabels()"
-                style="width:70px; text-align:center;">
-            </span>
-          </div>
-          <div style="display:flex; align-items:center; gap:5px;">
-            <span style="color:blue; font-weight:bold;">Blue:</span>
-            <input type="text" id="input-name-X" placeholder="X" value="X" oninput="updatePlayerLabels()"
-              style="width:70px; text-align:center;">
-            <span id="container-name-Y">
-              <input type="text" id="input-name-Y" placeholder="Y" value="Y" oninput="updatePlayerLabels()"
-                style="width:70px; text-align:center;">
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="move" checked
-            onchange="setTacticMode('move')"> <span id="lbl-move">✋ 移動</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="draw"
-            onchange="setTacticMode('draw')"> <span id="lbl-pen">✏️ ペン</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="arrow"
-            onchange="setTacticMode('arrow')"> <span id="lbl-arrow">↗️ 矢印</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="text"
-            onchange="setTacticMode('text')"> <span id="lbl-text">📝 文字</span></label>
-        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="eraser"
-            onchange="setTacticMode('eraser')"> <span id="lbl-eraser">🧽 消しゴム</span></label>
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <button id="btn-t-reset" onclick="resetTacticPositions()"
-          style="background:#ff9800; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">リセット</button>
-        <button id="btn-t-clear" onclick="clearTacticLines()"
-          style="background:#e53935; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">書き込み消去</button>
-        <button id="btn-t-saveimg" onclick="saveTacticsImage()"
-          style="background:#3f51b5; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">画像保存</button>
-      </div>
-
-      <div onclick="toggleTacticsCourt()"
-        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
-        <span id="court-toggle-icon">▼</span> <span id="court-toggle-text">コートを表示 / Open Court</span>
-      </div>
-
-      <div id="tactics-court-area" style="display:none; margin-top:15px;">
-        <div id="tactics-canvas-container"
-          style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; border: 2px solid #333;">
-          <canvas id="tacticsCanvas" width="400" height="550"
-            style="width:100%; display:block; background: #2e7d32; cursor: grab;"></canvas>
-        </div>
-        <p style="font-size:12px; color:#666; text-align:center; margin-top:5px;">
-          ※<span id="txt-hint">矢印：ドラッグ / 文字：タップして入力 / 移動：ドラッグ</span>
-        </p>
-      </div>
-    </div>
-    </div>
-
-    <div id="court-allocation-box"
-      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
-      <h3 id="court-allocation-title" style="margin-bottom:10px; color:#00796b;">コート配置シミュレーター</h3>
-
-      <div
-        style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-        <button id="btn-l-save" onclick="saveLayoutToBrowser()"
-          style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
-        <button id="btn-l-restore" onclick="loadLayoutFromBrowser()"
-          style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
-        <button id="btn-l-delete" onclick="clearLayoutBrowserData()"
-          style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
-        <span id="layout-local-status" style="font-size:12px; color:#e65100;"></span>
-      </div>
-      <div
-        style="background:#fff; padding:5px 0; margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid #eee; padding-bottom:10px;">
-        <span id="lbl-new-create" style="font-weight:bold; color:#333; font-size:13px;">① 新規作成:</span>
-        <label style="font-size:13px;"><span id="lbl-court-count">コート</span> <input type="number" id="init-court-count"
-            value="2" min="0" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
-        <label style="font-size:13px;"><span id="lbl-player-count">人数</span> <input type="number" id="init-player-count"
-            value="10" min="1" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
-        <button id="btn-init-layout" onclick="initGymLayout()"
-          style="background:#fff; color:#00796b; border:1px solid #00796b; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">生成
-          / リセット</button>
-      </div>
-
-      <div onclick="toggleLayoutBuilder()"
-        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
-        <span id="layout-toggle-icon">▼</span> <span id="layout-toggle-text">レイアウト編集エリアを開く / Open Layout</span>
-      </div>
-
-      <div id="layout-builder-content" style="display:none; margin-top:15px;">
-
-        <div style="background:#f5f5f5; padding:10px; border-radius:6px; border:1px solid #ddd; margin-bottom:10px;">
-
-          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <div style="display:flex; gap:5px;">
-              <button id="btn-add-spot" onclick="addSpotToFloor(50, 50)"
-                style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">＋
-                〇追加</button>
-              <button id="btn-expand-floor" onclick="toggleFloorHeight()"
-                style="background:#00897b; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">↕
-                拡張</button>
-            </div>
-            <button id="btn-l-saveimg" onclick="saveGymImage()"
-              style="background:#3f51b5; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">📷
-              画像保存</button>
-          </div>
-
-          <hr style="border:0; border-top:1px solid #ccc; margin:5px 0 10px 0;">
-
-          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px;">
-            <label
-              style="display:flex; align-items:center; gap:5px; background:#fff; padding:5px 10px; border:1px solid #999; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">
-              <input type="checkbox" id="chk-select-mode" onchange="toggleSelectMode(this)">
-              <span id="lbl-select-mode">☑️ 選択モード</span>
-            </label>
-
-            <div id="align-buttons" style="display:flex; gap:5px; opacity:0.5; pointer-events:none;">
-              <button id="btn-align-top" onclick="alignSelected('top')"
-                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬆️
-                上揃え</button>
-              <button id="btn-align-left" onclick="alignSelected('left')"
-                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬅️
-                左揃え</button>
-              <button id="btn-align-dist" onclick="alignSelected('distribute')"
-                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">↔️
-                横等間隔</button>
-              <button id="btn-l-clear-select" onclick="clearSelection()"
-                style="background:#ef5350; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">選択解除</button>
-            </div>
-          </div>
-          <p style="font-size:11px; color:#d32f2f; margin:5px 0 0 0; display:none;" id="select-mode-msg">
-            ※要素をクリックして選択してください（赤枠がつきます）
-          </p>
-        </div>
-
-        <div
-          style="background:#fff3e0; padding:8px; border-radius:4px; border:1px solid #ffe0b2; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
-          <button id="btn-start-order" onclick="startOrderingMode()"
-            style="background:#333; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">🔢
-            クリックで番号を振る</button>
-          <span id="ordering-status" style="font-size:12px; color:#d32f2f; font-weight:bold; display:none;">●
-            1番から順にクリック</span>
-          <button id="btn-end-order" onclick="endOrderingMode()"
-            style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px; display:none;">完了</button>
-        </div>
-
-        <div id="gym-floor"
-          style="position: relative; width: 100%; height: 400px; background: #e0e0e0; border: 2px solid #999; border-radius: 4px; overflow: hidden; transition: height 0.3s ease;">
-          <p id="layout-hint-text"
-            style="position:absolute; top:5px; left:5px; margin:0; font-size:11px; color:#666; pointer-events:none;">
-            要素をドラッグして移動
-          </p>
-        </div>
-      </div>
-    </div>
+   
 
 <div id="league-management-box" style="margin-top: 30px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
@@ -3604,6 +3365,218 @@ async function loadCoachingVideos() {
   </script>
 
   <section id="screen-utility" class="screen-content">
+
+<div id="tactics-board-box"
+      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
+      <div style="margin-bottom: 15px;">
+        <h3 id="tactics-main-title" style="margin:0; color:#00796b;">戦術ボード</h3>
+      </div>
+
+      <div id="tactics-content" style="display:block;">
+        <div
+          style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+          <button id="btn-t-save" onclick="saveTacticsToBrowser()"
+            style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+          <button id="btn-t-restore" onclick="loadTacticsFromBrowser()"
+            style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+          <button id="btn-t-delete" onclick="clearTacticsBrowserData()"
+            style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+          <span id="tactics-local-status" style="font-size:12px; color:#e65100;"></span>
+        </div>
+
+        <div
+          style="margin-bottom: 8px; font-size: 14px; font-weight: bold; display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+          <label style="cursor: pointer;">
+            <input type="radio" name="game-mode" value="doubles" checked onchange="switchGameMode('doubles')">
+            <span id="lbl-doubles">ダブルス (4人)</span>
+          </label>
+          <label style="cursor: pointer;">
+            <input type="radio" name="game-mode" value="singles" onchange="switchGameMode('singles')">
+            <span id="lbl-singles">シングルス (2人)</span>
+          </label>
+          <label style="cursor: pointer;">
+            <input type="radio" name="game-mode" value="custom" onchange="switchGameMode('custom')">
+            <span id="lbl-custom">変則 (自由設定)</span>
+          </label>
+        </div>
+
+        <div id="custom-tactic-settings"
+          style="display: none; background: #fff3e0; padding: 8px; border-radius: 4px; margin-bottom: 10px; align-items: center; gap: 10px;">
+          <label style="font-size:13px; color:#d32f2f;">
+            Red: <input type="number" id="custom-red-count" value="1" min="1" max="10"
+              style="width: 40px; padding: 2px;">
+          </label>
+          <label style="font-size:13px; color:#1976d2;">
+            Blue: <input type="number" id="custom-blue-count" value="2" min="1" max="10"
+              style="width: 40px; padding: 2px;">
+          </label>
+          <button id="btn-apply-custom" onclick="resetTacticPositions()"
+            style="font-size: 12px; padding: 4px 8px; background: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            配置適用
+          </button>
+        </div>
+
+        <div id="fixed-name-inputs"
+          style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="color:red; font-weight:bold;">Red:</span>
+            <input type="text" id="input-name-A" placeholder="A" value="A" oninput="updatePlayerLabels()"
+              style="width:70px; text-align:center;">
+            <span id="container-name-B">
+              <input type="text" id="input-name-B" placeholder="B" value="B" oninput="updatePlayerLabels()"
+                style="width:70px; text-align:center;">
+            </span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="color:blue; font-weight:bold;">Blue:</span>
+            <input type="text" id="input-name-X" placeholder="X" value="X" oninput="updatePlayerLabels()"
+              style="width:70px; text-align:center;">
+            <span id="container-name-Y">
+              <input type="text" id="input-name-Y" placeholder="Y" value="Y" oninput="updatePlayerLabels()"
+                style="width:70px; text-align:center;">
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 10px;">
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="move" checked
+            onchange="setTacticMode('move')"> <span id="lbl-move">✋ 移動</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="draw"
+            onchange="setTacticMode('draw')"> <span id="lbl-pen">✏️ ペン</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="arrow"
+            onchange="setTacticMode('arrow')"> <span id="lbl-arrow">↗️ 矢印</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="text"
+            onchange="setTacticMode('text')"> <span id="lbl-text">📝 文字</span></label>
+        <label style="cursor:pointer;"><input type="radio" name="tactic-mode" value="eraser"
+            onchange="setTacticMode('eraser')"> <span id="lbl-eraser">🧽 消しゴム</span></label>
+      </div>
+
+      <div style="margin-bottom: 15px;">
+        <button id="btn-t-reset" onclick="resetTacticPositions()"
+          style="background:#ff9800; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">リセット</button>
+        <button id="btn-t-clear" onclick="clearTacticLines()"
+          style="background:#e53935; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">書き込み消去</button>
+        <button id="btn-t-saveimg" onclick="saveTacticsImage()"
+          style="background:#3f51b5; color:white; border:none; border-radius:4px; font-size:12px; padding:5px 10px; cursor:pointer;">画像保存</button>
+      </div>
+
+      <div onclick="toggleTacticsCourt()"
+        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
+        <span id="court-toggle-icon">▼</span> <span id="court-toggle-text">コートを表示 / Open Court</span>
+      </div>
+
+      <div id="tactics-court-area" style="display:none; margin-top:15px;">
+        <div id="tactics-canvas-container"
+          style="position: relative; width: 100%; max-width: 400px; margin: 0 auto; border: 2px solid #333;">
+          <canvas id="tacticsCanvas" width="400" height="550"
+            style="width:100%; display:block; background: #2e7d32; cursor: grab;"></canvas>
+        </div>
+        <p style="font-size:12px; color:#666; text-align:center; margin-top:5px;">
+          ※<span id="txt-hint">矢印：ドラッグ / 文字：タップして入力 / 移動：ドラッグ</span>
+        </p>
+      </div>
+    </div>
+    </div>
+
+    <div id="court-allocation-box"
+      style="margin-top: 15px; padding:15px; background:#fff; border:1px solid #ccc; border-radius:6px;">
+      <h3 id="court-allocation-title" style="margin-bottom:10px; color:#00796b;">コート配置シミュレーター</h3>
+
+      <div
+        style="margin-bottom: 10px; padding: 10px; background: #fff; border: none; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <button id="btn-l-save" onclick="saveLayoutToBrowser()"
+          style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">保存する</button>
+        <button id="btn-l-restore" onclick="loadLayoutFromBrowser()"
+          style="background:#fb8c00; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">復元する</button>
+        <button id="btn-l-delete" onclick="clearLayoutBrowserData()"
+          style="background:#bdbdbd; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer;">削除</button>
+        <span id="layout-local-status" style="font-size:12px; color:#e65100;"></span>
+      </div>
+      <div
+        style="background:#fff; padding:5px 0; margin-bottom:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; border-bottom:1px solid #eee; padding-bottom:10px;">
+        <span id="lbl-new-create" style="font-weight:bold; color:#333; font-size:13px;">① 新規作成:</span>
+        <label style="font-size:13px;"><span id="lbl-court-count">コート</span> <input type="number" id="init-court-count"
+            value="2" min="0" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
+        <label style="font-size:13px;"><span id="lbl-player-count">人数</span> <input type="number" id="init-player-count"
+            value="10" min="1" style="width:40px; padding:4px; border:1px solid #ccc; border-radius:4px;"></label>
+        <button id="btn-init-layout" onclick="initGymLayout()"
+          style="background:#fff; color:#00796b; border:1px solid #00796b; padding:5px 12px; border-radius:4px; cursor:pointer; font-size:12px; font-weight:bold;">生成
+          / リセット</button>
+      </div>
+
+      <div onclick="toggleLayoutBuilder()"
+        style="background:#e0f2f1; color:#00796b; padding:8px; text-align:center; cursor:pointer; border-radius:4px; font-weight:bold; user-select:none;">
+        <span id="layout-toggle-icon">▼</span> <span id="layout-toggle-text">レイアウト編集エリアを開く / Open Layout</span>
+      </div>
+
+      <div id="layout-builder-content" style="display:none; margin-top:15px;">
+
+        <div style="background:#f5f5f5; padding:10px; border-radius:6px; border:1px solid #ddd; margin-bottom:10px;">
+
+          <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+            <div style="display:flex; gap:5px;">
+              <button id="btn-add-spot" onclick="addSpotToFloor(50, 50)"
+                style="background:#ff9800; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">＋
+                〇追加</button>
+              <button id="btn-expand-floor" onclick="toggleFloorHeight()"
+                style="background:#00897b; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">↕
+                拡張</button>
+            </div>
+            <button id="btn-l-saveimg" onclick="saveGymImage()"
+              style="background:#3f51b5; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">📷
+              画像保存</button>
+          </div>
+
+          <hr style="border:0; border-top:1px solid #ccc; margin:5px 0 10px 0;">
+
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:10px;">
+            <label
+              style="display:flex; align-items:center; gap:5px; background:#fff; padding:5px 10px; border:1px solid #999; border-radius:4px; cursor:pointer; font-weight:bold; font-size:12px;">
+              <input type="checkbox" id="chk-select-mode" onchange="toggleSelectMode(this)">
+              <span id="lbl-select-mode">☑️ 選択モード</span>
+            </label>
+
+            <div id="align-buttons" style="display:flex; gap:5px; opacity:0.5; pointer-events:none;">
+              <button id="btn-align-top" onclick="alignSelected('top')"
+                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬆️
+                上揃え</button>
+              <button id="btn-align-left" onclick="alignSelected('left')"
+                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">⬅️
+                左揃え</button>
+              <button id="btn-align-dist" onclick="alignSelected('distribute')"
+                style="background:#fff; border:1px solid #666; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">↔️
+                横等間隔</button>
+              <button id="btn-l-clear-select" onclick="clearSelection()"
+                style="background:#ef5350; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer; font-size:12px;">選択解除</button>
+            </div>
+          </div>
+          <p style="font-size:11px; color:#d32f2f; margin:5px 0 0 0; display:none;" id="select-mode-msg">
+            ※要素をクリックして選択してください（赤枠がつきます）
+          </p>
+        </div>
+
+        <div
+          style="background:#fff3e0; padding:8px; border-radius:4px; border:1px solid #ffe0b2; margin-bottom:10px; display:flex; align-items:center; gap:10px;">
+          <button id="btn-start-order" onclick="startOrderingMode()"
+            style="background:#333; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px;">🔢
+            クリックで番号を振る</button>
+          <span id="ordering-status" style="font-size:12px; color:#d32f2f; font-weight:bold; display:none;">●
+            1番から順にクリック</span>
+          <button id="btn-end-order" onclick="endOrderingMode()"
+            style="background:#d32f2f; color:white; border:none; padding:5px 10px; border-radius:4px; cursor:pointer; font-size:12px; display:none;">完了</button>
+        </div>
+
+        <div id="gym-floor"
+          style="position: relative; width: 100%; height: 400px; background: #e0e0e0; border: 2px solid #999; border-radius: 4px; overflow: hidden; transition: height 0.3s ease;">
+          <p id="layout-hint-text"
+            style="position:absolute; top:5px; left:5px; margin:0; font-size:11px; color:#666; pointer-events:none;">
+            要素をドラッグして移動
+          </p>
+        </div>
+      </div>
+    </div>
+
     <section id="daily-challenge-section" style="
     margin-top: 30px;
     padding: 0;
@@ -4485,6 +4458,86 @@ async function loadCoachingVideos() {
 
       </div>
     </div>
+<section id="video-tagging-section" style="
+  margin-top: 30px; 
+  padding: 0; 
+  background: #fff; 
+  border: 1px solid #ccc; 
+  border-radius: 10px; 
+  overflow: hidden; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+">
+      <div style="background: #fff8e1; padding: 15px 20px; border-bottom: 1px solid #ffecb3;">
+        <h3 style="margin:0; color:#ff6f00; display:flex; align-items:center; gap:8px; font-size: 20px;">
+          🏷️ 動画タギング＆ハイライト再生
+        </h3>
+        <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
+          動画の重要なシーンをタグ付けし、その前後数秒のみを連続再生（ハイライト）します。
+        </p>
+      </div>
+
+      <div style="padding: 20px;">
+        <div
+          style="margin-bottom: 15px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+          <label style="font-weight:bold; display:block; margin-bottom:5px; color:#333;">1. 動画を選択</label>
+          <input type="file" accept="video/*" onchange="vtLoadVideo(this)" style="width:100%;">
+        </div>
+
+        <div id="vt-container" style="display:none;">
+          <div
+            style="position:relative; width:100%; max-width:640px; margin:0 auto; background:#000; border-radius:8px; overflow:hidden;">
+            <video id="vt-video" controls playsinline style="width:100%; height:auto; display:block;"></video>
+            <div id="vt-indicator"
+              style="display:none; position:absolute; top:10px; right:10px; background:rgba(255,0,0,0.8); color:white; padding:5px 10px; border-radius:4px; font-weight:bold; font-size:12px;">
+              ▶ ハイライト再生中
+            </div>
+          </div>
+
+          <div
+            style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; background:#eee; padding:10px; border-radius:8px;">
+            <div style="display:flex; align-items:center; gap:5px;">
+              <span style="font-size:12px; font-weight:bold;">前後(秒):</span>
+              <input type="number" id="vt-buffer" value="3" min="1" max="10"
+                style="width:50px; padding:5px; text-align:center;">
+            </div>
+            <button onclick="vtAddTag()"
+              style="background:#ff6f00; color:white; border:none; padding:10px 20px; border-radius:30px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px;">
+              📌 今のシーンをタグ付け
+            </button>
+          </div>
+
+          <div style="margin-top:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+              <h4 style="margin:0; color:#333;">登録されたタグ一覧</h4>
+              <button onclick="vtPlayHighlights()" id="btn-vt-play" disabled
+                style="background:#1565c0; color:white; border:none; padding:8px 20px; border-radius:4px; cursor:not-allowed; font-size:14px;">
+                ▶ ハイライト連続再生
+              </button>
+            </div>
+
+            <div id="vt-tag-list"
+              style="max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; background:#fafafa;">
+              <p style="padding:15px; text-align:center; color:#999; font-size:12px;">
+                まだタグがありません。<br>再生位置を合わせて「タグ付け」ボタンを押してください。</p>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
+              <button onclick="vtSaveHighlightsToLibrary()" id="btn-vt-save" disabled
+                style="background:#00897b; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:not-allowed; font-size:12px; display:flex; align-items:center; gap:5px;">
+                💾 ライブラリに保存 (結合)
+              </button>
+
+              <button onclick="vtClearTags()"
+                style="font-size:11px; color:#d32f2f; background:none; border:none; cursor:pointer; text-decoration:underline;">全タグ消去</button>
+            </div>
+
+            <p id="vt-save-status"
+              style="font-size:12px; color:#e65100; font-weight:bold; margin-top:5px; height:20px;"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </section>
 
 
@@ -5205,148 +5258,6 @@ async function loadCoachingVideos() {
     </style>
 
     
-<section id="jump-analysis-box" style="margin-top: 30px; padding:20px; background:#fff; border:1px solid #ccc; border-radius:10px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <h3 style="margin:0; color:#d81b60;">🚀 AIジャンプ力測定</h3>
-        <button onclick="saveJumpData()" style="background:#ff9800; font-size:12px; padding:5px 10px;">記録保存</button>
-    </div>
-
-    <div style="background:#fce4ec; padding:15px; border-radius:8px; border:1px solid #f8bbd0; margin-bottom:15px;">
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-bottom:15px;">
-            <button onclick="startJumpAICamera()" style="background:#e91e63; font-weight:bold;">📷 カメラ起動</button>
-            <button onclick="toggleJumpCamera()" style="background:#00bcd4;">🔄 切替</button>
-<button id="btn-jump-trigger" onclick="prepareJumpMeasurement()" style="background:#ff9800; font-weight:bold; color:white;">⏱ 計測スタート</button>
-           <button onclick="resetJumpGround()" style="background:#546e7a;">📏 地面リセット</button>
-<button onclick="stopJumpAICamera()" style="background:#424242; font-weight:bold;">⏹ 停止</button>
-        </div>
-
-       <div id="jump-monitor-wrapper" style="position: relative; width: 100%; max-width: 480px; margin: 0 auto 15px auto; background: #000; border-radius: 8px; overflow: hidden; aspect-ratio: 3/4; border: 3px solid #f06292; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-            <canvas id="jump_canvas" style="width: 100%; height: 100%; object-fit: contain;"></canvas>
-            <div id="jump-ai-status" style="position: absolute; top: 10px; left: 10px; background: rgba(233, 30, 99, 0.8); color: white; padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; pointer-events: none;">
-                OFFLINE
-            </div>
-            <div id="ground-line-guide" style="position: absolute; left: 0; width: 100%; height: 2px; border-top: 2px dashed #ffeb3b; display: none; pointer-events: none;"></div>
-        </div>
-        
-        <div style="text-align:center;">
-            <div id="jump-timer-display" style="font-size:42px; font-weight:bold; color:#333; font-family:monospace;">0.000 <span style="font-size:18px;">s</span></div>
-        </div>
-    </div>
-
-    <div id="jump-result-area" style="display:none; animation: fadeIn 0.5s; margin-top:15px;">
-    
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
-        <div style="background:#fff; border:2px solid #e91e63; padding:10px; border-radius:8px; text-align:center;">
-            <div style="font-size:10px; color:#666;">今回の跳躍高</div>
-            <div style="font-size:24px; font-weight:bold; color:#e91e63;"><span id="val-jump-height">0.0</span> <small style="font-size:12px;">cm</small></div>
-        </div>
-        <div style="background:#fff; border:2px solid #3f51b5; padding:10px; border-radius:8px; text-align:center;">
-            <div style="font-size:10px; color:#666;">最高到達点(推定)</div>
-            <div style="font-size:24px; font-weight:bold; color:#3f51b5;"><span id="val-jump-reach">0.0</span> <small style="font-size:12px;">cm</small></div>
-        </div>
-    </div>
-
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:15px;">
-        <div class="jump-res-card">最大屈曲角度: <span id="max-knee-angle" style="color:#ff9800;">0</span>°</div>
-        <div class="jump-res-card">最大膝角速度: <span id="max-knee-av" style="color:#ff9800;">0</span>°/s</div>
-        <div class="jump-res-card">最大膝トルク: <span id="max-knee-t-val" style="color:#ff9800;">0</span> <small>Nm</small></div>
-        <div class="jump-res-card">最大腕速度: <span id="max-arm-v" style="color:#4caf50;">0</span></div>
-    </div>
-    
-    <button onclick="downloadJumpCSV()" style="width:100%; height:44px; background:#00897b; color:white; border:none; border-radius:22px; font-weight:bold; cursor:pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display:flex; align-items:center; justify-content:center; gap:8px;">
-        <span>📥</span> 測定データをCSVで保存
-    </button>
-</div>
-        </div>
-    </div>
-    
-    <div id="jump-history" style="margin-top:20px; border-top:1px dashed #ccc; padding-top:10px;">
-        <h4 style="font-size:13px; color:#666; margin-bottom:8px;">📊 測定履歴</h4>
-        <div id="jump-history-list" style="max-height:120px; overflow-y:auto; font-size:12px;"></div>
-    </div>
-</div>
-</section>
-
-
-    <section id="video-tagging-section" style="
-  margin-top: 30px; 
-  padding: 0; 
-  background: #fff; 
-  border: 1px solid #ccc; 
-  border-radius: 10px; 
-  overflow: hidden; 
-  box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-">
-      <div style="background: #fff8e1; padding: 15px 20px; border-bottom: 1px solid #ffecb3;">
-        <h3 style="margin:0; color:#ff6f00; display:flex; align-items:center; gap:8px; font-size: 20px;">
-          🏷️ 動画タギング＆ハイライト再生
-        </h3>
-        <p style="font-size: 13px; color: #555; margin: 5px 0 0 0;">
-          動画の重要なシーンをタグ付けし、その前後数秒のみを連続再生（ハイライト）します。
-        </p>
-      </div>
-
-      <div style="padding: 20px;">
-        <div
-          style="margin-bottom: 15px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
-          <label style="font-weight:bold; display:block; margin-bottom:5px; color:#333;">1. 動画を選択</label>
-          <input type="file" accept="video/*" onchange="vtLoadVideo(this)" style="width:100%;">
-        </div>
-
-        <div id="vt-container" style="display:none;">
-          <div
-            style="position:relative; width:100%; max-width:640px; margin:0 auto; background:#000; border-radius:8px; overflow:hidden;">
-            <video id="vt-video" controls playsinline style="width:100%; height:auto; display:block;"></video>
-            <div id="vt-indicator"
-              style="display:none; position:absolute; top:10px; right:10px; background:rgba(255,0,0,0.8); color:white; padding:5px 10px; border-radius:4px; font-weight:bold; font-size:12px;">
-              ▶ ハイライト再生中
-            </div>
-          </div>
-
-          <div
-            style="margin-top:15px; display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; background:#eee; padding:10px; border-radius:8px;">
-            <div style="display:flex; align-items:center; gap:5px;">
-              <span style="font-size:12px; font-weight:bold;">前後(秒):</span>
-              <input type="number" id="vt-buffer" value="3" min="1" max="10"
-                style="width:50px; padding:5px; text-align:center;">
-            </div>
-            <button onclick="vtAddTag()"
-              style="background:#ff6f00; color:white; border:none; padding:10px 20px; border-radius:30px; font-weight:bold; cursor:pointer; display:flex; align-items:center; gap:5px;">
-              📌 今のシーンをタグ付け
-            </button>
-          </div>
-
-          <div style="margin-top:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-              <h4 style="margin:0; color:#333;">登録されたタグ一覧</h4>
-              <button onclick="vtPlayHighlights()" id="btn-vt-play" disabled
-                style="background:#1565c0; color:white; border:none; padding:8px 20px; border-radius:4px; cursor:not-allowed; font-size:14px;">
-                ▶ ハイライト連続再生
-              </button>
-            </div>
-
-            <div id="vt-tag-list"
-              style="max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; background:#fafafa;">
-              <p style="padding:15px; text-align:center; color:#999; font-size:12px;">
-                まだタグがありません。<br>再生位置を合わせて「タグ付け」ボタンを押してください。</p>
-            </div>
-
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px;">
-              <button onclick="vtSaveHighlightsToLibrary()" id="btn-vt-save" disabled
-                style="background:#00897b; color:white; border:none; padding:8px 15px; border-radius:4px; cursor:not-allowed; font-size:12px; display:flex; align-items:center; gap:5px;">
-                💾 ライブラリに保存 (結合)
-              </button>
-
-              <button onclick="vtClearTags()"
-                style="font-size:11px; color:#d32f2f; background:none; border:none; cursor:pointer; text-decoration:underline;">全タグ消去</button>
-            </div>
-
-            <p id="vt-save-status"
-              style="font-size:12px; color:#e65100; font-weight:bold; margin-top:5px; height:20px;"></p>
-          </div>
-        </div>
-      </div>
-    </section>
 </section>
 
     <section id="screen-library" class="screen-content">
@@ -5372,95 +5283,7 @@ async function loadCoachingVideos() {
         </div>
       </div>
     </section>
-    <section id="screen-course" class="screen-content">
-      <div id="auth-container" class="mb-4 p-4 bg-white border border-gray-200 rounded-lg shadow-inner">
-        <h3 class="text-lg font-semibold text-gray-700 mb-2">講習会用ログイン</h3>
-        <p class="text-sm text-gray-500 mb-3">パスワードが必要です。</p>
-        <div class="flex items-center space-x-2">
-          <input type="password" id="passwordInput" placeholder="パスワードを入力"
-            class="flex-grow p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
-          <button
-            class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300"
-            onclick="loginWithPassword()">
-            ログイン
-          </button>
-        </div>
-        <p id="login-status" class="mt-2 text-sm h-5"></p>
-      </div>
-
-      <button id="logout-button" class="mt-4 text-sm text-gray-500 hover:text-red-500 transition duration-300 ml-4"
-        style="display:none;" onclick="logout()">
-        ログアウト
-      </button>
-
-      <section id="share-section"
-        style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
-        <h3 style="color: #00796b; margin-top: 0;">📤 受講生への資料共有 / Share Materials</h3>
-
-        <p style="font-size: 13px; color: #666;">
-          事前に作成したQRコード画像を選択して表示します。<br>
-          Select and display a pre-made QR code image.
-        </p>
-
-        <div style="background: #f9f9f9; padding: 15px; border-radius: 6px; border: 1px solid #ddd;">
-
-          <label style="font-weight: bold; font-size: 14px; display: block; margin-bottom: 5px;">① QRコード画像を選択
-            (必須):</label>
-          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 15px;">
-            <input type="file" id="qr-image-file" accept="image/*" style="font-size: 14px;">
-          </div>
-
-          <label style="font-weight: bold; font-size: 12px; display: block; margin-bottom: 5px; color: #555;">② リンク先URL
-            (任意 / Optional):</label>
-          <p style="font-size: 11px; color: #999; margin: 0 0 5px 0;">※入力すると、画像をクリックした際にそのページへ飛びます。</p>
-          <div style="display: flex; gap: 10px; align-items: center;">
-            <input type="text" id="target-link-input" placeholder="https://..."
-              style="flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-            <button onclick="displayPreMadeQR()"
-              style="background: #e65100; color: white; border: none; padding: 8px 24px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-              表示する
-            </button>
-          </div>
-
-          <div id="premade-qr-result"
-            style="margin-top: 20px; display: none; text-align: center; background: white; padding: 20px; border-radius: 8px; border: 2px dashed #ccc;">
-            <p style="font-size: 14px; font-weight: bold; color: #00796b; margin-bottom: 10px;">👇 受講生用スキャンエリア</p>
-
-            <a id="qr-display-link" href="#" target="_blank" style="display: inline-block; cursor: default;">
-              <img id="qr-display-img" src="" alt="QR Code"
-                style="max-width: 250px; max-height: 250px; border: 1px solid #eee; display: block; margin: 0 auto;">
-            </a>
-
-            <p id="qr-link-msg" style="font-size: 11px; color: #999; margin-top: 10px; display: none;">
-              画像をタップするとリンク先へ飛びます</p>
-          </div>
-        </div>
-      </section>
-
-
-      <section id="feedback-container"
-        style="margin-top: 30px; padding: 20px; background: #fff; border: 1px solid #ccc; border-radius: 6px; display: none;">
-        <h2> 振り返り</h2>
-        <hr>
-
-        <div id="feedback-post">
-          <p id="feedback-status" class="status-message" style="color:red;"></p>
-          <label for="feedback-name">名前:</label>
-          <input type="text" id="feedback-name" style="width: 150px;">
-          <br>
-          <label for="feedback-text">振り返り (必須):</label>
-          <textarea id="feedback-text" placeholder="振り返りを入力してください。" required></textarea>
-          <button onclick="handleFeedbackSubmit()">投稿する</button>
-        </div>
-
-        <h3 style="margin-top: 30px;">投稿内容の閲覧</h3>
-        <div id="feedback-list" style="border-top: 1px solid #eee; padding-top: 10px;">
-          <p>感想を読み込み中です...</p>
-        </div>
-      </section>
-
-
-
+    
 
       <script>
         function extractNumber() {
@@ -10570,23 +10393,6 @@ function resetGroundLevel() {
 function onPoseResults(results) {
     // 映像データ自体が届いていない場合は何もしない
     if (!results.image) return;
-
-    // ==========================================
-    // 🚀 ジャンプ計測モードの分岐処理
-    // ==========================================
-    if (jumpModeActive) {
-        // 人物が検出されていなくても、映像を表示するために detectJumpAI を呼び出す
-        detectJumpAI(results);
-        
-        // メインモニター（フォーム解析側）は真っ暗にする
-        if (canvasCtx) {
-            canvasCtx.save();
-            canvasCtx.fillStyle = "#000";
-            canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-            canvasCtx.restore();
-        }
-        return; 
-    }
 
     // --- 通常モード（AIフォーム解析）---
     // 人物が検出されていない場合はここで終了（背景も描画しない仕様を維持）
@@ -17214,184 +17020,6 @@ function clearLeagueData() {
 // 起動時に自動読み込み
 document.addEventListener("DOMContentLoaded", loadLeagueFromBrowser);
 
-// ==========================================
-// 🚀 AIジャンプ力測定ロジック（自動検知版）
-// ==========================================
-
-// 1. カメラ起動
-async function startJumpAICamera() {
-    jumpModeActive = true;
-    jumpGroundY = 0; // 地面基準をリセット
-
-const canvas = document.getElementById('jump_canvas');
-    if (canvas) {
-        canvas.width = 480;  // 横幅
-        canvas.height = 640; // 縦幅（ここを大きくすることで縦長になります）
-    }
-    const statusEl = document.getElementById("jump-ai-status");
-    if (statusEl) statusEl.textContent = "📐 地面を認識中... まっすぐ立ってください";
-    
-    // 既存の他の解析カメラが動いていれば停止
-    stopTracking(); 
-    
-    // パフォーマンス分析のカメラ設定をジャンプ用にセットして起動
-    currentFacingMode = jumpFacingMode; 
-    startCamera(); 
-}
-
-// 2. カメラ切替
-function toggleJumpCamera() {
-    jumpFacingMode = (jumpFacingMode === 'user') ? 'environment' : 'user';
-    if (jumpModeActive) startJumpAICamera();
-}
-
-// 3. 地面リセット
-function resetJumpGround() {
-    jumpGroundY = 0;
-    const statusEl = document.getElementById("jump-ai-status");
-    if (statusEl) statusEl.textContent = "📏 地面を再設定しました。まっすぐ立ってください";
-}
-
-
-function processJumpResultDetailed(height, time) {
-    document.getElementById("jump-result-area").style.display = "block";
-    document.getElementById("val-jump-height").textContent = height.toFixed(1);
-    
-    // UI上の各IDに最大値を書き込み
-    const elAngle = document.getElementById("max-knee-angle");
-    const elAv = document.getElementById("max-knee-av");
-    const elT = document.getElementById("max-knee-t-val");
-    const elArm = document.getElementById("max-arm-v");
-
-    if (elAngle) elAngle.textContent = Math.round(jumpMaxStats.angle);
-    if (elAv) elAv.textContent = Math.round(jumpMaxStats.av);
-    if (elT) elT.textContent = jumpMaxStats.torque.toFixed(1);
-    if (elArm) elArm.textContent = (jumpMaxStats.armV * 10).toFixed(1);
-
-    // 最高到達点の計算
-    const userHeight = parseFloat(document.getElementById("bio-height")?.value || 170);
-    const reach = (userHeight * 1.25) + height;
-    const elReach = document.getElementById("val-jump-reach");
-    if (elReach) elReach.textContent = reach.toFixed(1);
-
-    // 履歴保存
-    saveJumpData();
-
-    // 次回の計測のために最大値だけリセット（ログはdownloadJumpCSVで使うため残す）
-    jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
-}
-
-// 5. 結果処理
-function processJumpResultDetailed(height, time) {
-    document.getElementById("jump-result-area").style.display = "block";
-    document.getElementById("val-jump-height").textContent = height.toFixed(1);
-    
-    // 最大値を表示
-    document.getElementById("max-knee-angle").textContent = Math.round(jumpMaxStats.angle);
-    document.getElementById("max-knee-av").textContent = Math.round(jumpMaxStats.av);
-    document.getElementById("max-knee-t-val").textContent = jumpMaxStats.torque.toFixed(1);
-    document.getElementById("max-arm-v").textContent = (jumpMaxStats.armV * 10).toFixed(1);
-
-    // 最大値をリセット（次回の計測用）
-    jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
-}
-
-function downloadJumpCSV() {
-    if (jumpLog.length === 0) return alert("データがありません");
-
-    let csvContent = "Time(s),KneeAngle(deg),AngularVelocity(deg/s),KneeTorque(Nm),ArmSpeed,Event\n";
-    jumpLog.forEach(row => {
-        csvContent += `${row.time},${row.angle},${row.angularVelocity},${row.torque},${row.armSpeed},${row.event}\n`;
-    });
-
-    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-    const blob = new Blob([bom, csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `JumpAnalysis_${new Date().getTime()}.csv`;
-    a.click();
-}
-
-// --- 以下、既存の履歴管理 ---
-let jumpHistoryData = [];
-function saveJumpData() {
-    const h = document.getElementById("val-jump-height").textContent;
-    if (h === "0.0") return;
-    const record = {
-        date: new Date().toLocaleString("ja-JP", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"}),
-        height: h
-    };
-    jumpHistoryData.unshift(record);
-    if (jumpHistoryData.length > 10) jumpHistoryData.pop();
-    localStorage.setItem("smartCoachJumpData", JSON.stringify(jumpHistoryData));
-    renderJumpHistory();
-}
-function renderJumpHistory() {
-    const container = document.getElementById("jump-history-list");
-    if(!container) return;
-    container.innerHTML = jumpHistoryData.map(d => `
-        <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid #f0f0f0;">
-            <span style="color:#999;">${d.date}</span>
-            <span style="font-weight:bold; color:#d81b60;">${d.height} cm</span>
-        </div>
-    `).join('');
-}
-
-// ★計測準備（ボタンを押した瞬間の足の高さを地面として固定する）
-function prepareJumpMeasurement() {
-    if (!jumpModeActive) {
-        alert("先にカメラを起動してください");
-        return;
-    }
-    if (latestJumpAnkleY) {
-        jumpGroundY = latestJumpAnkleY;
-        isJumpMeasuring = true;
-        
-        const statusEl = document.getElementById("jump-ai-status");
-        if(statusEl) {
-            statusEl.textContent = "⏱ 測定中... 跳んでください！";
-            statusEl.style.background = "#ff3d00"; // 測定中を強調
-        }
-        
-        // 数値をリセット
-        jumpMaxStats = { angle: 0, av: 0, torque: 0, armV: 0 };
-        jumpLog = [];
-    } else {
-        alert("AIが足を認識できていません。画面に全身を映してください。");
-    }
-}
-
-// 🟥 AIジャンプ測定を完全に停止する関数
-function stopJumpAICamera() {
-    // 1. 解析フラグをオフにする
-    jumpModeActive = false;
-    isJumpAirborne = false;
-
-    // 2. 既存の共通カメラ停止関数を呼び出す（ストリームを止める）
-    stopTracking();
-
-    // 3. ジャンプ専用モニター（キャンバス）を真っ黒にリセット
-    const canvas = document.getElementById('jump_canvas');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    // 4. UI表示のリセット
-    const statusEl = document.getElementById("jump-ai-status");
-    if (statusEl) {
-        statusEl.textContent = "OFFLINE";
-        statusEl.style.background = "rgba(0, 0, 0, 0.6)";
-    }
-    
-    const guideLine = document.getElementById("ground-line-guide");
-    if (guideLine) guideLine.style.display = "none";
-
-    console.log("Jump AI Camera Stopped.");
-}
 
 // ==========================================
 // 🎾 リフティング評価ロジック
